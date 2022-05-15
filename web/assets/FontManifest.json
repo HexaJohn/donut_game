@@ -1,0 +1,10 @@
+[
+    {
+      "family": "FluentIcons",
+      "fonts": [
+        {
+          "asset": "assets/fonts/SegoeFluentIcons.tff"
+        }
+      ]
+    }
+]

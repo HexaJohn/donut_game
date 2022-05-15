@@ -48,6 +48,7 @@ class PlayingCardWidget extends StatelessWidget {
             style: TextStyle(
               textBaseline: TextBaseline.ideographic,
               height: height,
+              fontFamily: 'FluentIcons',
               fontSize: size,
               color: Theme.of(context).primaryColor,
             ),
@@ -57,6 +58,7 @@ class PlayingCardWidget extends StatelessWidget {
             style: TextStyle(
               textBaseline: TextBaseline.ideographic,
               height: height,
+              fontFamily: 'FluentIcons',
               fontSize: size,
               color: card.toString().contains('hearts') ||
                       card.toString().contains('diamonds')
