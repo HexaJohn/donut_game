@@ -153,7 +153,7 @@ class Game {
         }
         state.value = GameState.swapping;
         final List<GameCard> swapped = player.hand.swapDiscard();
-        print('${player.name} swapped ${swapped.length} cards');
+        // print('${player.name} swapped ${swapped.length} cards');
         for (var i = 0; i < swapped.length; i++) {
           player.hand.remove(swapped[i]);
           discard.add(swapped[i]);

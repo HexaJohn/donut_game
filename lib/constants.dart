@@ -150,6 +150,6 @@ int scoreThis(GameCard card, Game game) {
               ? 1
               : 0)) +
       (card.suit == game.trumpSuit.value ? 15 : 0);
-  print(score);
+  // print(score);
   return (score);
 }

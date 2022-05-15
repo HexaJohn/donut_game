@@ -63,7 +63,7 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/fonts/SegoeFluentIcons.ttf
+    - assets/fonts/seguisym.ttf
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
@@ -80,7 +80,7 @@ flutter:
   fonts:
     - family: FluentIcons
       fonts:
-        - asset: assets/fonts/SegoeFluentIcons.ttf
+        - asset: assets/fonts/seguisym.ttf
   #   - family: Trajan Pro
   #     fonts:
   #       - asset: fonts/TrajanPro.ttf
