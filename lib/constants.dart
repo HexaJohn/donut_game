@@ -42,8 +42,46 @@ enum GameState {
   swapping,
   waitingForPlayerToSwap,
   waitingForPlayer,
-  playing,
+  playing
 }
+
+Map<GameState, String> gameStateToString = {
+  GameState.waiting: 'waiting',
+  GameState.waitingToDeal: 'waitingToDeal',
+  GameState.dealing: 'dealing',
+  GameState.swapping: 'swapping',
+  GameState.waitingForPlayerToSwap: 'waitingForPlayerToSwap',
+  GameState.waitingForPlayer: 'waitingForPlayer',
+  GameState.playing: 'playing'
+};
+
+Map<String, GameState> stringToGameState = {
+  'waiting': GameState.waiting,
+  'waitingToDeal': GameState.waitingToDeal,
+  'dealing': GameState.dealing,
+  'swapping': GameState.swapping,
+  'waitingForPlayerToSwap': GameState.waitingForPlayerToSwap,
+  'waitingForPlayer': GameState.waitingForPlayer,
+  'playing': GameState.playing,
+};
+
+Map<CardState, String> cardStateToString = {
+  CardState.deck: 'deck',
+  CardState.held: 'held',
+  CardState.swap: 'swap',
+  CardState.folded: 'folded',
+  CardState.played: 'played',
+  CardState.unknown: 'unknown'
+};
+
+Map<String, CardState> stringToCardState = {
+  'deck': CardState.deck,
+  'held': CardState.held,
+  'swap': CardState.swap,
+  'folded': CardState.folded,
+  'played': CardState.played,
+  'unknown': CardState.unknown
+};
 
 Map<Value, int> valueToScore = {
   Value.two: 2,
@@ -76,11 +114,34 @@ Map<Value, String> valueToString = {
   Value.ace: 'ace'
 };
 
+Map<String, Value> stringToValue = {
+  "two": Value.two,
+  "three": Value.three,
+  "four": Value.four,
+  "five": Value.five,
+  "six": Value.six,
+  "seven": Value.seven,
+  "eight": Value.eight,
+  "nine": Value.nine,
+  "ten": Value.ten,
+  "jack": Value.jack,
+  "queen": Value.queen,
+  "king": Value.king,
+  "ace": Value.ace,
+};
+
 Map<Suit, String> suitToString = {
   Suit.clubs: 'clubs',
   Suit.diamonds: 'diamonds',
   Suit.hearts: 'hearts',
   Suit.spades: 'spades'
+};
+
+Map<String, Suit> stringToSuit = {
+  'clubs': Suit.clubs,
+  'diamonds': Suit.diamonds,
+  'hearts': Suit.hearts,
+  'spades': Suit.spades,
 };
 
 Map<String, String> stringToCard = {

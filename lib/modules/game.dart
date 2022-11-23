@@ -1,13 +1,25 @@
-import 'dart:developer';
 import 'dart:math';
 
 import 'package:donut_game/constants.dart';
+import 'package:donut_game/main.dart';
 import 'package:donut_game/modules/cards.dart';
 import 'package:donut_game/modules/players.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart';
+import 'package:platform_device_id/platform_device_id.dart';
 
 class Game {
-  List<GamePlayer> players = [];
+  static final Game _singleton = Game._internal();
+
+  factory Game() {
+    return _singleton;
+  }
+
+  Game._internal();
+
+  Map<String, GamePlayer> playerDB = {};
+  List<GamePlayer> get players => playerDB.values.toList();
+  Iterable<GamePlayer> get playersByRef => playerDB.values;
   GameDeck deck = GameDeck.fresh();
   int get cardsPerRound => 5;
   int _tricksRemaining = 0;
@@ -16,15 +28,26 @@ class Game {
   int __dealer = 0;
   int __active = 1;
 
-  late final ValueNotifier<GamePlayer> _dealerValue = ValueNotifier(players[0]);
-  late final ValueNotifier<GamePlayer> _activeValue = ValueNotifier(players[1]);
+  late final ValueNotifier<GamePlayer> _dealerValue =
+      ValueNotifier(players[__dealer]);
+  late final ValueNotifier<GamePlayer> _activeValue =
+      ValueNotifier(players[__active]);
 
-  ValueNotifier<GameState> state = ValueNotifier(GameState.waiting);
-  ValueNotifier<Suit> trumpSuit = ValueNotifier(Suit.values.first);
+  final ValueNotifier<GameState> state = ValueNotifier(GameState.waiting);
+  final ValueNotifier<Suit> trumpSuit = ValueNotifier(Suit.values.first);
   CardStack table = CardStack();
   CardStack discard = CardStack();
   GameCard? leadingCard;
   int get _dealer => __dealer;
+
+  set protectedActive(int value) {
+    _active = value;
+  }
+
+  set protectedDealer(int value) {
+    _dealer = value;
+  }
+
   set _dealer(int index) {
     int _index = index;
 
@@ -44,6 +67,7 @@ class Game {
       _index = _index - players.length;
     }
     __active = _index;
+    if (players.length < 2) __active = 0;
     _activeValue.value = players.elementAt(__active);
   }
 
@@ -53,8 +77,22 @@ class Game {
   }
 
   ValueNotifier<GamePlayer> get activePlayer {
-    _activeValue.value = players.elementAt(_active);
+    try {
+      _activeValue.value = players.elementAt(_active);
+    } on RangeError {
+      _active = 0;
+      print('not enough players');
+      _activeValue.value = players.elementAt(_active);
+    }
     return _activeValue;
+  }
+
+  GamePlayer get activePlayerLazy {
+    if (players.length < 2) {
+      return players.elementAt(0);
+    } else {
+      return players.elementAt(_active);
+    }
   }
 
   void nextDealer() {
@@ -68,45 +106,63 @@ class Game {
   void addPlayer() {
     var number = Random().nextInt(9999);
     var newPlayer = GamePlayer('$number', players.length, true);
-    players.add(newPlayer);
+    playerDB.addEntries([MapEntry(number.toString(), newPlayer)]);
   }
 
   void addLocalPlayer(GamePlayer player) {
-    players.add(player);
+    playerDB.addEntries([MapEntry(player.id, player)]);
   }
 
   void addBot() {
     var number = Random().nextInt(9999);
     var newPlayer = GamePlayer('Bot $number', players.length, false);
-    players.add(newPlayer);
+    playerDB.addEntries([MapEntry(newPlayer.hashCode.toString(), newPlayer)]);
+  }
+
+  Future clientDeal() async {
+    Uri uri =
+        Uri(scheme: 'http', host: serverAddress, port: port, path: '/vote');
+    Response response;
+    String? deviceId = await PlatformDeviceId.getDeviceId;
+
+    String body = '''
+{"id": "${deviceId!}${username}", "vote": "${!players.where((element) => element.name == username).first.voteToDeal}"}''';
+    response = await post(uri, body: body);
+    if (response.statusCode == 200) {
+      print('voted');
+    }
   }
 
   Future deal({bool? shuffle}) async {
-    state.value = GameState.dealing;
-    shuffle ??= true;
-    if (shuffle) {
-      deck.shuffle();
-    }
-    for (var ii = 0; ii < cardsPerHand; ii++) {
-      for (var i = 0; i < players.length; i++) {
-        try {
-          var _i = _dealer + 1 + i;
-          if (_i > players.length - 1) {
-            _i = _i - players.length;
+    if (state.value == GameState.waitingToDeal) {
+      state.value = GameState.dealing;
+      shuffle ??= true;
+      if (shuffle) {
+        deck.shuffle();
+      }
+      for (var ii = 0; ii < cardsPerHand; ii++) {
+        for (var i = 0; i < players.length; i++) {
+          try {
+            var _i = _dealer + 1 + i;
+            if (_i > players.length - 1) {
+              _i = _i - players.length;
+            }
+            GamePlayer player = players[_i];
+            await dealCard(player);
+          } catch (e) {
+            // TODO: Out of cards
+            // nextDealer();
+            rethrow;
           }
-          GamePlayer player = players[_i];
-          await dealCard(player);
-        } catch (e) {
-          // TODO: Out of cards
-          // nextDealer();
-          rethrow;
         }
       }
+      state.value = GameState.waiting;
+      trumpSuit.value = _lastDeal!.suit;
+      await swap();
+      // nextDealer();
+    } else {
+//Do nothing
     }
-    state.value = GameState.waiting;
-    trumpSuit.value = _lastDeal!.suit;
-    await swap();
-    // nextDealer();
   }
 
   Future<void> dealCard(GamePlayer player) async {
@@ -155,17 +211,21 @@ class Game {
         final List<GameCard> swapped = player.hand.swapDiscard();
         // print('${player.name} swapped ${swapped.length} cards');
         for (var i = 0; i < swapped.length; i++) {
-          player.hand.remove(swapped[i]);
-          discard.add(swapped[i]);
-          await Future.delayed(Duration(milliseconds: 100));
+          if (!player.skip) {
+            player.hand.remove(swapped[i]);
+            discard.add(swapped[i]);
+            await Future.delayed(Duration(milliseconds: 100));
+          }
           // await dealCard(player);
           // await Future.delayed(Duration(milliseconds: 200));
         }
         for (var i = 0; i < swapped.length; i++) {
           // player.hand.remove(swapped[i]);
           // discard.add(swapped[i]);
-          await dealCard(player);
-          await Future.delayed(Duration(milliseconds: 100));
+          if (!player.skip) {
+            await dealCard(player);
+            await Future.delayed(Duration(milliseconds: 100));
+          }
           // await Future.delayed(Duration(milliseconds: 200));
         }
         _active = _active + 1;
@@ -201,7 +261,7 @@ class Game {
         _active = _i;
         final GamePlayer player = players[_i];
         player.cardToPlay = null;
-        if (!player.human) {
+        if (!player.human && !player.skip) {
           GameCard card;
           if (leadingCard == null) {
             card = await player.botPlay(leading: true);
@@ -211,21 +271,23 @@ class Game {
           }
           addToTable(card);
         } else {
-          state.value = GameState.waitingForPlayer;
+          if (!player.skip) {
+            state.value = GameState.waitingForPlayer;
 
-          while (player.cardToPlay == null) {
-            state.value = GameState.playing;
+            while (player.cardToPlay == null) {
+              state.value = GameState.playing;
 
-            await Future.delayed(Duration(milliseconds: 100));
-          }
-          if (player.cardToPlay != null) {
-            final card = player.play(player.cardToPlay!);
-            leadingCard ??= card;
-            addToTable(card);
+              await Future.delayed(Duration(milliseconds: 100));
+            }
+            if (player.cardToPlay != null) {
+              final card = player.play(player.cardToPlay!);
+              leadingCard ??= card;
+              addToTable(card);
+            }
           }
         }
         _active = _active + 1;
-        print(_active);
+        // print(_active);
       } catch (e) {
         rethrow;
       }

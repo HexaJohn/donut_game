@@ -7,8 +7,9 @@ class GamePlayer {
   GamePlayer(this.name, this.number, this.human);
   int number;
   String name;
+  String id = '';
   CardStack hand = CardStack();
-  ValueNotifier<int> swaps = ValueNotifier(3);
+  final ValueNotifier<int> swaps = ValueNotifier(3);
   bool swapped = false;
   int folds = 0;
   ValueNotifier<int> score = ValueNotifier(20);
@@ -18,6 +19,8 @@ class GamePlayer {
   GameCard? cardToPlay;
   bool donut = true;
   bool notReady = true;
+  bool skip = false;
+  bool voteToDeal = false;
 
   @override
   String toString() {
@@ -110,5 +113,23 @@ class CardStack {
 
     // cards.value = List.from(cards.value);
     return swap.toList();
+  }
+
+  List<Map<String, String>> toJsonArray() {
+    List<Map<String, String>> output = [];
+    cards.value.forEach((element) {
+      output.add(element.toJson());
+    });
+    return output;
+  }
+
+  static CardStack fromJson(element) {
+    var stack = CardStack();
+    for (var card in element) {
+      stack.add(
+          GameCard(stringToSuit[card['suit']]!, stringToValue[card['value']]!)
+            ..state = stringToCardState[card['state']]!);
+    }
+    return stack;
   }
 }

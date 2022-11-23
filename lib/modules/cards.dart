@@ -15,6 +15,14 @@ class GameCard {
   String toString() {
     return "${valueToString[value]} of ${suitToString[suit]}";
   }
+
+  Map<String, String> toJson() {
+    return {
+      "suit": suitToString[suit]!,
+      "value": valueToString[value]!,
+      "state": cardStateToString[state]!
+    };
+  }
 }
 
 class GameDeck {
