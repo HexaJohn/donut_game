@@ -33,12 +33,17 @@ class Game {
   late final ValueNotifier<GamePlayer> _activeValue =
       ValueNotifier(players[__active]);
 
-  final ValueNotifier<GameState> state = ValueNotifier(GameState.waiting);
+  final ValueNotifier<GameState> state =
+      ValueNotifier(GameState.waitingForPlayers);
   final ValueNotifier<Suit> trumpSuit = ValueNotifier(Suit.values.first);
   CardStack table = CardStack();
   CardStack discard = CardStack();
   GameCard? leadingCard;
   int get _dealer => __dealer;
+
+  int get protectedDealer => __dealer;
+
+  int get protectedActive => __active;
 
   set protectedActive(int value) {
     _active = value;
@@ -119,20 +124,6 @@ class Game {
     playerDB.addEntries([MapEntry(newPlayer.hashCode.toString(), newPlayer)]);
   }
 
-  Future clientDeal() async {
-    Uri uri =
-        Uri(scheme: 'http', host: serverAddress, port: port, path: '/vote');
-    Response response;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
-
-    String body = '''
-{"id": "${deviceId!}${username}", "vote": "${!players.where((element) => element.name == username).first.voteToDeal}"}''';
-    response = await post(uri, body: body);
-    if (response.statusCode == 200) {
-      print('voted');
-    }
-  }
-
   Future deal({bool? shuffle}) async {
     if (state.value == GameState.waitingToDeal) {
       state.value = GameState.dealing;
@@ -156,7 +147,7 @@ class Game {
           }
         }
       }
-      state.value = GameState.waiting;
+      state.value = GameState.waitingToSwap;
       trumpSuit.value = _lastDeal!.suit;
       await swap();
       // nextDealer();
@@ -235,15 +226,19 @@ class Game {
     }
     _tricksRemaining = 5;
     while (_tricksRemaining > 0) {
-      state.value = GameState.waiting;
+      state.value = GameState.waitingForNextRound;
       await playRound();
       _tricksRemaining--;
     }
-    // This is where players donut
+    // This is where players are scored for donuts
     players.where((element) => element.donut).forEach((element) {
       element.score.value = element.score.value + 5;
       element.donuts.value++;
     });
+    for (var player in players) {
+      player.voteToDeal = false;
+      player.winner.value = false;
+    }
     _dealer++;
     _active = _dealer + 1;
     state.value = GameState.waitingToDeal;
@@ -280,6 +275,7 @@ class Game {
               await Future.delayed(Duration(milliseconds: 100));
             }
             if (player.cardToPlay != null) {
+              print(player.cardToPlay);
               final card = player.play(player.cardToPlay!);
               leadingCard ??= card;
               addToTable(card);
@@ -326,5 +322,75 @@ class Game {
       }
     });
     return winner.key;
+  }
+
+  Future clientDeal() async {
+    Uri uri =
+        Uri(scheme: 'http', host: serverAddress, port: port, path: '/vote');
+    Response response;
+    String? deviceId = await PlatformDeviceId.getDeviceId;
+
+    String body = '''
+{"id": "${deviceId!}${username}", "vote": "${!players.where((element) => element.name == username).first.voteToDeal}"}''';
+    response = await post(uri, body: body);
+    if (response.statusCode == 200) {
+      print('voted');
+    }
+  }
+
+  Future clientSwap(int cardIndex) async {
+    Uri uri =
+        Uri(scheme: 'http', host: serverAddress, port: port, path: '/swap');
+    Response response;
+    String? deviceId = await PlatformDeviceId.getDeviceId;
+
+    String body = '''
+{"id": "${deviceId!}${username}", "swap": $cardIndex}''';
+    response = await post(uri, body: body);
+    if (response.statusCode == 200) {
+      print('marked');
+    }
+  }
+
+  Future clientSwapFinalize() async {
+    Uri uri =
+        Uri(scheme: 'http', host: serverAddress, port: port, path: '/swapvote');
+    Response response;
+    String? deviceId = await PlatformDeviceId.getDeviceId;
+
+    String body = '''
+{"id": "${deviceId!}${username}"}''';
+    response = await post(uri, body: body);
+    if (response.statusCode == 200) {
+      print('swapped');
+    }
+  }
+
+  Future clientPlayCard(int card) async {
+    Uri uri =
+        Uri(scheme: 'http', host: serverAddress, port: port, path: '/play');
+    Response response;
+    String? deviceId = await PlatformDeviceId.getDeviceId;
+
+    String body = '''
+{"id": "${deviceId!}${username}", "card": $card}''';
+    response = await post(uri, body: body);
+    if (response.statusCode == 200) {
+      print('played');
+    }
+  }
+
+  Future clientFold() async {
+    Uri uri =
+        Uri(scheme: 'http', host: serverAddress, port: port, path: '/fold');
+    Response response;
+    String? deviceId = await PlatformDeviceId.getDeviceId;
+
+    String body = '''
+{"id": "${deviceId!}${username}"''';
+    response = await post(uri, body: body);
+    if (response.statusCode == 200) {
+      print('folded');
+    }
   }
 }

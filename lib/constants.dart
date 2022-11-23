@@ -42,12 +42,18 @@ enum GameState {
   swapping,
   waitingForPlayerToSwap,
   waitingForPlayer,
-  playing
+  playing,
+  waitingToSwap,
+  waitingForNextRound,
+  waitingForPlayers
 }
 
 Map<GameState, String> gameStateToString = {
   GameState.waiting: 'waiting',
   GameState.waitingToDeal: 'waitingToDeal',
+  GameState.waitingForPlayers: 'waitingForPlayers',
+  GameState.waitingForNextRound: 'waitingForNextRound',
+  GameState.waitingToSwap: 'waitingToSwap',
   GameState.dealing: 'dealing',
   GameState.swapping: 'swapping',
   GameState.waitingForPlayerToSwap: 'waitingForPlayerToSwap',
@@ -58,6 +64,8 @@ Map<GameState, String> gameStateToString = {
 Map<String, GameState> stringToGameState = {
   'waiting': GameState.waiting,
   'waitingToDeal': GameState.waitingToDeal,
+  'waitingForPlayers': GameState.waitingForPlayers,
+  'waitingToSwap': GameState.waitingToSwap,
   'dealing': GameState.dealing,
   'swapping': GameState.swapping,
   'waitingForPlayerToSwap': GameState.waitingForPlayerToSwap,

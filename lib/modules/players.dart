@@ -18,6 +18,8 @@ class GamePlayer {
   bool human;
   GameCard? cardToPlay;
   bool donut = true;
+
+  /// Only applies to swapping?
   bool notReady = true;
   bool skip = false;
   bool voteToDeal = false;
@@ -27,8 +29,11 @@ class GamePlayer {
     return name;
   }
 
-  GameCard play(GameCard card) {
-    final played = hand.cards.value.singleWhere((element) => element == card);
+  GameCard play(GameCard card, {String? sender = ''}) {
+    print('($sender): ${name}: ${hand.cards.value}');
+    print(card);
+    final played = hand.cards.value
+        .singleWhere((element) => element.toString() == card.toString());
     hand.remove(played);
     played.state = CardState.played;
     return card;
@@ -126,9 +131,7 @@ class CardStack {
   static CardStack fromJson(element) {
     var stack = CardStack();
     for (var card in element) {
-      stack.add(
-          GameCard(stringToSuit[card['suit']]!, stringToValue[card['value']]!)
-            ..state = stringToCardState[card['state']]!);
+      stack.add(GameCard.fromJson(card)!);
     }
     return stack;
   }

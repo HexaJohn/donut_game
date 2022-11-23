@@ -8,8 +8,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:donut_game/constants.dart';
+import 'package:donut_game/modules/cards.dart';
 import 'package:donut_game/modules/game.dart';
 import 'package:donut_game/modules/players.dart';
+import 'package:donut_game/screens/server_gui.dart';
+import 'package:flutter/material.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart' as shelf_router;
@@ -18,15 +21,16 @@ import 'package:shelf_static/shelf_static.dart' as shelf_static;
 Game game = Game();
 
 Future main() async {
-  // game.addBot();
+  game.addBot();
+  game.addBot();
   // If the "PORT" environment variable is set, listen to it. Otherwise, 8080.
   // https://cloud.google.com/run/docs/reference/container-contract#port
-  final port = int.parse('54221' ?? '8080');
+  final port = int.parse(/*'54221'*/ '443');
 
   // See https://pub.dev/documentation/shelf/latest/shelf/Cascade-class.html
   final cascade = Cascade()
       // First, serve files from the 'public' directory
-      // .add(_staticHandler) // This is having issues
+      .add(_staticHandler) // This is having issues
       // If a corresponding file is not found, send requests to a `Router`
       .add(_router);
 
@@ -41,11 +45,14 @@ Future main() async {
   );
 
   print('Serving at http://${server.address.host}:${server.port}');
+  runApp(const ServerApp());
 }
 
 // Serve files from the file system.
-// final _staticHandler = shelf_static.createStaticHandler('build/web',
-//     defaultDocument: 'index.html');
+final _staticHandler = shelf_static.createStaticHandler(
+    '/Users/johnperoutka/Documents/donut_game/donut_game/build/web',
+    defaultDocument: 'index.html',
+    serveFilesOutsidePath: true);
 
 // Router instance to handler requests.
 final _router = shelf_router.Router()
@@ -53,6 +60,9 @@ final _router = shelf_router.Router()
   ..post('/connect', _newConnectionHandler)
   ..get('/update', _activeConnection)
   ..post('/vote', _voteResponse)
+  ..post('/swap', _executeSwap)
+  ..post('/play', _executePlay)
+  ..post('/swapvote', _finalizeSwap)
   ..get(
     '/time',
     (request) => Response.ok(DateTime.now().toUtc().toIso8601String()),
@@ -77,9 +87,25 @@ Future<Response> _newConnectionHandler(Request request) async {
 }
 
 Future<Response> _activeConnection(Request request) async {
+  if (game.playerDB.length > 2 &&
+      game.state.value == GameState.waitingForPlayers) {
+    game.state.value = GameState.waitingToDeal;
+  }
   // game.deal();
   var scores = [
-    {'players': _playersToJson(), 'game': gameStateToString[game.state.value]!}
+    {
+      'players': _playersToJson(),
+      'game': {
+        'state': gameStateToString[game.state.value]!,
+        'table': GameCard.jsonArray(game.table.cards.value),
+        'discard': GameCard.jsonArray(game.discard.cards.value),
+        'deck': GameCard.jsonArray(game.deck.contents),
+        'active': game.protectedActive,
+        'dealer': game.protectedDealer,
+        'trump': suitToString[game.trumpSuit.value],
+        'leading_card': game.leadingCard?.toJson()
+      }
+    }
   ];
 
   var jsonText = jsonEncode(scores);
@@ -116,10 +142,88 @@ List<Map<String, dynamic>> _playersToJson() {
       'human': player.human.toString(),
       'voteDeal': player.voteToDeal.toString(),
       'cards': player.hand.toJsonArray(),
-      'swaps': player.swaps.value
+      'swaps': player.swaps.value,
+      'notReady': player.notReady.toString(),
+      'score': player.score.value,
+      'donuts': player.donuts.value,
+      'winner': player.winner.value,
+      'folds': player.folds
     });
   }
   return compound;
+}
+
+Future<Response> _executeSwap(Request request) async {
+  String swapData = await request.readAsString();
+  final swapJson = jsonDecode(swapData);
+  String player = swapJson['id'];
+  int cardIndex = swapJson['swap'];
+  var target = game.playerDB[player]!.hand.cards.value[cardIndex].state;
+  print(game.playerDB[player]!.hand.cards.value[cardIndex].state);
+  if (target == CardState.held) {
+    game.playerDB[player]!.hand.cards.value[cardIndex].state = CardState.swap;
+    game.playerDB[player]!.swaps.value--;
+
+    return Response.ok('');
+  }
+
+  if (target == CardState.swap) {
+    game.playerDB[player]!.hand.cards.value[cardIndex].state = CardState.held;
+    game.playerDB[player]!.swaps.value++;
+
+    return Response.ok('');
+  }
+  print(game.playerDB[player]!.hand.cards.value[cardIndex].state);
+  return Response.badRequest();
+}
+
+Future<Response> _executePlay(Request request) async {
+  print('recieved play request');
+  String playData = await request.readAsString();
+  final playJson = jsonDecode(playData);
+  String player = playJson['id'];
+  int cardIndex = playJson['card'];
+
+  print(game.playerDB[player]!.hand.cards.value[cardIndex].state);
+
+  game.playerDB[player]!.cardToPlay =
+      game.playerDB[player]!.hand.cards.value[cardIndex];
+
+  print(game.playerDB[player]!.cardToPlay);
+  try {
+    print('playing card');
+    // game.playerDB[player]!
+    // .play(game.playerDB[player]!.cardToPlay!, sender: 'server');
+  } catch (e) {
+    rethrow;
+  }
+  return Response.ok('');
+}
+
+Future<Response> _executeFold(Request request) async {
+  print('recieved fold request');
+  String playData = await request.readAsString();
+  final playJson = jsonDecode(playData);
+  String player = playJson['id'];
+
+  try {
+    game.playerDB[player]?.skip = true;
+    game.playerDB[player]?.notReady = true;
+    game.playerDB[player]?.donut = true;
+  } catch (e) {
+    rethrow;
+  }
+  return Response.ok('');
+}
+
+Future<Response> _finalizeSwap(Request request) async {
+  String swapData = await request.readAsString();
+  final swapJson = jsonDecode(swapData);
+  String player = swapJson['id'];
+  game.playerDB[player]!.notReady = !game.playerDB[player]!.notReady;
+
+  return Response.ok('');
+// return Response.badRequest();
 }
 
 void evaluateDeal() {

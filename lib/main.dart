@@ -37,10 +37,10 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-String username = 'asdf';
+String username = "John's MacBook Pro";
 String _serverAddress = '192.168.1.113';
 String get serverAddress => _serverAddress;
-int port = 54221;
+int port = 443;
 
 class _LoginPageState extends State<LoginPage> {
   @override

@@ -48,7 +48,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   void connectionLoop() async {
     while (keepConnected) {
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(milliseconds: 50));
       Uri uri =
           Uri(scheme: 'http', host: serverAddress, port: port, path: '/update');
       Response response;
@@ -61,28 +61,50 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         setState(() {
           var activeKeys = [];
           for (var element in gameJson[0]['players']) {
-            // print(element);
-            // print(element);
             activeKeys.add(element['id']);
-            print(element['cards']);
 
             game.playerDB.putIfAbsent(
                 element['id'],
                 () => GamePlayer(element['username'], game.playerDB.length,
                     element['human'] == 'true' ? true : false));
 
-            print(game.playerDB[element['id']]?.voteToDeal);
-
+            var cards = CardStack.fromJson(element['cards']);
+            for (var card in cards.cards.value) {
+              card.belongsTo = game.playerDB[element['id']];
+            }
+//Populate player data
             game.playerDB[element['id']]
-              ?..voteToDeal = element['voteDeal'] == 'true' ? true : false
-              ..hand = CardStack.fromJson(element['cards'])
-              ..swaps.value = element['swaps'];
+              ?..voteToDeal = element['voteDeal'] == 'true'
+              ..hand = cards
+              ..swaps.value = element['swaps']
+              ..notReady = element['notReady'] == 'true'
+              ..score.value = element['score']
+              ..donuts.value = element['donuts']
+              ..winner.value = element['winner']
+              ..folds = element['folds'];
 
             // print('db: ${game.playerDB[element['id']]}');
           }
-          print(gameJson[0]['game']);
-          game.state.value = stringToGameState[gameJson[0]['game']]!;
-          var keys = game.playerDB.keys;
+          // print(gameJson[0]['game']);
+          game.state.value = stringToGameState[gameJson[0]['game']['state']]!;
+          game.protectedActive = gameJson[0]['game']['active'];
+          game.protectedDealer = gameJson[0]['game']['dealer'];
+          try {
+            game.leadingCard =
+                GameCard.fromJson(gameJson[0]['game']['leading_card']);
+          } catch (e) {
+            // TODO
+            print('no leading card');
+            game.leadingCard = null;
+          }
+          print(gameJson[0]['game']['trump']);
+          game.trumpSuit.value = stringToSuit[gameJson[0]['game']['trump']]!;
+          List<GameCard> newCards = [];
+          //Populate game table data
+          for (var element in gameJson[0]['game']['table']) {
+            newCards.add(GameCard.fromJson(element)!);
+          }
+          game.table.cards.value = newCards;
           Iterable active = game.playerDB.keys
               .where((element) => activeKeys.contains(element));
 
@@ -92,8 +114,9 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         });
 
         // game.playerDB.containsKey(key);
-      } catch (e) {
+      } catch (e, s) {
         print('lost connection: ($e)');
+        print(s);
       }
     }
   }
@@ -113,6 +136,11 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     // game.state.value = GameState.swapping;
   }
 
+  void clientSwap(int cardIndex) async {
+    // game.state.value = GameState.swapping;
+    game.clientSwap(cardIndex);
+  }
+
   void deal() async {
     await game.deal();
     // game.state.value = GameState.swapping;
@@ -128,6 +156,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               setState(() {
                 player.hand.cards.value[index].state = CardState.swap;
                 player.swaps.value--;
+                clientSwap(index);
               });
             },
             child: const Text('Swap',
@@ -143,6 +172,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               setState(() {
                 player.hand.cards.value[index].state = CardState.held;
                 player.swaps.value++;
+                clientSwap(index);
               });
             },
             child: const Text('Cancel',
@@ -182,6 +212,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           return ElevatedButton(
               onPressed: () {
                 setState(() {
+                  game.clientPlayCard(index);
                   player.cardToPlay = _card;
                 });
               },
@@ -489,6 +520,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
+                  //Game table cards
                   child: ValueListenableBuilder(
                     valueListenable: game.table.cards,
                     builder: (context, List<GameCard> value, child) {
@@ -506,7 +538,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                                   trump: game.trumpSuit.value,
                                   label:
                                       // "${value[index].belongsTo.toString()}: ${scoreThis(value[index], game)}",
-                                      "${value[index].belongsTo.toString()}",
+                                      value[index].belongsTo.toString(),
                                 ),
                               ],
                             );
@@ -636,6 +668,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                       padding: const EdgeInsets.all(8.0),
                       child: FloatingActionButton(
                         onPressed: () async {
+                          game.clientFold();
                           localPlayer.skip = true;
                           localPlayer.notReady = false;
                           localPlayer.donut = false;
@@ -648,6 +681,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                       padding: const EdgeInsets.all(8.0),
                       child: FloatingActionButton(
                         onPressed: () async {
+                          await game.clientSwapFinalize();
                           localPlayer.notReady = false;
                         },
                         tooltip: 'Swap',
