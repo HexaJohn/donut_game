@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:donut_game/screens/internet_play.dart';
+import 'package:donut_game/screens/offline_play.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart';
 import 'package:platform_device_id/platform_device_id.dart';
@@ -37,10 +38,10 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-String username = "John's MacBook Pro";
-String _serverAddress = '192.168.1.113';
+String username = "";
+String _serverAddress = '73.94.11.217';
 String get serverAddress => _serverAddress;
-int port = 443;
+int port = 27960;
 
 class _LoginPageState extends State<LoginPage> {
   @override
@@ -53,7 +54,7 @@ class _LoginPageState extends State<LoginPage> {
           child: Column(
             children: [
               const Text(
-                  'Enter IP and pick a nickname to connect, or play offline:'),
+                  'Enter IP and pick a nickname to connect, or play offline against bots:'),
               TextField(
                   controller: TextEditingController(text: _serverAddress),
                   decoration: const InputDecoration(hintText: 'IP Address'),
@@ -73,10 +74,73 @@ class _LoginPageState extends State<LoginPage> {
                   children: [
                     TextButton(
                         onPressed: () async {
+                          var snackbar1 =
+                              SnackBar(content: Text('Logging in...'));
+                          ScaffoldMessenger.of(context).showSnackBar(snackbar1);
                           try {
                             Uri uri = Uri(
                                 scheme: 'http',
                                 host: serverAddress,
+                                port: port,
+                                path: '/connect');
+                            Response response;
+                            try {
+                              // response = await get(uri);
+                              String? deviceId =
+                                  await PlatformDeviceId.getDeviceId;
+                              var snackbar2 =
+                                  SnackBar(content: Text('Connecting...'));
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(snackbar2);
+                              String body = '''
+{"username": "$username", "id": "${deviceId!}"}''';
+                              response = await post(uri, body: body);
+                              var snackbar3 = SnackBar(
+                                  content: Text(
+                                      'Connecting... (${response.statusCode})'));
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(snackbar3);
+                              if (response.statusCode == 200) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (BuildContext context) =>
+                                        OnlineGamePage(
+                                      title: '',
+                                      username: username,
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                var snackbar = SnackBar(
+                                    content:
+                                        Text('Error: ${response.statusCode}'));
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(snackbar);
+                              }
+                            } catch (e) {
+                              var snackbar =
+                                  SnackBar(content: Text('Error: $e'));
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(snackbar);
+                              print('Error: $e');
+                            }
+                          } catch (e) {
+                            var snackbar = SnackBar(content: Text('Error: $e'));
+                            ScaffoldMessenger.of(context)
+                                .showSnackBar(snackbar);
+                            print('FAILED: $e');
+                          }
+                        },
+                        child: const Text('Join Game')),
+                    TextButton(
+                        onPressed: () async {
+                          try {
+                            _serverAddress = '192.168.0.11';
+                            username = 'John';
+                            Uri uri = Uri(
+                                scheme: 'http',
+                                host: _serverAddress,
                                 port: port,
                                 path: '/connect');
                             Response response;
@@ -114,7 +178,7 @@ class _LoginPageState extends State<LoginPage> {
                             print('FAILED: $e');
                           }
                         },
-                        child: const Text('Join Game')),
+                        child: const Text('Join Local')),
                     TextButton(
                         onPressed: () async {
                           try {
@@ -127,9 +191,9 @@ class _LoginPageState extends State<LoginPage> {
                                 context,
                                 MaterialPageRoute(
                                     builder: (BuildContext context) =>
-                                        OnlineGamePage(
+                                        OfflineGamePage(
                                           title: '',
-                                          username: username,
+                                          // username: username,
                                         )));
                           } catch (e) {
                             // TODO

@@ -18,14 +18,14 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart' as shelf_router;
 import 'package:shelf_static/shelf_static.dart' as shelf_static;
 
-Game game = Game();
+Game serverGame = Game();
 
 Future main() async {
-  game.addBot();
-  game.addBot();
+  serverGame.addBot();
+  serverGame.addBot();
   // If the "PORT" environment variable is set, listen to it. Otherwise, 8080.
   // https://cloud.google.com/run/docs/reference/container-contract#port
-  final port = int.parse(/*'54221'*/ '443');
+  final port = int.parse(/*'54221'*/ '27960');
 
   // See https://pub.dev/documentation/shelf/latest/shelf/Cascade-class.html
   final cascade = Cascade()
@@ -37,7 +37,13 @@ Future main() async {
   // See https://pub.dev/documentation/shelf/latest/shelf_io/serve.html
   final server = await shelf_io.serve(
     // See https://pub.dev/documentation/shelf/latest/shelf/logRequests.html
-    logRequests()
+    logRequests(
+      logger: (message, isError) {
+        serverGame.log.putIfAbsent(message, () => isError);
+        serverGame.flipFlop.notifyListeners();
+        print(message);
+      },
+    )
         // See https://pub.dev/documentation/shelf/latest/shelf/MiddlewareExtensions/addHandler.html
         .addHandler(cascade.handler),
     InternetAddress.anyIPv4, // Allows external connections
@@ -63,6 +69,7 @@ final _router = shelf_router.Router()
   ..post('/swap', _executeSwap)
   ..post('/play', _executePlay)
   ..post('/swapvote', _finalizeSwap)
+  ..get('/reset', _executeReset)
   ..get(
     '/time',
     (request) => Response.ok(DateTime.now().toUtc().toIso8601String()),
@@ -77,33 +84,33 @@ Future<Response> _newConnectionHandler(Request request) async {
   final playerJson = jsonDecode(playerData);
   final player = GamePlayer('${playerJson['username']}', 0, true);
   player.id = playerJson['id'] + playerJson['username'];
-  game.addLocalPlayer(player);
-  if (game.playerDB.length == 2) {
-    game.protectedActive = 1;
-    game.protectedDealer = 0;
-    game.state.value = GameState.waitingToDeal;
+  serverGame.addLocalPlayer(player);
+  if (serverGame.playerDB.length == 2) {
+    serverGame.protectedActive = 1;
+    serverGame.protectedDealer = 0;
+    serverGame.state.value = GameState.waitingToDeal;
   }
   return Response.ok('Welcome, ${playerData}');
 }
 
 Future<Response> _activeConnection(Request request) async {
-  if (game.playerDB.length > 2 &&
-      game.state.value == GameState.waitingForPlayers) {
-    game.state.value = GameState.waitingToDeal;
+  if (serverGame.playerDB.length > 2 &&
+      serverGame.state.value == GameState.waitingForPlayers) {
+    serverGame.state.value = GameState.waitingToDeal;
   }
   // game.deal();
   var scores = [
     {
       'players': _playersToJson(),
       'game': {
-        'state': gameStateToString[game.state.value]!,
-        'table': GameCard.jsonArray(game.table.cards.value),
-        'discard': GameCard.jsonArray(game.discard.cards.value),
-        'deck': GameCard.jsonArray(game.deck.contents),
-        'active': game.protectedActive,
-        'dealer': game.protectedDealer,
-        'trump': suitToString[game.trumpSuit.value],
-        'leading_card': game.leadingCard?.toJson()
+        'state': gameStateToString[serverGame.state.value]!,
+        'table': GameCard.jsonArray(serverGame.table.cards.value),
+        'discard': GameCard.jsonArray(serverGame.discard.cards.value),
+        'deck': GameCard.jsonArray(serverGame.deck.contents),
+        'active': serverGame.protectedActive,
+        'dealer': serverGame.protectedDealer,
+        'trump': suitToString[serverGame.trumpSuit.value],
+        'leading_card': serverGame.leadingCard?.toJson()
       }
     }
   ];
@@ -117,7 +124,7 @@ Future<Response> _voteResponse(Request request) async {
   try {
     String playerData = await request.readAsString();
     final playerJson = jsonDecode(playerData);
-    final player = game.playerDB[playerJson['id']]!;
+    final player = serverGame.playerDB[playerJson['id']]!;
     // print(playerJson);
     // print(playerJson['voteDeal'] == 'true' ? true : false);
     // player.voteToDeal = !player.voteToDeal;
@@ -132,7 +139,7 @@ Future<Response> _voteResponse(Request request) async {
 
 List<Map<String, dynamic>> _playersToJson() {
   List<Map<String, dynamic>> compound = [];
-  for (var player in game.players) {
+  for (var player in serverGame.players) {
     if (!player.human) {
       player.voteToDeal = true;
     }
@@ -158,23 +165,30 @@ Future<Response> _executeSwap(Request request) async {
   final swapJson = jsonDecode(swapData);
   String player = swapJson['id'];
   int cardIndex = swapJson['swap'];
-  var target = game.playerDB[player]!.hand.cards.value[cardIndex].state;
-  print(game.playerDB[player]!.hand.cards.value[cardIndex].state);
+  var target = serverGame.playerDB[player]!.hand.cards.value[cardIndex].state;
+  print(serverGame.playerDB[player]!.hand.cards.value[cardIndex].state);
   if (target == CardState.held) {
-    game.playerDB[player]!.hand.cards.value[cardIndex].state = CardState.swap;
-    game.playerDB[player]!.swaps.value--;
+    serverGame.playerDB[player]!.hand.cards.value[cardIndex].state =
+        CardState.swap;
+    serverGame.playerDB[player]!.swaps.value--;
 
     return Response.ok('');
   }
 
   if (target == CardState.swap) {
-    game.playerDB[player]!.hand.cards.value[cardIndex].state = CardState.held;
-    game.playerDB[player]!.swaps.value++;
+    serverGame.playerDB[player]!.hand.cards.value[cardIndex].state =
+        CardState.held;
+    serverGame.playerDB[player]!.swaps.value++;
 
     return Response.ok('');
   }
-  print(game.playerDB[player]!.hand.cards.value[cardIndex].state);
+  print(serverGame.playerDB[player]!.hand.cards.value[cardIndex].state);
   return Response.badRequest();
+}
+
+Future<Response> _executeReset(Request request) async {
+  Game.reset();
+  return Response.ok('');
 }
 
 Future<Response> _executePlay(Request request) async {
@@ -184,12 +198,12 @@ Future<Response> _executePlay(Request request) async {
   String player = playJson['id'];
   int cardIndex = playJson['card'];
 
-  print(game.playerDB[player]!.hand.cards.value[cardIndex].state);
+  print(serverGame.playerDB[player]!.hand.cards.value[cardIndex].state);
 
-  game.playerDB[player]!.cardToPlay =
-      game.playerDB[player]!.hand.cards.value[cardIndex];
+  serverGame.playerDB[player]!.cardToPlay =
+      serverGame.playerDB[player]!.hand.cards.value[cardIndex];
 
-  print(game.playerDB[player]!.cardToPlay);
+  print(serverGame.playerDB[player]!.cardToPlay);
   try {
     print('playing card');
     // game.playerDB[player]!
@@ -207,9 +221,9 @@ Future<Response> _executeFold(Request request) async {
   String player = playJson['id'];
 
   try {
-    game.playerDB[player]?.skip = true;
-    game.playerDB[player]?.notReady = true;
-    game.playerDB[player]?.donut = true;
+    serverGame.playerDB[player]?.skip = true;
+    serverGame.playerDB[player]?.notReady = true;
+    serverGame.playerDB[player]?.donut = true;
   } catch (e) {
     rethrow;
   }
@@ -220,17 +234,18 @@ Future<Response> _finalizeSwap(Request request) async {
   String swapData = await request.readAsString();
   final swapJson = jsonDecode(swapData);
   String player = swapJson['id'];
-  game.playerDB[player]!.notReady = !game.playerDB[player]!.notReady;
+  serverGame.playerDB[player]!.notReady =
+      !serverGame.playerDB[player]!.notReady;
 
   return Response.ok('');
 // return Response.badRequest();
 }
 
 void evaluateDeal() {
-  if (game.playerDB.values
+  if (serverGame.playerDB.values
       .where((element) => element.voteToDeal == false)
       .isEmpty) {
-    game.deal(shuffle: true);
+    serverGame.deal(shuffle: true);
     print('dealing');
   }
 }

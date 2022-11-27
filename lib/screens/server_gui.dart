@@ -1,3 +1,4 @@
+import 'package:donut_game/server.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart';
 import 'package:platform_device_id/platform_device_id.dart';
@@ -16,21 +17,21 @@ class ServerApp extends StatelessWidget {
         cardColor: Colors.grey.shade100,
         // fontFamily: 'FluentIcons'
       ),
-      home: const LoginPage(
+      home: const ServerGUI(
           // title: ''
           ),
     );
   }
 }
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({Key? key}) : super(key: key);
+class ServerGUI extends StatefulWidget {
+  const ServerGUI({Key? key}) : super(key: key);
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<ServerGUI> createState() => _ServerGUIState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _ServerGUIState extends State<ServerGUI> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -39,8 +40,28 @@ class _LoginPageState extends State<LoginPage> {
           width: 350,
           height: 500,
           child: Column(
-            children: const [
+            children: [
               Text('SERVER GUI'),
+              Card(
+                child: TextField(
+                  controller: TextEditingController(),
+                  decoration: InputDecoration(hintText: 'Run Command:'),
+                ),
+              ),
+              Expanded(
+                child: ValueListenableBuilder(
+                  valueListenable: serverGame.flipFlop,
+                  builder: (context, value, child) => ListView.builder(
+                    // shrinkWrap: true,
+                    itemCount: serverGame.log.length,
+                    itemBuilder: (context, index) {
+                      return Card(
+                          child: Text(
+                              '${serverGame.log.keys.toList().reversed.toList()[index]}'));
+                    },
+                  ),
+                ),
+              ),
             ],
           ),
         ),

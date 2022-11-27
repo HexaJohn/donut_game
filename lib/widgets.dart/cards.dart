@@ -35,7 +35,7 @@ class PlayingCardWidget extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 4, left: 4, right: 4),
         child: Text(
           label!,
-          overflow: TextOverflow.fade,
+          overflow: TextOverflow.clip,
           maxLines: 1,
           softWrap: false,
         ),

@@ -11,11 +11,31 @@ import 'package:platform_device_id/platform_device_id.dart';
 class Game {
   static final Game _singleton = Game._internal();
 
+  ValueNotifier<bool> flipFlop = ValueNotifier(false);
+
   factory Game() {
     return _singleton;
   }
 
+  static reset() {
+    print('AAA: Resety');
+    Game().log.clear();
+    Game().playerDB.clear();
+    Game().deck = GameDeck.fresh();
+    Game().protectedActive = 1;
+    Game().protectedDealer = 0;
+    Game().table.dump();
+    Game().discard.dump();
+    Game().state.value = GameState.waitingForPlayers;
+    Game().trumpSuit.value = Suit.values.first;
+    //Provision
+    Game().addBot();
+    Game().addBot();
+  }
+
   Game._internal();
+
+  Map<String, bool> log = {};
 
   Map<String, GamePlayer> playerDB = {};
   List<GamePlayer> get players => playerDB.values.toList();
@@ -238,6 +258,7 @@ class Game {
     for (var player in players) {
       player.voteToDeal = false;
       player.winner.value = false;
+      player.hand.dump();
     }
     _dealer++;
     _active = _dealer + 1;
@@ -277,6 +298,7 @@ class Game {
             if (player.cardToPlay != null) {
               print(player.cardToPlay);
               final card = player.play(player.cardToPlay!);
+              card.belongsTo = player;
               leadingCard ??= card;
               addToTable(card);
             }
@@ -389,6 +411,17 @@ class Game {
     String body = '''
 {"id": "${deviceId!}${username}"''';
     response = await post(uri, body: body);
+    if (response.statusCode == 200) {
+      print('folded');
+    }
+  }
+
+  Future adminReset() async {
+    Uri uri =
+        Uri(scheme: 'http', host: serverAddress, port: port, path: '/reset');
+    Response response;
+
+    response = await get(uri);
     if (response.statusCode == 200) {
       print('folded');
     }

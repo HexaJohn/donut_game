@@ -1,6 +1,7 @@
 import 'package:donut_game/constants.dart';
 import 'package:donut_game/modules/game.dart';
 import 'package:donut_game/modules/players.dart';
+import 'package:donut_game/server.dart';
 import 'package:flutter/material.dart';
 
 class GameCard {
@@ -29,10 +30,12 @@ class GameCard {
 
   static GameCard? fromJson(Map<String, dynamic> element) {
     try {
+      print("table card belongs to ${element['belongsTo']}");
       return GameCard(
           stringToSuit[element['suit']]!, stringToValue[element['value']]!)
         ..state = stringToCardState[element['state']]!
-        ..belongsTo = Game().playerDB[element['belongsTo']];
+        ..belongsTo = serverGame.playerDB.values
+            .firstWhere((db) => db.name == element['belongsTo']);
     } catch (e, s) {
       print('invalid card');
       print(s);

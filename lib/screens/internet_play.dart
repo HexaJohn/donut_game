@@ -48,7 +48,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
   void connectionLoop() async {
     while (keepConnected) {
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 1000));
       Uri uri =
           Uri(scheme: 'http', host: serverAddress, port: port, path: '/update');
       Response response;
@@ -100,11 +100,16 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           print(gameJson[0]['game']['trump']);
           game.trumpSuit.value = stringToSuit[gameJson[0]['game']['trump']]!;
           List<GameCard> newCards = [];
+          List<GameCard> discards = [];
           //Populate game table data
           for (var element in gameJson[0]['game']['table']) {
             newCards.add(GameCard.fromJson(element)!);
           }
+          for (var element in gameJson[0]['game']['discard']) {
+            discards.add(GameCard.fromJson(element)!);
+          }
           game.table.cards.value = newCards;
+          game.discard.cards.value = discards;
           Iterable active = game.playerDB.keys
               .where((element) => activeKeys.contains(element));
 
@@ -313,6 +318,12 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                 if (keepConnected) {
                   connectionLoop();
                 }
+              },
+            ),
+            ListTile(
+              title: const Text('Debug: reset server'),
+              onTap: () {
+                game.adminReset();
               },
             ),
           ],
@@ -593,15 +604,15 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                                     valueListenable: game.state,
                                     builder: (context, value, child) {
                                       return Container(
-                                        color: Colors.amber
-                                            .withAlpha(Random().nextInt(255)),
+                                        // color: Colors.amber
+                                        //     .withAlpha(Random().nextInt(255)),
                                         child: Row(
                                           children: [
                                             // Text(localPlayer
                                             //     .hand.cards.value[index].state
                                             //     .toString()),
-                                            Text(localPlayer.swaps.value
-                                                .toString()),
+                                            // Text(localPlayer.swaps.value
+                                            //     .toString()),
                                             ValueListenableBuilder(
                                               builder: (context, value,
                                                       child) =>
