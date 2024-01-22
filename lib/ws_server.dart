@@ -17,6 +17,7 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart' as shelf_router;
 import 'package:shelf_static/shelf_static.dart' as shelf_static;
+import 'dart:io';
 
 Game serverGame = Game();
 
@@ -26,6 +27,9 @@ Future main() async {
   // If the "PORT" environment variable is set, listen to it. Otherwise, 8080.
   // https://cloud.google.com/run/docs/reference/container-contract#port
   final port = int.parse(/*'54221'*/ '27960');
+
+  var ws = await HttpServer.bind(InternetAddress.loopbackIPv4, 27961);
+  print('WebSocket bound on localhost:${ws.port}');
 
   // See https://pub.dev/documentation/shelf/latest/shelf/Cascade-class.html
   final cascade = Cascade()
@@ -51,7 +55,79 @@ Future main() async {
   );
 
   print('Serving at http://${server.address.host}:${server.port}');
+
   runApp(const ServerApp());
+
+  await for (HttpRequest request in ws) {
+    if (request.uri.path == '/ws') {
+      // Upgrade an HttpRequest to a WebSocket connection
+      var socket = await WebSocketTransformer.upgrade(request);
+      print('Client connected!');
+
+      // Listen for incoming messages from the client
+      socket.listen((message) {
+        print('Received message: $message');
+        socket.add('{"topic": "generic", "error": "gro", "data": "Hello, world!"}');
+        final topic = jsonDecode(message)['topic'];
+        final Map<String, dynamic> data = jsonDecode(message);
+
+        switch (topic) {
+          case 'update':
+            print('recieved update request');
+            if (serverGame.playerDB.length > 2 && serverGame.state.value == GameState.waitingForPlayers) {
+              serverGame.state.value = GameState.waitingToDeal;
+            }
+            // game.deal();
+            var scores = [
+              {
+                'players': _playersToJson(),
+                'game': {
+                  'state': gameStateToString[serverGame.state.value]!,
+                  'table': GameCard.jsonArray(serverGame.table.cards.value),
+                  'discard': GameCard.jsonArray(serverGame.discard.cards.value),
+                  'deck': GameCard.jsonArray(serverGame.deck.contents),
+                  'active': serverGame.protectedActive,
+                  'dealer': serverGame.protectedDealer,
+                  'trump': suitToString[serverGame.trumpSuit.value],
+                  'leading_card': serverGame.leadingCard?.toJson()
+                }
+              }
+            ];
+
+            var jsonText = jsonEncode(scores);
+            print('returned scores');
+            // print(jsonText);
+            socket.add(jsonText);
+            break;
+
+          case 'connect':
+            print('Connected successfully');
+            final player = GamePlayer.fromJson(data);
+            serverGame.addLocalPlayer(player);
+            if (serverGame.playerDB.length == 2) {
+              serverGame.protectedActive = 1;
+              serverGame.protectedDealer = 0;
+              serverGame.state.value = GameState.waitingToDeal;
+            }
+            socket.add('Welcome, ${player.name}');
+            break;
+        }
+      });
+    } else {
+      request.response.statusCode = HttpStatus.forbidden;
+      request.response.close();
+    }
+  }
+}
+
+class DonutConnection {
+  String username;
+  String id;
+  DonutConnection(this.username, this.id);
+
+  String toJson() {
+    return jsonEncode({'username': username, 'id': id});
+  }
 }
 
 // Serve files from the file system.

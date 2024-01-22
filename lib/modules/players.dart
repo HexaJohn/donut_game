@@ -1,6 +1,7 @@
 import 'package:donut_game/constants.dart';
 import 'package:donut_game/modules/cards.dart';
 import 'package:donut_game/modules/game.dart';
+import 'package:donut_game/ws_server.dart';
 import 'package:flutter/widgets.dart';
 
 class GamePlayer {
@@ -32,8 +33,7 @@ class GamePlayer {
   GameCard play(GameCard card, {String? sender = ''}) {
     print('($sender): ${name}: ${hand.cards.value}');
     print(card);
-    final played = hand.cards.value
-        .singleWhere((element) => element.toString() == card.toString());
+    final played = hand.cards.value.singleWhere((element) => element.toString() == card.toString());
     hand.remove(played);
     played.state = CardState.played;
     return card;
@@ -54,12 +54,10 @@ class GamePlayer {
   GameCard logicalFirst(Game game) {
     GameCard card;
     try {
-      card = hand.cards.value
-          .firstWhere((element) => element.suit == game.leadingCard!.suit);
+      card = hand.cards.value.firstWhere((element) => element.suit == game.leadingCard!.suit);
     } catch (e) {
       try {
-        card = hand.cards.value
-            .firstWhere((element) => element.suit == game.trumpSuit.value);
+        card = hand.cards.value.firstWhere((element) => element.suit == game.trumpSuit.value);
       } catch (e) {
         card = hand.cards.value.first;
       }
@@ -81,6 +79,14 @@ class GamePlayer {
     winner.value = true;
     await Future.delayed(Duration(seconds: 5));
     winner.value = false;
+  }
+
+  static GamePlayer fromDonutConnection(DonutConnection message) {
+    return GamePlayer(message.username, 0, true);
+  }
+
+  static fromJson(Map<String, dynamic> data) {
+    return GamePlayer(data['data'][0], 0, true);
   }
 }
 
@@ -105,9 +111,7 @@ class CardStack {
 
   List<GameCard> swapDiscard() {
     int discarded = 0;
-    final swap = cards.value
-        .where((element) => element.state == CardState.swap)
-        .toList();
+    final swap = cards.value.where((element) => element.state == CardState.swap).toList();
     for (var element in swap) {
       discarded++;
       element.state = CardState.folded;
