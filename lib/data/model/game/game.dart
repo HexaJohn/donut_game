@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:donut_game/data/model/game_card/game_card_deck.dart';
 import 'package:donut_game/data/model/game_card/game_card_stack.dart';
 import 'package:donut_game/res/resources.dart';
-import 'package:donut_game/main.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
 import 'package:donut_game/ui/login/login.dart';
@@ -177,7 +176,7 @@ class Game {
   }
 
   Future<void> dealCard(GamePlayer player) async {
-    await Future.delayed(Duration(milliseconds: 50));
+    await Future.delayed(const Duration(milliseconds: 50));
     GameCard top;
     try {
       top = deck.contents.first;
@@ -216,7 +215,7 @@ class Game {
           state.value = GameState.waitingForPlayerToSwap;
         }
         while (player.notReady) {
-          await Future.delayed(Duration(seconds: 1));
+          await Future.delayed(const Duration(seconds: 1));
         }
         state.value = GameState.swapping;
         final List<GameCard> swapped = player.hand.swapDiscard();
@@ -225,7 +224,7 @@ class Game {
           if (!player.skip) {
             player.hand.remove(swapped[i]);
             discard.add(swapped[i]);
-            await Future.delayed(Duration(milliseconds: 100));
+            await Future.delayed(const Duration(milliseconds: 100));
           }
           // await dealCard(player);
           // await Future.delayed(Duration(milliseconds: 200));
@@ -235,7 +234,7 @@ class Game {
           // discard.add(swapped[i]);
           if (!player.skip) {
             await dealCard(player);
-            await Future.delayed(Duration(milliseconds: 100));
+            await Future.delayed(const Duration(milliseconds: 100));
           }
           // await Future.delayed(Duration(milliseconds: 200));
         }
@@ -293,7 +292,7 @@ class Game {
             while (player.cardToPlay == null) {
               state.value = GameState.playing;
 
-              await Future.delayed(Duration(milliseconds: 100));
+              await Future.delayed(const Duration(milliseconds: 100));
             }
             if (player.cardToPlay != null) {
               print(player.cardToPlay);
@@ -314,14 +313,14 @@ class Game {
     winner.score.value = winner.score.value - 1;
     winner.notifyWin();
     _active = players.indexOf(winner);
-    await Future.delayed(Duration(seconds: 1));
+    await Future.delayed(const Duration(seconds: 1));
     final int toDiscard = table.cards.value.length;
     // debugger();
     for (var i = 0; i < toDiscard; i++) {
       final discarded = table.cards.value.first;
       table.remove(discarded);
       discard.add(discarded);
-      await Future.delayed(Duration(milliseconds: 400));
+      await Future.delayed(const Duration(milliseconds: 400));
     }
   }
 
@@ -352,7 +351,7 @@ class Game {
     String? deviceId = await PlatformDeviceId.getDeviceId;
 
     String body = '''
-{"id": "${deviceId!}${username}", "vote": "${!players.where((element) => element.name == username).first.voteToDeal}"}''';
+{"id": "${deviceId!}$username", "vote": "${!players.where((element) => element.name == username).first.voteToDeal}"}''';
     response = await post(uri, body: body);
     if (response.statusCode == 200) {
       print('voted');
@@ -365,7 +364,7 @@ class Game {
     String? deviceId = await PlatformDeviceId.getDeviceId;
 
     String body = '''
-{"id": "${deviceId!}${username}", "swap": $cardIndex}''';
+{"id": "${deviceId!}$username", "swap": $cardIndex}''';
     response = await post(uri, body: body);
     if (response.statusCode == 200) {
       print('marked');
@@ -378,7 +377,7 @@ class Game {
     String? deviceId = await PlatformDeviceId.getDeviceId;
 
     String body = '''
-{"id": "${deviceId!}${username}"}''';
+{"id": "${deviceId!}$username"}''';
     response = await post(uri, body: body);
     if (response.statusCode == 200) {
       print('swapped');
@@ -391,7 +390,7 @@ class Game {
     String? deviceId = await PlatformDeviceId.getDeviceId;
 
     String body = '''
-{"id": "${deviceId!}${username}", "card": $card}''';
+{"id": "${deviceId!}$username", "card": $card}''';
     response = await post(uri, body: body);
     if (response.statusCode == 200) {
       print('played');
@@ -404,7 +403,7 @@ class Game {
     String? deviceId = await PlatformDeviceId.getDeviceId;
 
     String body = '''
-{"id": "${deviceId!}${username}"''';
+{"id": "${deviceId!}$username"''';
     response = await post(uri, body: body);
     if (response.statusCode == 200) {
       print('folded');

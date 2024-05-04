@@ -59,7 +59,7 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
                 player.swaps.value--;
               });
             },
-            child: Text('Swap',
+            child: const Text('Swap',
                 style: TextStyle(
                     // color: Colors.red,
                     )));
@@ -72,7 +72,7 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
                 player.swaps.value++;
               });
             },
-            child: Text('Cancel',
+            child: const Text('Cancel',
                 style: TextStyle(
                     // color: Colors.red,
                     )));
@@ -80,7 +80,7 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
         return ElevatedButton(
             style: ButtonStyle(overlayColor: MaterialStateColor.resolveWith((states) => Colors.red.shade50)),
             onPressed: () {},
-            child: Text('!',
+            child: const Text('!',
                 style: TextStyle(
                     // color: Colors.red,
                     )));
@@ -115,7 +115,7 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
                       : _card.suit == game.trumpSuit.value
                           ? 'Trump'
                           : 'Throw',
-                  style: TextStyle(
+                  style: const TextStyle(
                       // color: Colors.red,
                       )));
         case CardState.swap:
@@ -127,7 +127,7 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
                   player.swaps.value++;
                 });
               },
-              child: Text('Cancel',
+              child: const Text('Cancel',
                   style: TextStyle(
                       // color: Colors.red,
                       )));
@@ -135,7 +135,7 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
           return ElevatedButton(
               style: ButtonStyle(overlayColor: MaterialStateColor.resolveWith((states) => Colors.red.shade50)),
               onPressed: () {},
-              child: Text('!',
+              child: const Text('!',
                   style: TextStyle(
                       // color: Colors.red,
                       )));
@@ -172,8 +172,8 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
                 style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
               ),
             ),
-            ListTile(
-              title: const Text('Leaderboard:'),
+            const ListTile(
+              title: Text('Leaderboard:'),
               // onTap: () {
               //   // Update the state of the app
               //   // ...
@@ -189,7 +189,7 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
                 shrinkWrap: true,
                 itemCount: game.players.length,
                 itemBuilder: (context, playerIndex) {
-                  return Container(
+                  return SizedBox(
                       width: 150,
                       child: ListTile(
                         visualDensity: VisualDensity.comfortable,
@@ -231,7 +231,7 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
         ),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
-        toolbarTextStyle: TextStyle(color: Colors.black),
+        toolbarTextStyle: const TextStyle(color: Colors.black),
         iconTheme: IconThemeData(color: Theme.of(context).colorScheme.primary),
 
         // TextStyle(color: Theme.of(context).colorScheme.onBackground),
@@ -251,14 +251,14 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
           //   ),
           // ),
           Container(
-            margin: EdgeInsets.only(top: 16),
+            margin: const EdgeInsets.only(top: 16),
             height: 200,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               shrinkWrap: true,
               itemCount: game.players.length,
               itemBuilder: (context, playerIndex) {
-                return Container(
+                return SizedBox(
                   width: 150,
                   child: ValueListenableBuilder(
                       valueListenable: game.activePlayer,
@@ -315,7 +315,7 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
                                                 builder: (context, int value, child) {
                                                   return Text(
                                                     '$value',
-                                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                                    style: const TextStyle(fontWeight: FontWeight.bold),
                                                   );
                                                 }),
                                           ],
@@ -372,9 +372,9 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
             decoration: BoxDecoration(
                 color: Colors.green.shade900,
                 borderRadius: BorderRadius.circular(5),
-                boxShadow: [BoxShadow(color: Colors.black26, offset: Offset(0, 1), blurRadius: 1.0)]),
-            padding: EdgeInsets.all(8),
-            margin: EdgeInsets.all(8),
+                boxShadow: const [BoxShadow(color: Colors.black26, offset: Offset(0, 1), blurRadius: 1.0)]),
+            padding: const EdgeInsets.all(8),
+            margin: const EdgeInsets.all(8),
             height: 145,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -398,7 +398,7 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
                                   trump: game.trumpSuit.value,
                                   label:
                                       // "${value[index].belongsTo.toString()}: ${scoreThis(value[index], game)}",
-                                      "${value[index].belongsTo.toString()}",
+                                      value[index].belongsTo.toString(),
                                 ),
                               ],
                             );
@@ -418,12 +418,12 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
             ),
           ),
           Container(
-            padding: EdgeInsets.all(8),
-            margin: EdgeInsets.all(8),
+            padding: const EdgeInsets.all(8),
+            margin: const EdgeInsets.all(8),
             decoration: BoxDecoration(
                 color: Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(5),
-                boxShadow: [BoxShadow(color: Colors.black26, offset: Offset(0, 1), blurRadius: 1.0)]),
+                boxShadow: const [BoxShadow(color: Colors.black26, offset: Offset(0, 1), blurRadius: 1.0)]),
             height: 175,
             child: ValueListenableBuilder(
                 valueListenable: game.trumpSuit,

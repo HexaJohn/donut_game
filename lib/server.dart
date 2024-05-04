@@ -75,7 +75,6 @@ final _router = shelf_router.Router()
   ..get('/sum/<a|[0-9]+>/<b|[0-9]+>', _sumHandler);
 
 Response _helloWorldHandler(Request request) => Response.ok('Hello, World!');
-Response _echo(Request request) => Response.ok('${request.params}');
 
 Future<Response> _newConnectionHandler(Request request) async {
   print('Connected successfully');
@@ -89,7 +88,7 @@ Future<Response> _newConnectionHandler(Request request) async {
     serverGame.protectedDealer = 0;
     serverGame.state.value = GameState.waitingToDeal;
   }
-  return Response.ok('Welcome, ${playerData}');
+  return Response.ok('Welcome, $playerData');
 }
 
 Future<Response> _activeConnection(Request request) async {

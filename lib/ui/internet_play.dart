@@ -65,7 +65,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             for (var card in cards.cards.value) {
               card.belongsTo = game.playerDB[element['id']];
             }
-//Populate player data
+            //Populate player data
             game.playerDB[element['id']]
               ?..voteToDeal = element['voteDeal'] == 'true'
               ..hand = cards
@@ -85,11 +85,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           try {
             game.leadingCard = GameCard.fromJson(gameJson[0]['game']['leading_card']);
           } catch (e) {
-            // TODO
-            print('no leading card');
             game.leadingCard = null;
           }
-          print(gameJson[0]['game']['trump']);
           game.trumpSuit.value = stringToSuit[gameJson[0]['game']['trump']]!;
           List<GameCard> newCards = [];
           List<GameCard> discards = [];
@@ -110,9 +107,8 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
         });
 
         // game.playerDB.containsKey(key);
-      } catch (e, s) {
-        print('lost connection: ($e)');
-        print(s);
+      } catch (e) {
+        // TODO
       }
     }
   }
@@ -267,7 +263,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               shrinkWrap: true,
               itemCount: game.players.length,
               itemBuilder: (context, playerIndex) {
-                return Container(
+                return SizedBox(
                     width: 150,
                     child: ListTile(
                       visualDensity: VisualDensity.comfortable,
@@ -331,7 +327,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               shrinkWrap: true,
               itemCount: game.players.length,
               itemBuilder: (context, playerIndex) {
-                return Container(
+                return SizedBox(
                   width: 150,
                   child: ValueListenableBuilder(
                       valueListenable: game.activePlayer,
@@ -446,18 +442,16 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               },
             ),
           ),
-          Container(
-            child: ValueListenableBuilder(
-                valueListenable: game.trumpSuit,
-                builder: (context, Suit value, child) {
-                  return Text("Current Trump: ${suitToString[value] ?? 'none'}, Debug State: ${game.state.value}");
-                }),
-          ),
+          ValueListenableBuilder(
+              valueListenable: game.trumpSuit,
+              builder: (context, Suit value, child) {
+                return Text("Current Trump: ${suitToString[value] ?? 'none'}, Debug State: ${game.state.value}");
+              }),
           Container(
             decoration: BoxDecoration(
                 color: Colors.green.shade900,
                 borderRadius: BorderRadius.circular(5),
-                boxShadow: [const BoxShadow(color: Colors.black26, offset: Offset(0, 1), blurRadius: 1.0)]),
+                boxShadow: const [BoxShadow(color: Colors.black26, offset: Offset(0, 1), blurRadius: 1.0)]),
             padding: const EdgeInsets.all(8),
             margin: const EdgeInsets.all(8),
             height: 145,
@@ -509,7 +503,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             decoration: BoxDecoration(
                 color: Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(5),
-                boxShadow: [const BoxShadow(color: Colors.black26, offset: Offset(0, 1), blurRadius: 1.0)]),
+                boxShadow: const [BoxShadow(color: Colors.black26, offset: Offset(0, 1), blurRadius: 1.0)]),
             height: 175,
             child: ValueListenableBuilder(
                 valueListenable: game.trumpSuit,
@@ -533,34 +527,29 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                                 ValueListenableBuilder(
                                     valueListenable: game.state,
                                     builder: (context, value, child) {
-                                      return Container(
-                                        // color: Colors.amber
-                                        //     .withAlpha(Random().nextInt(255)),
-                                        child: Row(
-                                          children: [
-                                            // Text(localPlayer
-                                            //     .hand.cards.value[index].state
-                                            //     .toString()),
-                                            // Text(localPlayer.swaps.value
-                                            //     .toString()),
-                                            ValueListenableBuilder(
-                                              builder: (context, value, child) => (value != 0 ||
-                                                          localPlayer.hand.cards.value[index].state ==
-                                                              CardState.swap) &&
-                                                      game.state.value == GameState.waitingForPlayerToSwap
-                                                  ? layoutSwapActions(index)
-                                                  : Container(),
-                                              valueListenable: localPlayer.swaps,
-                                            ),
-                                            ValueListenableBuilder(
-                                              builder: (context, GameState value, child) =>
-                                                  (value == GameState.playing && game.activePlayerLazy == localPlayer)
-                                                      ? layoutPlayActions(index)
-                                                      : Container(),
-                                              valueListenable: game.state,
-                                            )
-                                          ],
-                                        ),
+                                      return Row(
+                                        children: [
+                                          // Text(localPlayer
+                                          //     .hand.cards.value[index].state
+                                          //     .toString()),
+                                          // Text(localPlayer.swaps.value
+                                          //     .toString()),
+                                          ValueListenableBuilder(
+                                            builder: (context, value, child) => (value != 0 ||
+                                                        localPlayer.hand.cards.value[index].state == CardState.swap) &&
+                                                    game.state.value == GameState.waitingForPlayerToSwap
+                                                ? layoutSwapActions(index)
+                                                : Container(),
+                                            valueListenable: localPlayer.swaps,
+                                          ),
+                                          ValueListenableBuilder(
+                                            builder: (context, GameState value, child) =>
+                                                (value == GameState.playing && game.activePlayerLazy == localPlayer)
+                                                    ? layoutPlayActions(index)
+                                                    : Container(),
+                                            valueListenable: game.state,
+                                          )
+                                        ],
                                       );
                                     })
                               ],

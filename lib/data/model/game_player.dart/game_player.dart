@@ -32,8 +32,6 @@ class GamePlayer {
   }
 
   GameCard play(GameCard card, {String? sender = ''}) {
-    print('($sender): ${name}: ${hand.cards.value}');
-    print(card);
     final played = hand.cards.value.singleWhere((element) => element.toString() == card.toString());
     hand.remove(played);
     played.state = CardState.played;
@@ -47,7 +45,7 @@ class GamePlayer {
     } else {
       card = logicalFirst(game!);
     }
-    await Future.delayed(Duration(milliseconds: 550));
+    await Future.delayed(const Duration(milliseconds: 550));
     final played = play(card);
     return played;
   }
@@ -78,7 +76,7 @@ class GamePlayer {
   void notifyWin() async {
     donut = false;
     winner.value = true;
-    await Future.delayed(Duration(seconds: 5));
+    await Future.delayed(const Duration(seconds: 5));
     winner.value = false;
   }
 

@@ -31,15 +31,15 @@ class GameCardStack {
 
   List<Map<String, String>> toJsonArray() {
     List<Map<String, String>> output = [];
-    cards.value.forEach((element) {
+    for (final element in cards.value) {
       output.add(element.toJson());
-    });
+    }
     return output;
   }
 
   static GameCardStack fromJson(element) {
     var stack = GameCardStack();
-    for (var card in element) {
+    for (final card in element) {
       stack.add(GameCard.fromJson(card)!);
     }
     return stack;

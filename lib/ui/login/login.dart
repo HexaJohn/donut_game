@@ -22,7 +22,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        child: Container(
+        child: SizedBox(
           width: 350,
           height: 500,
           child: Column(
@@ -47,11 +47,11 @@ class _LoginPageState extends State<LoginPage> {
                   children: [
                     TextButton(
                       onPressed: () async => await handshake(),
-                      child: Text('Handshake'),
+                      child: const Text('Handshake'),
                     ),
                     TextButton(
                         onPressed: () async {
-                          var snackbar1 = SnackBar(content: Text('Logging in...'));
+                          var snackbar1 = const SnackBar(content: Text('Logging in...'));
                           ScaffoldMessenger.of(context).showSnackBar(snackbar1);
                           try {
                             Uri uri = Uri(scheme: 'http', host: serverAddress, port: port, path: '/connect');
@@ -59,7 +59,7 @@ class _LoginPageState extends State<LoginPage> {
                             try {
                               // response = await get(uri);
                               String? deviceId = await PlatformDeviceId.getDeviceId;
-                              var snackbar2 = SnackBar(content: Text('Connecting...'));
+                              var snackbar2 = const SnackBar(content: Text('Connecting...'));
                               ScaffoldMessenger.of(context).showSnackBar(snackbar2);
                               String body = '''{"username": "$username", "id": "${deviceId!}"}''';
                               response = await post(uri, body: body);
@@ -139,7 +139,7 @@ class _LoginPageState extends State<LoginPage> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (BuildContext context) => OfflineGamePage(
+                                builder: (BuildContext context) => const OfflineGamePage(
                                   title: '',
                                   // username: username,
                                 ),

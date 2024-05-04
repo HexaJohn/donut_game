@@ -34,16 +34,16 @@ class _ServerGUIState extends State<ServerGUI> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        child: Container(
+        child: SizedBox(
           width: 350,
           height: 500,
           child: Column(
             children: [
-              Text('SERVER GUI'),
+              const Text('SERVER GUI'),
               Card(
                 child: TextField(
                   controller: TextEditingController(),
-                  decoration: InputDecoration(hintText: 'Run Command:'),
+                  decoration: const InputDecoration(hintText: 'Run Command:'),
                 ),
               ),
               Expanded(
@@ -53,7 +53,7 @@ class _ServerGUIState extends State<ServerGUI> {
                     // shrinkWrap: true,
                     itemCount: serverGame.log.length,
                     itemBuilder: (context, index) {
-                      return Card(child: Text('${serverGame.log.keys.toList().reversed.toList()[index]}'));
+                      return Card(child: Text(serverGame.log.keys.toList().reversed.toList()[index]));
                     },
                   ),
                 ),

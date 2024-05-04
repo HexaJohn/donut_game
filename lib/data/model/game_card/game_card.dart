@@ -28,22 +28,19 @@ class GameCard {
 
   static GameCard? fromJson(Map<String, dynamic> element) {
     try {
-      print("table card belongs to ${element['belongsTo']}");
       return GameCard(stringToSuit[element['suit']]!, stringToValue[element['value']]!)
         ..state = stringToCardState[element['state']]!
         ..belongsTo = serverGame.playerDB.values.firstWhere((db) => db.name == element['belongsTo']);
-    } catch (e, s) {
-      print('invalid card');
-      print(s);
+    } catch (e) {
       return null;
     }
   }
 
   static List<Map<String, String>> jsonArray(List<GameCard> value) {
     List<Map<String, String>> output = [];
-    value.forEach((element) {
+    for (final element in value) {
       output.add(element.toJson());
-    });
+    }
     return output;
   }
 

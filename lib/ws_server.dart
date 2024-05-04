@@ -163,7 +163,7 @@ Future<Response> _newConnectionHandler(Request request) async {
     serverGame.protectedDealer = 0;
     serverGame.state.value = GameState.waitingToDeal;
   }
-  return Response.ok('Welcome, ${playerData}');
+  return Response.ok('Welcome, $playerData');
 }
 
 Future<Response> _activeConnection(Request request) async {

@@ -38,6 +38,8 @@ dependencies:
   platform_device_id: ^1.0.1
   websocket_universal: ^0.4.2
 
+  shelf: any
+  shelf_static: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
