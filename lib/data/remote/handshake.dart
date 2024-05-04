@@ -1,5 +1,4 @@
-import 'package:donut_game/src/utils/donut_socket.dart';
-import 'package:websocket_universal/websocket_universal.dart';
+import 'package:donut_game/data/remote/donut_socket.dart';
 
 Future handshake() async {
   await DonutSocket.connect();

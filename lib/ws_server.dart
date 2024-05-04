@@ -7,11 +7,11 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:donut_game/constants.dart';
-import 'package:donut_game/modules/cards.dart';
-import 'package:donut_game/modules/game.dart';
-import 'package:donut_game/modules/players.dart';
-import 'package:donut_game/screens/server_gui.dart';
+import 'package:donut_game/res/resources.dart';
+import 'package:donut_game/data/model/game_card/game_card.dart';
+import 'package:donut_game/data/model/game/game.dart';
+import 'package:donut_game/data/model/game_player.dart/game_player.dart';
+import 'package:donut_game/ui/server_home/server_home.dart';
 import 'package:flutter/material.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
@@ -56,7 +56,7 @@ Future main() async {
 
   print('Serving at http://${server.address.host}:${server.port}');
 
-  runApp(const ServerApp());
+  runApp(const ServerHome());
 
   await for (HttpRequest request in ws) {
     if (request.uri.path == '/ws') {

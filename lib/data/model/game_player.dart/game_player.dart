@@ -1,6 +1,7 @@
-import 'package:donut_game/constants.dart';
-import 'package:donut_game/modules/cards.dart';
-import 'package:donut_game/modules/game.dart';
+import 'package:donut_game/data/model/game_card/game_card_stack.dart';
+import 'package:donut_game/res/resources.dart';
+import 'package:donut_game/data/model/game_card/game_card.dart';
+import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/ws_server.dart';
 import 'package:flutter/widgets.dart';
 
@@ -9,7 +10,7 @@ class GamePlayer {
   int number;
   String name;
   String id = '';
-  CardStack hand = CardStack();
+  GameCardStack hand = GameCardStack();
   final ValueNotifier<int> swaps = ValueNotifier(3);
   bool swapped = false;
   int folds = 0;
@@ -87,56 +88,5 @@ class GamePlayer {
 
   static fromJson(Map<String, dynamic> data) {
     return GamePlayer(data['data'][0], 0, true);
-  }
-}
-
-class CardStack {
-  ValueNotifier<List<GameCard>> cards = ValueNotifier([]);
-
-  void add(GameCard card) {
-    var cache = cards.value;
-    cache.add(card);
-    cards.value = List.from(cache);
-  }
-
-  void remove(GameCard card) {
-    var cache = cards.value;
-    cache.remove(card);
-    cards.value = List.from(cache);
-  }
-
-  void dump() {
-    cards.value = List.from([]);
-  }
-
-  List<GameCard> swapDiscard() {
-    int discarded = 0;
-    final swap = cards.value.where((element) => element.state == CardState.swap).toList();
-    for (var element in swap) {
-      discarded++;
-      element.state = CardState.folded;
-    }
-
-    // cards.value = List.from(
-    //     cards.value.where((element) => element.state == CardState.held));
-
-    // cards.value = List.from(cards.value);
-    return swap.toList();
-  }
-
-  List<Map<String, String>> toJsonArray() {
-    List<Map<String, String>> output = [];
-    cards.value.forEach((element) {
-      output.add(element.toJson());
-    });
-    return output;
-  }
-
-  static CardStack fromJson(element) {
-    var stack = CardStack();
-    for (var card in element) {
-      stack.add(GameCard.fromJson(card)!);
-    }
-    return stack;
   }
 }

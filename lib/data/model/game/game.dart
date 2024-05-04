@@ -1,9 +1,11 @@
 import 'dart:math';
 
-import 'package:donut_game/constants.dart';
+import 'package:donut_game/data/model/game_card/game_card_deck.dart';
+import 'package:donut_game/data/model/game_card/game_card_stack.dart';
+import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/main.dart';
-import 'package:donut_game/modules/cards.dart';
-import 'package:donut_game/modules/players.dart';
+import 'package:donut_game/data/model/game_card/game_card.dart';
+import 'package:donut_game/data/model/game_player.dart/game_player.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart';
 import 'package:platform_device_id/platform_device_id.dart';
@@ -21,7 +23,7 @@ class Game {
     print('AAA: Resety');
     Game().log.clear();
     Game().playerDB.clear();
-    Game().deck = GameDeck.fresh();
+    Game().deck = GameCardDeck.fresh();
     Game().protectedActive = 1;
     Game().protectedDealer = 0;
     Game().table.dump();
@@ -40,7 +42,7 @@ class Game {
   Map<String, GamePlayer> playerDB = {};
   List<GamePlayer> get players => playerDB.values.toList();
   Iterable<GamePlayer> get playersByRef => playerDB.values;
-  GameDeck deck = GameDeck.fresh();
+  GameCardDeck deck = GameCardDeck.fresh();
   int get cardsPerRound => 5;
   int _tricksRemaining = 0;
   int startingScore = 20;
@@ -48,16 +50,13 @@ class Game {
   int __dealer = 0;
   int __active = 1;
 
-  late final ValueNotifier<GamePlayer> _dealerValue =
-      ValueNotifier(players[__dealer]);
-  late final ValueNotifier<GamePlayer> _activeValue =
-      ValueNotifier(players[__active]);
+  late final ValueNotifier<GamePlayer> _dealerValue = ValueNotifier(players[__dealer]);
+  late final ValueNotifier<GamePlayer> _activeValue = ValueNotifier(players[__active]);
 
-  final ValueNotifier<GameState> state =
-      ValueNotifier(GameState.waitingForPlayers);
+  final ValueNotifier<GameState> state = ValueNotifier(GameState.waitingForPlayers);
   final ValueNotifier<Suit> trumpSuit = ValueNotifier(Suit.values.first);
-  CardStack table = CardStack();
-  CardStack discard = CardStack();
+  GameCardStack table = GameCardStack();
+  GameCardStack discard = GameCardStack();
   GameCard? leadingCard;
   int get _dealer => __dealer;
 
@@ -347,8 +346,7 @@ class Game {
   }
 
   Future clientDeal() async {
-    Uri uri =
-        Uri(scheme: 'http', host: serverAddress, port: port, path: '/vote');
+    Uri uri = Uri(scheme: 'http', host: serverAddress, port: port, path: '/vote');
     Response response;
     String? deviceId = await PlatformDeviceId.getDeviceId;
 
@@ -361,8 +359,7 @@ class Game {
   }
 
   Future clientSwap(int cardIndex) async {
-    Uri uri =
-        Uri(scheme: 'http', host: serverAddress, port: port, path: '/swap');
+    Uri uri = Uri(scheme: 'http', host: serverAddress, port: port, path: '/swap');
     Response response;
     String? deviceId = await PlatformDeviceId.getDeviceId;
 
@@ -375,8 +372,7 @@ class Game {
   }
 
   Future clientSwapFinalize() async {
-    Uri uri =
-        Uri(scheme: 'http', host: serverAddress, port: port, path: '/swapvote');
+    Uri uri = Uri(scheme: 'http', host: serverAddress, port: port, path: '/swapvote');
     Response response;
     String? deviceId = await PlatformDeviceId.getDeviceId;
 
@@ -389,8 +385,7 @@ class Game {
   }
 
   Future clientPlayCard(int card) async {
-    Uri uri =
-        Uri(scheme: 'http', host: serverAddress, port: port, path: '/play');
+    Uri uri = Uri(scheme: 'http', host: serverAddress, port: port, path: '/play');
     Response response;
     String? deviceId = await PlatformDeviceId.getDeviceId;
 
@@ -403,8 +398,7 @@ class Game {
   }
 
   Future clientFold() async {
-    Uri uri =
-        Uri(scheme: 'http', host: serverAddress, port: port, path: '/fold');
+    Uri uri = Uri(scheme: 'http', host: serverAddress, port: port, path: '/fold');
     Response response;
     String? deviceId = await PlatformDeviceId.getDeviceId;
 
@@ -417,8 +411,7 @@ class Game {
   }
 
   Future adminReset() async {
-    Uri uri =
-        Uri(scheme: 'http', host: serverAddress, port: port, path: '/reset');
+    Uri uri = Uri(scheme: 'http', host: serverAddress, port: port, path: '/reset');
     Response response;
 
     response = await get(uri);

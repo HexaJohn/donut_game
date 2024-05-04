@@ -1,10 +1,8 @@
 import 'package:donut_game/server.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart';
-import 'package:platform_device_id/platform_device_id.dart';
 
-class ServerApp extends StatelessWidget {
-  const ServerApp({Key? key}) : super(key: key);
+class ServerHome extends StatelessWidget {
+  const ServerHome({Key? key}) : super(key: key);
 
   // This widget is the root of your application.
   @override
@@ -55,9 +53,7 @@ class _ServerGUIState extends State<ServerGUI> {
                     // shrinkWrap: true,
                     itemCount: serverGame.log.length,
                     itemBuilder: (context, index) {
-                      return Card(
-                          child: Text(
-                              '${serverGame.log.keys.toList().reversed.toList()[index]}'));
+                      return Card(child: Text('${serverGame.log.keys.toList().reversed.toList()[index]}'));
                     },
                   ),
                 ),

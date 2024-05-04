@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:donut_game/screens/internet_play.dart';
-import 'package:donut_game/screens/offline_play.dart';
-import 'package:donut_game/src/utils/handshake.dart';
+import 'package:donut_game/ui/internet_play.dart';
+import 'package:donut_game/ui/offline_play.dart';
+import 'package:donut_game/data/remote/handshake.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart';
 import 'package:platform_device_id/platform_device_id.dart';

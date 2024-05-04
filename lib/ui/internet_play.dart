@@ -1,21 +1,18 @@
 import 'dart:convert';
-import 'dart:developer';
-import 'dart:io';
-import 'dart:math';
 
-import 'package:donut_game/constants.dart';
+import 'package:donut_game/data/model/game_card/game_card_stack.dart';
+import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/main.dart';
-import 'package:donut_game/modules/cards.dart';
-import 'package:donut_game/modules/game.dart';
-import 'package:donut_game/modules/players.dart';
-import 'package:donut_game/widgets.dart/cards.dart';
+import 'package:donut_game/data/model/game_card/game_card.dart';
+import 'package:donut_game/data/model/game/game.dart';
+import 'package:donut_game/data/model/game_player.dart/game_player.dart';
+import 'package:donut_game/ui/widget/playing_card.dart';
+import 'package:donut_game/ui/widget/playing_card_stack.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:http/http.dart';
 
 class OnlineGamePage extends StatefulWidget {
-  const OnlineGamePage({Key? key, required this.title, required this.username})
-      : super(key: key);
+  const OnlineGamePage({Key? key, required this.title, required this.username}) : super(key: key);
 
   // This widget is the home page of your application. It is stateful, meaning
   // that it has a State object (defined below) that contains fields that affect
@@ -39,8 +36,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   Game game = Game();
   GamePlayer get localPlayer {
     try {
-      return game.playerDB.values
-          .firstWhere((element) => element.name == username);
+      return game.playerDB.values.firstWhere((element) => element.name == username);
     } catch (e) {
       return GamePlayer(widget.username, game.players.length + 1, true);
     }
@@ -49,8 +45,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
   void connectionLoop() async {
     while (keepConnected) {
       await Future.delayed(const Duration(milliseconds: 1000));
-      Uri uri =
-          Uri(scheme: 'http', host: serverAddress, port: port, path: '/update');
+      Uri uri = Uri(scheme: 'http', host: serverAddress, port: port, path: '/update');
       Response response;
       try {
         response = await get(uri);
@@ -63,12 +58,10 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           for (var element in gameJson[0]['players']) {
             activeKeys.add(element['id']);
 
-            game.playerDB.putIfAbsent(
-                element['id'],
-                () => GamePlayer(element['username'], game.playerDB.length,
-                    element['human'] == 'true' ? true : false));
+            game.playerDB.putIfAbsent(element['id'],
+                () => GamePlayer(element['username'], game.playerDB.length, element['human'] == 'true' ? true : false));
 
-            var cards = CardStack.fromJson(element['cards']);
+            var cards = GameCardStack.fromJson(element['cards']);
             for (var card in cards.cards.value) {
               card.belongsTo = game.playerDB[element['id']];
             }
@@ -90,8 +83,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           game.protectedActive = gameJson[0]['game']['active'];
           game.protectedDealer = gameJson[0]['game']['dealer'];
           try {
-            game.leadingCard =
-                GameCard.fromJson(gameJson[0]['game']['leading_card']);
+            game.leadingCard = GameCard.fromJson(gameJson[0]['game']['leading_card']);
           } catch (e) {
             // TODO
             print('no leading card');
@@ -110,8 +102,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           }
           game.table.cards.value = newCards;
           game.discard.cards.value = discards;
-          Iterable active = game.playerDB.keys
-              .where((element) => activeKeys.contains(element));
+          Iterable active = game.playerDB.keys.where((element) => activeKeys.contains(element));
 
           for (var element in active) {
             game.playerDB.removeWhere((key, value) => !active.contains(key));
@@ -170,9 +161,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                     )));
       case CardState.swap:
         return ElevatedButton(
-            style: ButtonStyle(
-                backgroundColor:
-                    MaterialStateColor.resolveWith((states) => Colors.red)),
+            style: ButtonStyle(backgroundColor: MaterialStateColor.resolveWith((states) => Colors.red)),
             onPressed: () {
               setState(() {
                 player.hand.cards.value[index].state = CardState.held;
@@ -186,9 +175,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                     )));
       default:
         return ElevatedButton(
-            style: ButtonStyle(
-                overlayColor: MaterialStateColor.resolveWith(
-                    (states) => Colors.red.shade50)),
+            style: ButtonStyle(overlayColor: MaterialStateColor.resolveWith((states) => Colors.red.shade50)),
             onPressed: () {},
             child: const Text('!',
                 style: TextStyle(
@@ -202,8 +189,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
     final _card = localPlayer.hand.cards.value.elementAt(index);
     var _lead = game.leadingCard?.suit;
     bool throwoff = false;
-    if (player.hand.cards.value
-        .any((element) => element.suit == game.leadingCard?.suit)) {
+    if (player.hand.cards.value.any((element) => element.suit == game.leadingCard?.suit)) {
       throwoff = false;
     } else {
       throwoff = true;
@@ -232,9 +218,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                       )));
         case CardState.swap:
           return ElevatedButton(
-              style: ButtonStyle(
-                  overlayColor: MaterialStateColor.resolveWith(
-                      (states) => Colors.red.shade50)),
+              style: ButtonStyle(overlayColor: MaterialStateColor.resolveWith((states) => Colors.red.shade50)),
               onPressed: () {
                 setState(() {
                   player.hand.cards.value[index].state = CardState.held;
@@ -247,9 +231,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                       )));
         default:
           return ElevatedButton(
-              style: ButtonStyle(
-                  overlayColor: MaterialStateColor.resolveWith(
-                      (states) => Colors.red.shade50)),
+              style: ButtonStyle(overlayColor: MaterialStateColor.resolveWith((states) => Colors.red.shade50)),
               onPressed: () {},
               child: const Text('!',
                   style: TextStyle(
@@ -275,8 +257,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
               ),
               child: Text(
                 'Donut: A Card Game',
-                style:
-                    TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+                style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
               ),
             ),
             const ListTile(
@@ -357,9 +338,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                       builder: (context, GamePlayer value, child) {
                         return Column(
                           children: [
-                            Text(game.players[playerIndex].voteToDeal
-                                ? 'ready'
-                                : 'not ready'),
+                            Text(game.players[playerIndex].voteToDeal ? 'ready' : 'not ready'),
                             Card(
                               child: Column(
                                 children: [
@@ -372,16 +351,13 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                                       child: Stack(
                                         children: [
                                           ValueListenableBuilder(
-                                              valueListenable: game
-                                                  .players[playerIndex].winner,
-                                              builder:
-                                                  (context, bool value, child) {
+                                              valueListenable: game.players[playerIndex].winner,
+                                              builder: (context, bool value, child) {
                                                 return value
                                                     ? LinearProgressIndicator(
                                                         minHeight: 33,
                                                         color: Colors.yellow,
-                                                        backgroundColor: Colors
-                                                            .yellow.shade100,
+                                                        backgroundColor: Colors.yellow.shade100,
                                                       )
                                                     : Container();
                                               }),
@@ -390,37 +366,18 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                                             child: Row(
                                               children: [
                                                 Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                          top: 2.0,
-                                                          left: 8.0,
-                                                          right: 4.0),
+                                                  padding: const EdgeInsets.only(top: 2.0, left: 8.0, right: 4.0),
                                                   child: ValueListenableBuilder(
-                                                      valueListenable:
-                                                          game.dealer,
-                                                      builder: (context,
-                                                          GamePlayer value,
-                                                          child) {
+                                                      valueListenable: game.dealer,
+                                                      builder: (context, GamePlayer value, child) {
                                                         return Icon(
-                                                          value.name ==
-                                                                  game
-                                                                      .players[
-                                                                          playerIndex]
-                                                                      .name
+                                                          value.name == game.players[playerIndex].name
                                                               ? Icons.star
-                                                              : game
-                                                                      .players[
-                                                                          playerIndex]
-                                                                      .human
-                                                                  ? game.players[playerIndex].name ==
-                                                                          localPlayer
-                                                                              .name
-                                                                      ? Icons
-                                                                          .account_circle
-                                                                      : Icons
-                                                                          .account_circle_outlined
-                                                                  : Icons
-                                                                      .psychology_rounded,
+                                                              : game.players[playerIndex].human
+                                                                  ? game.players[playerIndex].name == localPlayer.name
+                                                                      ? Icons.account_circle
+                                                                      : Icons.account_circle_outlined
+                                                                  : Icons.psychology_rounded,
                                                           size: 14,
                                                         );
                                                       }),
@@ -428,27 +385,18 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                                                 //Username
                                                 Expanded(
                                                   child: Text(
-                                                    game.players
-                                                        .toList()[playerIndex]
-                                                        .name,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
+                                                    game.players.toList()[playerIndex].name,
+                                                    overflow: TextOverflow.ellipsis,
                                                     maxLines: 1,
                                                   ),
                                                 ),
                                                 //Score
                                                 ValueListenableBuilder(
-                                                    valueListenable: game
-                                                        .players[playerIndex]
-                                                        .score,
-                                                    builder: (context,
-                                                        int value, child) {
+                                                    valueListenable: game.players[playerIndex].score,
+                                                    builder: (context, int value, child) {
                                                       return Text(
                                                         '$value',
-                                                        style: const TextStyle(
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .bold),
+                                                        style: const TextStyle(fontWeight: FontWeight.bold),
                                                       );
                                                     }),
                                               ],
@@ -461,22 +409,15 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
                                   //Cards in hand
                                   ValueListenableBuilder(
-                                    valueListenable:
-                                        game.players[playerIndex].hand.cards,
-                                    builder:
-                                        (context, List<GameCard> value, child) {
+                                    valueListenable: game.players[playerIndex].hand.cards,
+                                    builder: (context, List<GameCard> value, child) {
                                       List<Widget> children = List.generate(
                                         value.length,
                                         (index) {
-                                          var child = (game.dealer.value ==
-                                                      game.players[
-                                                          playerIndex] &&
+                                          var child = (game.dealer.value == game.players[playerIndex] &&
                                                   index == 4 &&
-                                                  (game.state.value ==
-                                                          GameState.swapping ||
-                                                      game.state.value ==
-                                                          GameState
-                                                              .waitingForPlayerToSwap))
+                                                  (game.state.value == GameState.swapping ||
+                                                      game.state.value == GameState.waitingForPlayerToSwap))
                                               ? PlayingCardWidget(
                                                   card: value[index],
                                                   back: false,
@@ -509,20 +450,14 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             child: ValueListenableBuilder(
                 valueListenable: game.trumpSuit,
                 builder: (context, Suit value, child) {
-                  return Text(
-                      "Current Trump: ${suitToString[value] ?? 'none'}, Debug State: ${game.state.value}");
+                  return Text("Current Trump: ${suitToString[value] ?? 'none'}, Debug State: ${game.state.value}");
                 }),
           ),
           Container(
             decoration: BoxDecoration(
                 color: Colors.green.shade900,
                 borderRadius: BorderRadius.circular(5),
-                boxShadow: [
-                  const BoxShadow(
-                      color: Colors.black26,
-                      offset: Offset(0, 1),
-                      blurRadius: 1.0)
-                ]),
+                boxShadow: [const BoxShadow(color: Colors.black26, offset: Offset(0, 1), blurRadius: 1.0)]),
             padding: const EdgeInsets.all(8),
             margin: const EdgeInsets.all(8),
             height: 145,
@@ -574,12 +509,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
             decoration: BoxDecoration(
                 color: Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(5),
-                boxShadow: [
-                  const BoxShadow(
-                      color: Colors.black26,
-                      offset: Offset(0, 1),
-                      blurRadius: 1.0)
-                ]),
+                boxShadow: [const BoxShadow(color: Colors.black26, offset: Offset(0, 1), blurRadius: 1.0)]),
             height: 175,
             child: ValueListenableBuilder(
                 valueListenable: game.trumpSuit,
@@ -614,31 +544,17 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
                                             // Text(localPlayer.swaps.value
                                             //     .toString()),
                                             ValueListenableBuilder(
-                                              builder: (context, value,
-                                                      child) =>
-                                                  (value != 0 ||
-                                                              localPlayer
-                                                                      .hand
-                                                                      .cards
-                                                                      .value[
-                                                                          index]
-                                                                      .state ==
-                                                                  CardState
-                                                                      .swap) &&
-                                                          game.state.value ==
-                                                              GameState
-                                                                  .waitingForPlayerToSwap
-                                                      ? layoutSwapActions(index)
-                                                      : Container(),
-                                              valueListenable:
-                                                  localPlayer.swaps,
+                                              builder: (context, value, child) => (value != 0 ||
+                                                          localPlayer.hand.cards.value[index].state ==
+                                                              CardState.swap) &&
+                                                      game.state.value == GameState.waitingForPlayerToSwap
+                                                  ? layoutSwapActions(index)
+                                                  : Container(),
+                                              valueListenable: localPlayer.swaps,
                                             ),
                                             ValueListenableBuilder(
-                                              builder: (context,
-                                                      GameState value, child) =>
-                                                  (value == GameState.playing &&
-                                                          game.activePlayerLazy ==
-                                                              localPlayer)
+                                              builder: (context, GameState value, child) =>
+                                                  (value == GameState.playing && game.activePlayerLazy == localPlayer)
                                                       ? layoutPlayActions(index)
                                                       : Container(),
                                               valueListenable: game.state,
