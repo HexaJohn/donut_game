@@ -22,17 +22,10 @@ class GameCardStack {
   }
 
   List<GameCard> swapDiscard() {
-    int discarded = 0;
     final swap = cards.value.where((element) => element.state == CardState.swap).toList();
     for (var element in swap) {
-      discarded++;
       element.state = CardState.folded;
     }
-
-    // cards.value = List.from(
-    //     cards.value.where((element) => element.state == CardState.held));
-
-    // cards.value = List.from(cards.value);
     return swap.toList();
   }
 

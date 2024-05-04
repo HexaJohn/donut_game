@@ -1,26 +1,21 @@
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
-import 'package:donut_game/data/model/game/game.dart';
-import 'package:donut_game/data/model/game_player.dart/game_player.dart';
 import 'package:flutter/material.dart';
 
 class PlayingCardWidget extends StatelessWidget {
-  PlayingCardWidget({Key? key, required this.card, this.back, this.size, this.label, this.trump}) : super(key: key);
+  PlayingCardWidget({Key? key, required this.card, this.back = false, this.size = 50, this.label, this.trump})
+      : super(key: key);
 
   final GameCard card;
-  bool? back;
-  double? size;
-  String? label;
-  Suit? trump;
-  bool _trump = false;
+  final bool? back;
+  final double? size;
+  final String? label;
+  final Suit? trump;
+  late final double height = 1 - (0.0125 * size! / 50);
+  late final bool _trump = card.suit == trump;
 
   @override
   Widget build(BuildContext context) {
-    _trump = card.suit == trump;
-    back ??= false;
-    size ??= 50;
-    double height = 1 - (0.0125 * size! / 50);
-
     Widget? _label;
 
     if (label != null) {

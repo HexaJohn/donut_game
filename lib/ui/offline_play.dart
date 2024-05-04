@@ -27,7 +27,6 @@ class OfflineGamePage extends StatefulWidget {
 }
 
 class _OfflineGamePageState extends State<OfflineGamePage> {
-  int _counter = 0;
   Game game = Game();
   late final GamePlayer localPlayer = GamePlayer('You', game.players.length + 1, true);
 

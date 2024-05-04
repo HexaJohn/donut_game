@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 class PlayingCardStackWidget extends StatelessWidget {
   PlayingCardStackWidget({required this.cards, Key? key}) : super(key: key);
 
-  List<GameCard> cards;
-  late PlayingCardWidget? bottomCard;
-  List<Widget> _children = [];
+  final List<GameCard> cards;
+  late final PlayingCardWidget? bottomCard;
+  final List<Widget> _children = [];
 
   @override
   Widget build(BuildContext context) {
@@ -22,9 +22,10 @@ class PlayingCardStackWidget extends StatelessWidget {
             child: Center(
                 child: Text(
               cards.length.toString(),
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
             ))));
-    try {
+
+    if (cards.isNotEmpty) {
       bottomCard = PlayingCardWidget(
         card: cards.last,
         size: 100,
@@ -32,8 +33,6 @@ class PlayingCardStackWidget extends StatelessWidget {
         back: cards.last.state == CardState.folded,
       );
       _children.add(bottomCard!);
-    } catch (e) {
-      // TODO
     }
 
     _children.add(_label);

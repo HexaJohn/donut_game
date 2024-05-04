@@ -2,12 +2,13 @@ import 'dart:convert';
 
 import 'package:donut_game/data/model/game_card/game_card_stack.dart';
 import 'package:donut_game/res/resources.dart';
-import 'package:donut_game/main.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
+import 'package:donut_game/ui/login/login.dart';
 import 'package:donut_game/ui/widget/playing_card.dart';
 import 'package:donut_game/ui/widget/playing_card_stack.dart';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart';
 
@@ -31,7 +32,6 @@ class OnlineGamePage extends StatefulWidget {
 }
 
 class _OnlineGamePageState extends State<OnlineGamePage> {
-  int _counter = 0;
   bool keepConnected = true;
   Game game = Game();
   GamePlayer get localPlayer {
