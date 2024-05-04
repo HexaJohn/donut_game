@@ -60,80 +60,40 @@ class _LoginPageState extends State<LoginPage> {
                               // response = await get(uri);
                               String? deviceId = await PlatformDeviceId.getDeviceId;
                               var snackbar2 = const SnackBar(content: Text('Connecting...'));
-                              ScaffoldMessenger.of(context).showSnackBar(snackbar2);
+                              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(snackbar2);
                               String body = '''{"username": "$username", "id": "${deviceId!}"}''';
                               response = await post(uri, body: body);
                               var snackbar3 = SnackBar(content: Text('Connecting... (${response.statusCode})'));
-                              ScaffoldMessenger.of(context).showSnackBar(snackbar3);
+                              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(snackbar3);
                               if (response.statusCode == 200) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (BuildContext context) => OnlineGamePage(
-                                      title: '',
-                                      username: username,
+                                if (context.mounted) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (BuildContext context) => OnlineGamePage(
+                                        title: '',
+                                        username: username,
+                                      ),
                                     ),
-                                  ),
-                                );
+                                  );
+                                }
                               } else {
                                 var snackbar = SnackBar(content: Text('Error: ${response.statusCode}'));
-                                ScaffoldMessenger.of(context).showSnackBar(snackbar);
+                                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(snackbar);
                               }
                             } catch (e) {
                               var snackbar = SnackBar(content: Text('Error: $e'));
-                              ScaffoldMessenger.of(context).showSnackBar(snackbar);
+                              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(snackbar);
                             }
                           } catch (e) {
                             var snackbar = SnackBar(content: Text('Error: $e'));
-                            ScaffoldMessenger.of(context).showSnackBar(snackbar);
+                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(snackbar);
                           }
                         },
                         child: const Text('Join Game')),
-//                     TextButton(
-//                         onPressed: () async {
-//                           try {
-//                             _serverAddress = '192.168.0.11';
-//                             username = 'John';
-//                             Uri uri = Uri(scheme: 'http', host: _serverAddress, port: port, path: '/connect');
-//                             Response response;
-//                             try {
-//                               // response = await get(uri);
-//                               String? deviceId = await PlatformDeviceId.getDeviceId;
-
-//                               String body = '''
-// {"username": "$username", "id": "${deviceId!}"}''';
-//                               response = await post(uri, body: body);
-//                               if (response.statusCode == 200) {
-//                                 Navigator.push(
-//                                   context,
-//                                   MaterialPageRoute(
-//                                     builder: (BuildContext context) => OnlineGamePage(
-//                                       title: '',
-//                                       username: username,
-//                                     ),
-//                                   ),
-//                                 );
-//                               }
-//                             } catch (e) {
-//                               var snackbar = SnackBar(content: Text('Error: $e'));
-//                               ScaffoldMessenger.of(context).showSnackBar(snackbar);
-//                               print('Error: $e');
-//                             }
-//                           } catch (e) {
-//                             var snackbar = SnackBar(content: Text('Error: $e'));
-//                             ScaffoldMessenger.of(context).showSnackBar(snackbar);
-//                             print('FAILED: $e');
-//                           }
-//                         },
-//                         child: const Text('Join Local')),
                     TextButton(
                         onPressed: () async {
                           try {
-                            // var res = await http
-                            // .get(Uri.tryParse('173.24.236.183/connect')!);
-                            // res.statusCode;
-                            // var snackbar = SnackBar(content: Text('bad request'));
-                            // ScaffoldMessenger.of(context).showSnackBar(snackbar);
                             Navigator.push(
                               context,
                               MaterialPageRoute(

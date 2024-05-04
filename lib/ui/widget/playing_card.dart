@@ -16,10 +16,10 @@ class PlayingCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget? _label;
+    Widget? labelWidget;
 
     if (label != null) {
-      _label = Padding(
+      labelWidget = Padding(
         padding: const EdgeInsets.only(bottom: 4, left: 4, right: 4),
         child: Text(
           label!,
@@ -30,7 +30,7 @@ class PlayingCardWidget extends StatelessWidget {
       );
     }
 
-    Text _cardText = back!
+    Text cardText = back!
         ? Text(
             stringToCard['card back'] ?? '🃌',
             style: TextStyle(
@@ -54,10 +54,10 @@ class PlayingCardWidget extends StatelessWidget {
             ),
           );
 
-    List<Widget> _children = [];
-    _children.add(_cardText);
-    if (_label != null) {
-      _children.add(_label);
+    List<Widget> children = [];
+    children.add(cardText);
+    if (labelWidget != null) {
+      children.add(labelWidget);
     }
     return SizedBox(
       width: size! * 0.8 + 3,
@@ -65,7 +65,7 @@ class PlayingCardWidget extends StatelessWidget {
           color: back == false && _trump == true ? Colors.yellow : Colors.white,
           child: Padding(
             padding: const EdgeInsets.all(0.0),
-            child: Column(children: _children),
+            child: Column(children: children),
           )),
     );
   }

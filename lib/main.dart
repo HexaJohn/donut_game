@@ -8,7 +8,6 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -17,11 +16,8 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.red,
         scaffoldBackgroundColor: Colors.grey.shade200,
         cardColor: Colors.grey.shade100,
-        // fontFamily: 'FluentIcons'
       ),
-      home: const LoginPage(
-          // title: ''
-          ),
+      home: const LoginPage(),
     );
   }
 }

@@ -12,7 +12,7 @@ class PlayingCardStackWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Material _label = Material(
+    Material label = Material(
         color: Colors.black,
         elevation: 5.0,
         borderRadius: BorderRadius.circular(25),
@@ -35,7 +35,7 @@ class PlayingCardStackWidget extends StatelessWidget {
       _children.add(bottomCard!);
     }
 
-    _children.add(_label);
+    _children.add(label);
 
     return Stack(
       alignment: AlignmentDirectional.center,

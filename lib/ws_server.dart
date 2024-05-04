@@ -1,9 +1,3 @@
-// Copyright (c) 2021, the Dart project authors. Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// ignore_for_file: avoid_print
-
 import 'dart:convert';
 import 'dart:io';
 
@@ -28,14 +22,13 @@ Future main() async {
   final port = int.parse(/*'54221'*/ '27960');
 
   var ws = await HttpServer.bind(InternetAddress.loopbackIPv4, 27961);
-  print('WebSocket bound on localhost:${ws.port}');
 
   // See https://pub.dev/documentation/shelf/latest/shelf/Cascade-class.html
   final cascade = Cascade()
       // First, serve files from the 'public' directory
       .add(_staticHandler) // This is having issues
       // If a corresponding file is not found, send requests to a `Router`
-      .add(_router);
+      .add(_router.call);
 
   // See https://pub.dev/documentation/shelf/latest/shelf_io/serve.html
   final server = await shelf_io.serve(
@@ -44,7 +37,6 @@ Future main() async {
       logger: (message, isError) {
         serverGame.log.putIfAbsent(message, () => isError);
         serverGame.flipFlop.notifyListeners();
-        print(message);
       },
     )
         // See https://pub.dev/documentation/shelf/latest/shelf/MiddlewareExtensions/addHandler.html
@@ -53,26 +45,21 @@ Future main() async {
     port,
   );
 
-  print('Serving at http://${server.address.host}:${server.port}');
-
   runApp(const ServerHome());
 
   await for (HttpRequest request in ws) {
     if (request.uri.path == '/ws') {
       // Upgrade an HttpRequest to a WebSocket connection
       var socket = await WebSocketTransformer.upgrade(request);
-      print('Client connected!');
 
       // Listen for incoming messages from the client
       socket.listen((message) {
-        print('Received message: $message');
         socket.add('{"topic": "generic", "error": "gro", "data": "Hello, world!"}');
         final topic = jsonDecode(message)['topic'];
         final Map<String, dynamic> data = jsonDecode(message);
 
         switch (topic) {
           case 'update':
-            print('recieved update request');
             if (serverGame.playerDB.length > 2 && serverGame.state.value == GameState.waitingForPlayers) {
               serverGame.state.value = GameState.waitingToDeal;
             }
@@ -94,13 +81,11 @@ Future main() async {
             ];
 
             var jsonText = jsonEncode(scores);
-            print('returned scores');
             // print(jsonText);
             socket.add(jsonText);
             break;
 
           case 'connect':
-            print('Connected successfully');
             final player = GamePlayer.fromJson(data);
             serverGame.addLocalPlayer(player);
             if (serverGame.playerDB.length == 2) {
@@ -152,7 +137,6 @@ final _router = shelf_router.Router()
 Response _helloWorldHandler(Request request) => Response.ok('Hello, World!');
 
 Future<Response> _newConnectionHandler(Request request) async {
-  print('Connected successfully');
   String playerData = await request.readAsString();
   final playerJson = jsonDecode(playerData);
   final player = GamePlayer('${playerJson['username']}', 0, true);
@@ -170,7 +154,6 @@ Future<Response> _activeConnection(Request request) async {
   if (serverGame.playerDB.length > 2 && serverGame.state.value == GameState.waitingForPlayers) {
     serverGame.state.value = GameState.waitingToDeal;
   }
-  // game.deal();
   var scores = [
     {
       'players': _playersToJson(),
@@ -188,7 +171,6 @@ Future<Response> _activeConnection(Request request) async {
   ];
 
   var jsonText = jsonEncode(scores);
-  // print(jsonText);
   return Response.ok(jsonText);
 }
 
@@ -197,14 +179,10 @@ Future<Response> _voteResponse(Request request) async {
     String playerData = await request.readAsString();
     final playerJson = jsonDecode(playerData);
     final player = serverGame.playerDB[playerJson['id']]!;
-    // print(playerJson);
-    // print(playerJson['voteDeal'] == 'true' ? true : false);
-    // player.voteToDeal = !player.voteToDeal;
     player.voteToDeal = true;
     evaluateDeal();
     return Response.ok('');
   } catch (e) {
-    print(e);
     return Response.badRequest();
   }
 }
@@ -238,7 +216,6 @@ Future<Response> _executeSwap(Request request) async {
   String player = swapJson['id'];
   int cardIndex = swapJson['swap'];
   var target = serverGame.playerDB[player]!.hand.cards.value[cardIndex].state;
-  print(serverGame.playerDB[player]!.hand.cards.value[cardIndex].state);
   if (target == CardState.held) {
     serverGame.playerDB[player]!.hand.cards.value[cardIndex].state = CardState.swap;
     serverGame.playerDB[player]!.swaps.value--;
@@ -252,7 +229,6 @@ Future<Response> _executeSwap(Request request) async {
 
     return Response.ok('');
   }
-  print(serverGame.playerDB[player]!.hand.cards.value[cardIndex].state);
   return Response.badRequest();
 }
 
@@ -262,22 +238,14 @@ Future<Response> _executeReset(Request request) async {
 }
 
 Future<Response> _executePlay(Request request) async {
-  print('recieved play request');
   String playData = await request.readAsString();
   final playJson = jsonDecode(playData);
   String player = playJson['id'];
   int cardIndex = playJson['card'];
 
-  print(serverGame.playerDB[player]!.hand.cards.value[cardIndex].state);
-
   serverGame.playerDB[player]!.cardToPlay = serverGame.playerDB[player]!.hand.cards.value[cardIndex];
 
-  print(serverGame.playerDB[player]!.cardToPlay);
-  try {
-    print('playing card');
-    // game.playerDB[player]!
-    // .play(game.playerDB[player]!.cardToPlay!, sender: 'server');
-  } catch (e) {
+  try {} catch (e) {
     rethrow;
   }
   return Response.ok('');
@@ -296,7 +264,6 @@ Future<Response> _finalizeSwap(Request request) async {
 void evaluateDeal() {
   if (serverGame.playerDB.values.where((element) => element.voteToDeal == false).isEmpty) {
     serverGame.deal(shuffle: true);
-    print('dealing');
   }
 }
 

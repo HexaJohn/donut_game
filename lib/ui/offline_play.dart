@@ -49,8 +49,8 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
 
   Widget layoutSwapActions(int index) {
     final player = localPlayer;
-    final _card = localPlayer.hand.cards.value.elementAt(index);
-    switch (_card.state) {
+    final card = localPlayer.hand.cards.value.elementAt(index);
+    switch (card.state) {
       case CardState.held:
         return ElevatedButton(
             onPressed: () {
@@ -89,8 +89,8 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
 
   Widget layoutPlayActions(int index) {
     final player = localPlayer;
-    final _card = localPlayer.hand.cards.value.elementAt(index);
-    var _lead = game.leadingCard?.suit;
+    final card = localPlayer.hand.cards.value.elementAt(index);
+    var lead = game.leadingCard?.suit;
     bool throwoff = false;
     if (player.hand.cards.value.any((element) => element.suit == game.leadingCard?.suit)) {
       throwoff = false;
@@ -100,19 +100,19 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
     if (game.table.cards.value.isEmpty) {
       throwoff = false;
     }
-    if (_card.suit == _lead || _lead == null || throwoff) {
-      switch (_card.state) {
+    if (card.suit == lead || lead == null || throwoff) {
+      switch (card.state) {
         case CardState.held:
           return ElevatedButton(
               onPressed: () {
                 setState(() {
-                  player.cardToPlay = _card;
+                  player.cardToPlay = card;
                 });
               },
               child: Text(
                   !throwoff
                       ? 'Play'
-                      : _card.suit == game.trumpSuit.value
+                      : card.suit == game.trumpSuit.value
                           ? 'Trump'
                           : 'Throw',
                   style: const TextStyle(
@@ -344,8 +344,8 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
                                     },
                                   );
                                   return Wrap(
-                                    children: children,
                                     alignment: WrapAlignment.center,
+                                    children: children,
                                   );
                                 },
                               ),

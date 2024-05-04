@@ -13,11 +13,8 @@ class ServerHome extends StatelessWidget {
         primarySwatch: Colors.red,
         scaffoldBackgroundColor: Colors.grey.shade200,
         cardColor: Colors.grey.shade100,
-        // fontFamily: 'FluentIcons'
       ),
-      home: const ServerGUI(
-          // title: ''
-          ),
+      home: const ServerGUI(),
     );
   }
 }
@@ -50,7 +47,6 @@ class _ServerGUIState extends State<ServerGUI> {
                 child: ValueListenableBuilder(
                   valueListenable: serverGame.flipFlop,
                   builder: (context, value, child) => ListView.builder(
-                    // shrinkWrap: true,
                     itemCount: serverGame.log.length,
                     itemBuilder: (context, index) {
                       return Card(child: Text(serverGame.log.keys.toList().reversed.toList()[index]));

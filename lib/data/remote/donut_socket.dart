@@ -1,5 +1,6 @@
 import 'package:donut_game/ws_server.dart';
 import 'package:websocket_universal/websocket_universal.dart';
+import 'dart:developer' as developer;
 
 class DonutSocket {
   /// Postman echo ws server (you can use your own server URI)
@@ -47,15 +48,13 @@ class DonutSocket {
 
     // Listening to debug events inside webSocket
     socketHandler.logEventStream.listen((debugEvent) {
-      // ignore: avoid_print
-      print('> debug event: ${debugEvent.socketLogEventType}'
+      developer.log('> debug event: ${debugEvent.socketLogEventType}'
           ' ping=${debugEvent.pingMs} ms. Debug message=${debugEvent.message}');
     });
 
     // Listening to webSocket status changes
     socketHandler.socketStateStream.listen((stateEvent) {
-      // ignore: avoid_print
-      print('> status changed to ${stateEvent.status}');
+      developer.log('> status changed to ${stateEvent.status}');
     });
 
     // [IMessageToServer] also implements [ISocketMessage] interface.
@@ -63,22 +62,19 @@ class DonutSocket {
     const messageTypeStr = '[ISocketMessage]';
     // Listening to server responses:
     socketHandler.incomingMessagesStream.listen((inMsg) {
-      // ignore: avoid_print
-      print('> webSocket  got $messageTypeStr: $inMsg');
+      developer.log('> webSocket  got $messageTypeStr: $inMsg');
     });
 
     // Listening to outgoing messages:
     socketHandler.outgoingMessagesStream.listen((inMsg) {
-      // ignore: avoid_print
-      print('> webSocket sent $messageTypeStr: $inMsg');
+      developer.log('> webSocket sent $messageTypeStr: $inMsg');
     });
 
     // Connecting to server:
     final isConnected = await socketHandler.connect();
 
     if (!isConnected) {
-      // ignore: avoid_print
-      print('Connection to [$websocketConnectionUri] failed for some reason!');
+      developer.log('Connection to [$websocketConnectionUri] failed for some reason!');
       return;
     }
 
@@ -95,36 +91,31 @@ class DonutSocket {
   static Future connectSimple() async {
     // Listening to webSocket status changes
     DonutSocket.textSocketHandler.socketHandlerStateStream.listen((stateEvent) {
-      // ignore: avoid_print
-      print('> status changed to ${stateEvent.status}');
+      developer.log('> status changed to ${stateEvent.status}');
     });
 
     // Listening to server responses:
     DonutSocket.textSocketHandler.incomingMessagesStream.listen((inMsg) {
-      // ignore: avoid_print
-      print('> webSocket  got text message from server: "$inMsg" '
+      developer.log('> webSocket  got text message from server: "$inMsg" '
           '[ping: ${DonutSocket.textSocketHandler.pingDelayMs}]');
     });
 
     // Listening to debug events inside webSocket
     DonutSocket.textSocketHandler.logEventStream.listen((debugEvent) {
-      // ignore: avoid_print
-      print('> debug event: ${debugEvent.socketLogEventType}'
+      developer.log('> debug event: ${debugEvent.socketLogEventType}'
           ' [ping=${debugEvent.pingMs} ms]. Debug message=${debugEvent.message}');
     });
 
     // Listening to outgoing messages:
     DonutSocket.textSocketHandler.outgoingMessagesStream.listen((inMsg) {
-      // ignore: avoid_print
-      print('> webSocket sent text message to   server: "$inMsg" '
+      developer.log('> webSocket sent text message to   server: "$inMsg" '
           '[ping: ${DonutSocket.textSocketHandler.pingDelayMs}]');
     });
     // Connecting to server:
     final isTextSocketConnected = await DonutSocket.textSocketHandler.connect();
 
     if (!isTextSocketConnected) {
-      // ignore: avoid_print
-      print('Connection to [${DonutSocket.websocketConnectionUri}] failed for some reason!');
+      developer.log('Connection to [${DonutSocket.websocketConnectionUri}] failed for some reason!');
       return;
     }
   }

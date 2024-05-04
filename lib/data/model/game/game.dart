@@ -72,24 +72,24 @@ class Game {
   }
 
   set _dealer(int index) {
-    int _index = index;
+    int index0 = index;
 
-    if (_index >= players.length) {
-      _index = _index - players.length;
+    if (index0 >= players.length) {
+      index0 = index0 - players.length;
     }
-    __dealer = _index;
+    __dealer = index0;
     _dealerValue.value = players.elementAt(__dealer);
   }
 
   int get _active => __active;
 
   set _active(int index) {
-    int _index = index;
+    int index0 = index;
 
-    if (_index >= players.length) {
-      _index = _index - players.length;
+    if (index0 >= players.length) {
+      index0 = index0 - players.length;
     }
-    __active = _index;
+    __active = index0;
     if (players.length < 2) __active = 0;
     _activeValue.value = players.elementAt(__active);
   }
@@ -151,11 +151,11 @@ class Game {
       for (var ii = 0; ii < cardsPerHand; ii++) {
         for (var i = 0; i < players.length; i++) {
           try {
-            var _i = _dealer + 1 + i;
-            if (_i > players.length - 1) {
-              _i = _i - players.length;
+            var i0 = _dealer + 1 + i;
+            if (i0 > players.length - 1) {
+              i0 = i0 - players.length;
             }
-            GamePlayer player = players[_i];
+            GamePlayer player = players[i0];
             await dealCard(player);
           } catch (e) {
             // TODO: Out of cards. Will this ever actually happen?
@@ -195,12 +195,12 @@ class Game {
     state.value = GameState.swapping;
     for (var i = 0; i < players.length; i++) {
       try {
-        var _i = _active;
-        if (_i > players.length - 1) {
-          _i = _i - players.length;
+        var i0 = _active;
+        if (i0 > players.length - 1) {
+          i0 = i0 - players.length;
         }
-        _active = _i;
-        final GamePlayer player = players[_i];
+        _active = i0;
+        final GamePlayer player = players[i0];
         player.donut = true;
         player.notReady = true;
         player.swaps.value = 3;
@@ -216,24 +216,18 @@ class Game {
         }
         state.value = GameState.swapping;
         final List<GameCard> swapped = player.hand.swapDiscard();
-        // print('${player.name} swapped ${swapped.length} cards');
         for (var i = 0; i < swapped.length; i++) {
           if (!player.skip) {
             player.hand.remove(swapped[i]);
             discard.add(swapped[i]);
             await Future.delayed(const Duration(milliseconds: 100));
           }
-          // await dealCard(player);
-          // await Future.delayed(Duration(milliseconds: 200));
         }
         for (var i = 0; i < swapped.length; i++) {
-          // player.hand.remove(swapped[i]);
-          // discard.add(swapped[i]);
           if (!player.skip) {
             await dealCard(player);
             await Future.delayed(const Duration(milliseconds: 100));
           }
-          // await Future.delayed(Duration(milliseconds: 200));
         }
         _active = _active + 1;
       } catch (e) {
@@ -266,12 +260,12 @@ class Game {
     state.value = GameState.playing;
     for (var i = 0; i < players.length; i++) {
       try {
-        var _i = _active;
-        if (_i > players.length - 1) {
-          _i = _i - players.length;
+        var i0 = _active;
+        if (i0 > players.length - 1) {
+          i0 = i0 - players.length;
         }
-        _active = _i;
-        final GamePlayer player = players[_i];
+        _active = i0;
+        final GamePlayer player = players[i0];
         player.cardToPlay = null;
         if (!player.human && !player.skip) {
           GameCard card;
@@ -300,7 +294,6 @@ class Game {
           }
         }
         _active = _active + 1;
-        // print(_active);
       } catch (e) {
         rethrow;
       }
@@ -311,7 +304,6 @@ class Game {
     _active = players.indexOf(winner);
     await Future.delayed(const Duration(seconds: 1));
     final int toDiscard = table.cards.value.length;
-    // debugger();
     for (var i = 0; i < toDiscard; i++) {
       final discarded = table.cards.value.first;
       table.remove(discarded);
