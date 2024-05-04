@@ -104,6 +104,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
 
         // game.playerDB.containsKey(key);
       } catch (e) {
+        rethrow;
         developer.log(e.toString());
         // TODO
       }

@@ -1,6 +1,6 @@
-import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
-import 'package:donut_game/server.dart';
+import 'package:donut_game/res/resources.dart';
+import 'package:donut_game/ws_server.dart';
 
 class GameCard {
   GameCard(this.suit, this.value);

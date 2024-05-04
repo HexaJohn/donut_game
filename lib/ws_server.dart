@@ -54,7 +54,7 @@ Future main() async {
 
       // Listen for incoming messages from the client
       socket.listen((message) {
-        socket.add('{"topic": "generic", "error": "gro", "data": "Hello, world!"}');
+        socket.add('{"topic": "generic", "error": "", "data": "Hello, world!"}');
         final topic = jsonDecode(message)['topic'];
         final Map<String, dynamic> data = jsonDecode(message);
 
@@ -86,14 +86,15 @@ Future main() async {
             break;
 
           case 'connect':
-            final player = GamePlayer.fromJson(data);
+            final GamePlayer player = GamePlayer.fromJson(data);
             serverGame.addLocalPlayer(player);
             if (serverGame.playerDB.length == 2) {
               serverGame.protectedActive = 1;
               serverGame.protectedDealer = 0;
               serverGame.state.value = GameState.waitingToDeal;
             }
-            socket.add('Welcome, ${player.name}');
+            print(player.name);
+            socket.add('{"topic": "generic", "error": "", "data": "Welcome ${player.name}"}');
             break;
         }
       });
@@ -147,7 +148,8 @@ Future<Response> _newConnectionHandler(Request request) async {
     serverGame.protectedDealer = 0;
     serverGame.state.value = GameState.waitingToDeal;
   }
-  return Response.ok('Welcome, $playerData');
+
+  return Response.ok('{"topic": "generic", "error": "", "data": "Welcome, ${player.name}"}');
 }
 
 Future<Response> _activeConnection(Request request) async {

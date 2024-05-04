@@ -19,14 +19,21 @@ class PlayingCardWidget extends StatelessWidget {
     Widget? labelWidget;
 
     if (label != null) {
-      labelWidget = Padding(
-        padding: const EdgeInsets.only(bottom: 4, left: 4, right: 4),
-        child: Text(
-          label!,
-          overflow: TextOverflow.clip,
-          maxLines: 1,
-          softWrap: false,
-        ),
+      labelWidget = Column(
+        children: [
+          Spacer(),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 2, left: 2, right: 2),
+              child: Text(
+                label!,
+                overflow: TextOverflow.clip,
+                maxLines: 1,
+                softWrap: false,
+              ),
+            ),
+          ),
+        ],
       );
     }
 
@@ -61,11 +68,15 @@ class PlayingCardWidget extends StatelessWidget {
     }
     return SizedBox(
       width: size! * 0.8 + 3,
+      height: size! * 1.2 + 0,
       child: Card(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(0.0),
+          ),
           color: back == false && _trump == true ? Colors.yellow : Colors.white,
           child: Padding(
             padding: const EdgeInsets.all(0.0),
-            child: Column(children: children),
+            child: Stack(alignment: AlignmentDirectional.topCenter, children: children),
           )),
     );
   }

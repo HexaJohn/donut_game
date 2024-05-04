@@ -8,7 +8,7 @@ class PlayingCardStackWidget extends StatelessWidget {
 
   final List<GameCard> cards;
   late final PlayingCardWidget? bottomCard;
-  final List<Widget> _children = [];
+  final List<Widget> children = [];
 
   @override
   Widget build(BuildContext context) {
@@ -32,14 +32,14 @@ class PlayingCardStackWidget extends StatelessWidget {
         label: 'Discard',
         back: cards.last.state == CardState.folded,
       );
-      _children.add(bottomCard!);
+      children.add(bottomCard!);
     }
 
-    _children.add(label);
+    children.add(label);
 
     return Stack(
       alignment: AlignmentDirectional.center,
-      children: _children,
+      children: children,
     );
   }
 }

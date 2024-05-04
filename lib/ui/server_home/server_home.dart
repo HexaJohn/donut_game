@@ -1,4 +1,4 @@
-import 'package:donut_game/server.dart';
+import 'package:donut_game/ws_server.dart';
 import 'package:flutter/material.dart';
 
 class ServerHome extends StatelessWidget {

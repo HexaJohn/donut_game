@@ -13,7 +13,7 @@ class LoginPage extends StatefulWidget {
 }
 
 String username = "";
-String _serverAddress = '';
+String _serverAddress = '127.0.0.1';
 String get serverAddress => _serverAddress;
 int port = 27960;
 

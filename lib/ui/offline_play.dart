@@ -369,7 +369,7 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
                 boxShadow: const [BoxShadow(color: Colors.black26, offset: Offset(0, 1), blurRadius: 1.0)]),
             padding: const EdgeInsets.all(8),
             margin: const EdgeInsets.all(8),
-            height: 145,
+            height: 185,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
