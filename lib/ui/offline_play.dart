@@ -181,33 +181,29 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
               //   Navigator.pop(context);
               // },
             ),
-            Container(
-              // margin: EdgeInsets.only(top: 16),
-              // height: 165,
-              child: ListView.builder(
-                // scrollDirection: Axis.horizontal,
-                shrinkWrap: true,
-                itemCount: game.players.length,
-                itemBuilder: (context, playerIndex) {
-                  return SizedBox(
-                      width: 150,
-                      child: ListTile(
-                        visualDensity: VisualDensity.comfortable,
-                        // contentPadding: EdgeInsets.all(0),
-                        dense: true,
-                        leading: Icon(
-                          game.players[playerIndex].human
-                              ? game.players[playerIndex] == localPlayer
-                                  ? Icons.account_circle
-                                  : Icons.account_circle_outlined
-                              : Icons.psychology_rounded,
-                        ),
-                        title: Text(game.players[playerIndex].name),
-                        subtitle: Text(
-                            'Score: ${game.players[playerIndex].score.value} | Donuts: ${game.players[playerIndex].donuts.value}'),
-                      ));
-                },
-              ),
+            ListView.builder(
+              // scrollDirection: Axis.horizontal,
+              shrinkWrap: true,
+              itemCount: game.players.length,
+              itemBuilder: (context, playerIndex) {
+                return SizedBox(
+                    width: 150,
+                    child: ListTile(
+                      visualDensity: VisualDensity.comfortable,
+                      // contentPadding: EdgeInsets.all(0),
+                      dense: true,
+                      leading: Icon(
+                        game.players[playerIndex].human
+                            ? game.players[playerIndex] == localPlayer
+                                ? Icons.account_circle
+                                : Icons.account_circle_outlined
+                            : Icons.psychology_rounded,
+                      ),
+                      title: Text(game.players[playerIndex].name),
+                      subtitle: Text(
+                          'Score: ${game.players[playerIndex].score.value} | Donuts: ${game.players[playerIndex].donuts.value}'),
+                    ));
+              },
             ),
             // Expanded(child: Container()),
             ListTile(
@@ -361,13 +357,11 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
               },
             ),
           ),
-          Container(
-            child: ValueListenableBuilder(
-                valueListenable: game.trumpSuit,
-                builder: (context, Suit value, child) {
-                  return Text("Current Trump: ${suitToString[value] ?? 'none'}");
-                }),
-          ),
+          ValueListenableBuilder(
+              valueListenable: game.trumpSuit,
+              builder: (context, Suit value, child) {
+                return Text("Current Trump: ${suitToString[value] ?? 'none'}");
+              }),
           Container(
             decoration: BoxDecoration(
                 color: Colors.green.shade900,

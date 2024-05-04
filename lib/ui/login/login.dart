@@ -82,12 +82,10 @@ class _LoginPageState extends State<LoginPage> {
                             } catch (e) {
                               var snackbar = SnackBar(content: Text('Error: $e'));
                               ScaffoldMessenger.of(context).showSnackBar(snackbar);
-                              print('Error: $e');
                             }
                           } catch (e) {
                             var snackbar = SnackBar(content: Text('Error: $e'));
                             ScaffoldMessenger.of(context).showSnackBar(snackbar);
-                            print('FAILED: $e');
                           }
                         },
                         child: const Text('Join Game')),

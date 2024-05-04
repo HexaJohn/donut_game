@@ -20,7 +20,6 @@ class Game {
   }
 
   static reset() {
-    print('AAA: Resety');
     Game().log.clear();
     Game().playerDB.clear();
     Game().deck = GameCardDeck.fresh();
@@ -105,7 +104,6 @@ class Game {
       _activeValue.value = players.elementAt(_active);
     } on RangeError {
       _active = 0;
-      print('not enough players');
       _activeValue.value = players.elementAt(_active);
     }
     return _activeValue;
@@ -160,7 +158,7 @@ class Game {
             GamePlayer player = players[_i];
             await dealCard(player);
           } catch (e) {
-            // TODO: Out of cards
+            // TODO: Out of cards. Will this ever actually happen?
             // nextDealer();
             rethrow;
           }
@@ -181,7 +179,6 @@ class Game {
     try {
       top = deck.contents.first;
     } catch (e) {
-      // TODO: out of cards
       deck.contents = discard.cards.value;
       discard.dump();
       deck.contents.shuffle();
@@ -295,7 +292,6 @@ class Game {
               await Future.delayed(const Duration(milliseconds: 100));
             }
             if (player.cardToPlay != null) {
-              print(player.cardToPlay);
               final card = player.play(player.cardToPlay!);
               card.belongsTo = player;
               leadingCard ??= card;
@@ -353,9 +349,7 @@ class Game {
     String body = '''
 {"id": "${deviceId!}$username", "vote": "${!players.where((element) => element.name == username).first.voteToDeal}"}''';
     response = await post(uri, body: body);
-    if (response.statusCode == 200) {
-      print('voted');
-    }
+    if (response.statusCode == 200) {}
   }
 
   Future clientSwap(int cardIndex) async {
@@ -366,9 +360,7 @@ class Game {
     String body = '''
 {"id": "${deviceId!}$username", "swap": $cardIndex}''';
     response = await post(uri, body: body);
-    if (response.statusCode == 200) {
-      print('marked');
-    }
+    if (response.statusCode == 200) {}
   }
 
   Future clientSwapFinalize() async {
@@ -379,9 +371,7 @@ class Game {
     String body = '''
 {"id": "${deviceId!}$username"}''';
     response = await post(uri, body: body);
-    if (response.statusCode == 200) {
-      print('swapped');
-    }
+    if (response.statusCode == 200) {}
   }
 
   Future clientPlayCard(int card) async {
@@ -392,9 +382,7 @@ class Game {
     String body = '''
 {"id": "${deviceId!}$username", "card": $card}''';
     response = await post(uri, body: body);
-    if (response.statusCode == 200) {
-      print('played');
-    }
+    if (response.statusCode == 200) {}
   }
 
   Future clientFold() async {
@@ -405,9 +393,7 @@ class Game {
     String body = '''
 {"id": "${deviceId!}$username"''';
     response = await post(uri, body: body);
-    if (response.statusCode == 200) {
-      print('folded');
-    }
+    if (response.statusCode == 200) {}
   }
 
   Future adminReset() async {
@@ -415,8 +401,6 @@ class Game {
     Response response;
 
     response = await get(uri);
-    if (response.statusCode == 200) {
-      print('folded');
-    }
+    if (response.statusCode == 200) {}
   }
 }

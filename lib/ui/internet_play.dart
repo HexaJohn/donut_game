@@ -101,9 +101,7 @@ class _OnlineGamePageState extends State<OnlineGamePage> {
           game.discard.cards.value = discards;
           Iterable active = game.playerDB.keys.where((element) => activeKeys.contains(element));
 
-          for (var element in active) {
-            game.playerDB.removeWhere((key, value) => !active.contains(key));
-          }
+          game.playerDB.removeWhere((key, value) => !active.contains(key));
         });
 
         // game.playerDB.containsKey(key);

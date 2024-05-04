@@ -283,22 +283,6 @@ Future<Response> _executePlay(Request request) async {
   return Response.ok('');
 }
 
-Future<Response> _executeFold(Request request) async {
-  print('recieved fold request');
-  String playData = await request.readAsString();
-  final playJson = jsonDecode(playData);
-  String player = playJson['id'];
-
-  try {
-    serverGame.playerDB[player]?.skip = true;
-    serverGame.playerDB[player]?.notReady = true;
-    serverGame.playerDB[player]?.donut = true;
-  } catch (e) {
-    rethrow;
-  }
-  return Response.ok('');
-}
-
 Future<Response> _finalizeSwap(Request request) async {
   String swapData = await request.readAsString();
   final swapJson = jsonDecode(swapData);
