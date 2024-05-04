@@ -1,0 +1,45 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "donut_game",
+      "request": "launch",
+      "type": "dart"
+    },
+    {
+      "name": "donut_game (profile mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "donut_game (release mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release"
+    },
+    {
+      "name": "donut_server",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/ws_server.dart"
+    },
+    {
+      "name": "donut_server (profile mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "program": "lib/ws_server.dart"
+    },
+    {
+      "name": "donut_server (release mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "program": "lib/ws_server.dart"
+    }
+  ]
+}
