@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:donut_game/ws_server.dart';
 import 'package:websocket_universal/websocket_universal.dart';
 import 'dart:developer' as developer;
@@ -34,7 +36,9 @@ class DonutSocket {
     DonutSocket.textSocketHandler.sendMessage('update');
   }
 
-  static Future connect() async {
+  static final controller = StreamController<String>.broadcast();
+
+  static Stream<String> connect() async* {
     /// Complex example:
     /// Example using [ISocketMessage] and [IMessageToServer]
     /// (recommended for applications, server must deserialize
@@ -47,10 +51,21 @@ class DonutSocket {
     );
 
     // Listening to debug events inside webSocket
-    socketHandler.logEventStream.listen((debugEvent) {
-      developer.log('> debug event: ${debugEvent.socketLogEventType}'
-          ' ping=${debugEvent.pingMs} ms. Debug message=${debugEvent.message}');
-    });
+    // socketHandler.logEventStream.listen((debugEvent) {
+    //   developer.log('> debug event: ${debugEvent.socketLogEventType}'
+    //       ' ping=${debugEvent.pingMs} ms. Debug message=${debugEvent.message}');
+    // });
+
+    controller.addStream(socketHandler.logEventStream.map((event) {
+      // print('event.message: ${event.data}');
+      return event.data ?? '';
+    }));
+
+    //  socketHandler.logEventStream.listen((event) {}).onData((data) {
+    //   developer.log('> debug event: ${data.socketLogEventType}'
+    //       ' ping=${data.pingMs} ms. Debug message=${data.message}');
+    //   yield data.message;
+    // });
 
     // Listening to webSocket status changes
     socketHandler.socketStateStream.listen((stateEvent) {
@@ -61,13 +76,17 @@ class DonutSocket {
     // So basically we are sending and receiving equally-typed messages.
     const messageTypeStr = '[ISocketMessage]';
     // Listening to server responses:
+    // socketHandler.incomingMessagesStream.listen((inMsg) {
+    //   developer.log('> webSocket  got $messageTypeStr: $inMsg');
+    // });
+
     socketHandler.incomingMessagesStream.listen((inMsg) {
-      developer.log('> webSocket  got $messageTypeStr: $inMsg');
+      developer.log('> webSocket recieved: $messageTypeStr: $inMsg');
     });
 
     // Listening to outgoing messages:
     socketHandler.outgoingMessagesStream.listen((inMsg) {
-      developer.log('> webSocket sent $messageTypeStr: $inMsg');
+      developer.log('> webSocket sent: $messageTypeStr: $inMsg');
     });
 
     // Connecting to server:
@@ -86,38 +105,7 @@ class DonutSocket {
     );
     // IMessageToServer outMsg = MessageToServer.fromJson(DonutConnection('John', 'ABC 123').toJson());
     socketHandler.sendMessage(outMsg);
-  }
-
-  static Future connectSimple() async {
-    // Listening to webSocket status changes
-    DonutSocket.textSocketHandler.socketHandlerStateStream.listen((stateEvent) {
-      developer.log('> status changed to ${stateEvent.status}');
-    });
-
-    // Listening to server responses:
-    DonutSocket.textSocketHandler.incomingMessagesStream.listen((inMsg) {
-      developer.log('> webSocket  got text message from server: "$inMsg" '
-          '[ping: ${DonutSocket.textSocketHandler.pingDelayMs}]');
-    });
-
-    // Listening to debug events inside webSocket
-    DonutSocket.textSocketHandler.logEventStream.listen((debugEvent) {
-      developer.log('> debug event: ${debugEvent.socketLogEventType}'
-          ' [ping=${debugEvent.pingMs} ms]. Debug message=${debugEvent.message}');
-    });
-
-    // Listening to outgoing messages:
-    DonutSocket.textSocketHandler.outgoingMessagesStream.listen((inMsg) {
-      developer.log('> webSocket sent text message to   server: "$inMsg" '
-          '[ping: ${DonutSocket.textSocketHandler.pingDelayMs}]');
-    });
-    // Connecting to server:
-    final isTextSocketConnected = await DonutSocket.textSocketHandler.connect();
-
-    if (!isTextSocketConnected) {
-      developer.log('Connection to [${DonutSocket.websocketConnectionUri}] failed for some reason!');
-      return;
-    }
+    yield* DonutSocket.controller.stream;
   }
 
   static Future disconnect(String s) async {

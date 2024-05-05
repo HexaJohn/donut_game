@@ -218,6 +218,12 @@
       "languageVersion": "3.2"
     },
     {
+      "name": "flutter_bloc",
+      "rootUri": "file:///C:/Users/johnj/AppData/Local/Pub/Cache/hosted/pub.dev/flutter_bloc-8.1.5",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
       "name": "flutter_lints",
       "rootUri": "file:///C:/Users/johnj/AppData/Local/Pub/Cache/hosted/pub.dev/flutter_lints-3.0.2",
       "packageUri": "lib/",
@@ -356,6 +362,12 @@
       "languageVersion": "3.2"
     },
     {
+      "name": "nested",
+      "rootUri": "file:///C:/Users/johnj/AppData/Local/Pub/Cache/hosted/pub.dev/nested-1.0.0",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
+    },
+    {
       "name": "node_preamble",
       "rootUri": "file:///C:/Users/johnj/AppData/Local/Pub/Cache/hosted/pub.dev/node_preamble-2.0.2",
       "packageUri": "lib/",
@@ -426,6 +438,12 @@
       "rootUri": "file:///C:/Users/johnj/AppData/Local/Pub/Cache/hosted/pub.dev/protobuf-3.1.0",
       "packageUri": "lib/",
       "languageVersion": "2.19"
+    },
+    {
+      "name": "provider",
+      "rootUri": "file:///C:/Users/johnj/AppData/Local/Pub/Cache/hosted/pub.dev/provider-6.1.2",
+      "packageUri": "lib/",
+      "languageVersion": "2.12"
     },
     {
       "name": "pub_semver",
@@ -614,7 +632,7 @@
       "languageVersion": "2.16"
     }
   ],
-  "generated": "2024-05-04T14:51:17.232531Z",
+  "generated": "2024-05-04T16:09:20.916214Z",
   "generator": "pub",
   "generatorVersion": "3.3.3"
 }
