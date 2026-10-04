@@ -5,10 +5,38 @@ import 'package:donut_game/data/model/game_card/game_card_stack.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
-import 'package:donut_game/ui/login/login_screen.dart';
+import 'package:donut_game/data/model/bullet_hole.dart';
+import 'package:donut_game/data/model/chat_message.dart';
+import 'package:donut_game/data/model/ink_stroke.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart';
-import 'package:platform_device_id/platform_device_id.dart';
+
+extension _LastWhereOrNull<T> on List<T> {
+  T? lastWhereOrNull(bool Function(T) test) {
+    for (var i = length - 1; i >= 0; i--) {
+      if (test(this[i])) return this[i];
+    }
+    return null;
+  }
+}
+
+/// Thrown inside the game loop when the game is reset mid-hand.
+class _GameAborted implements Exception {}
+
+const _botNames = [
+  'Glazed Gary',
+  'Sprinkles',
+  'Boston Creme',
+  'Cruller',
+  'Maple Bar',
+  'Jelly Jo',
+  'Old Fashioned',
+  'Bear Claw',
+  'Cinnamon Sue',
+  'Powdered Pete',
+];
+
+const _botTrickLines = ['Mine!', 'Thank you very much.', 'Too easy.', 'Yoink.', 'Called it.', 'Nom.'];
+const _botDonutLines = ['Ouch.', 'Not again...', 'I was saving those cards.', 'Rigged deck.', 'Hmph.'];
 
 class Game {
   static final Game _singleton = Game._internal();
@@ -20,11 +48,17 @@ class Game {
   }
 
   static reset() {
+    Game().abort();
     Game().log.clear();
+    Game().chat.value = [];
+    Game().holes.value = [];
+    Game().clearInk();
+    Game().spins.value = {};
+    Game().matchStarted = null;
+    Game().matchEnded = null;
+    Game().handNumber = 0;
     Game().playerDB.clear();
     Game().deck = GameCardDeck.fresh();
-    Game().protectedActive = 1;
-    Game().protectedDealer = 0;
     Game().table.dump();
     Game().discard.dump();
     Game().state.value = GameState.waitingForPlayers;
@@ -34,11 +68,136 @@ class Game {
     //Provision
     Game().addBot();
     Game().addBot();
+    // Seats exist now, so dealer and turn can point at them
+    Game().protectedDealer = 0;
+    Game().protectedActive = 1;
   }
 
   Game._internal();
 
   Map<String, bool> log = {};
+
+  /// Bumped to cancel a game loop that is still running.
+  int _epoch = 0;
+
+  final ValueNotifier<List<ChatMessage>> chat = ValueNotifier([]);
+
+  /// Bullet holes in the table, oldest first. Kept until a new match.
+  final ValueNotifier<List<BulletHole>> holes = ValueNotifier([]);
+  static const int _holeLimit = 80;
+
+  /// How many times each player's placard has been shot (by name). Each shot
+  /// spins it round once more.
+  final ValueNotifier<Map<String, int>> spins = ValueNotifier({});
+
+  void shootTable(String shooter, double x, double y, {int? seed}) {
+    final hole =
+        BulletHole(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0), shooter: shooter, seed: seed ?? Random().nextInt(1 << 30));
+    final all = [...holes.value, hole];
+    holes.value = all.length > _holeLimit ? all.sublist(all.length - _holeLimit) : all;
+  }
+
+  /// Marker and eraser strokes on the table, in drawing order.
+  final ValueNotifier<List<InkStroke>> ink = ValueNotifier([]);
+
+  /// Bumped on every change to [ink], so online clients only download the
+  /// drawing when it has actually changed.
+  int inkRevision = 0;
+  static const int _inkPointLimit = 20000;
+
+  /// Adds [points] to stroke [id], starting it if it's new.
+  void draw(String author, String id,
+      {required int color, required double width, required bool erase, required List<Offset> points}) {
+    if (points.isEmpty) return;
+    final strokes = ink.value;
+    var stroke = strokes.lastWhereOrNull((element) => element.id == id);
+    if (stroke == null) {
+      stroke = InkStroke(id: id, author: author, color: color, width: width, erase: erase);
+      strokes.add(stroke);
+    } else if (stroke.author != author) {
+      return;
+    }
+    stroke.points.addAll([for (final p in points) Offset(p.dx.clamp(0.0, 1.0), p.dy.clamp(0.0, 1.0))]);
+    // Oldest strokes go first once the table gets crowded
+    var total = strokes.fold<int>(0, (sum, element) => sum + element.points.length);
+    while (total > _inkPointLimit && strokes.length > 1) {
+      total -= strokes.removeAt(0).points.length;
+    }
+    inkRevision++;
+    ink.value = List.of(strokes);
+  }
+
+  void clearInk() {
+    ink.value = [];
+    inkRevision++;
+  }
+
+  /// Flashbangs: [flashSerial] goes up by one per detonation, so every client
+  /// can spot a new one; [flashAt] is where it landed (0..1 across the felt).
+  int flashSerial = 0;
+  Offset flashAt = const Offset(0.5, 0.5);
+  String flashBy = '';
+  DateTime? _lastFlash;
+  static const Duration flashCooldown = Duration(seconds: 10);
+
+  bool get flashReady => _lastFlash == null || DateTime.now().difference(_lastFlash!) >= flashCooldown;
+
+  /// Throws a flashbang at [x], [y]. Refused during the cooldown, so nobody
+  /// can keep the table permanently blind.
+  bool throwFlashbang(String thrower, double x, double y) {
+    if (!flashReady) return false;
+    _lastFlash = DateTime.now();
+    flashAt = Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
+    flashBy = thrower;
+    flashSerial++;
+    _announce('$thrower threw a flashbang!');
+    return true;
+  }
+
+  void shootSeat(String shooter, String target) {
+    if (!playerDB.values.any((player) => player.name == target)) return;
+    spins.value = {...spins.value, target: (spins.value[target] ?? 0) + 1};
+    _announce(shooter == target ? '$shooter shot their own placard.' : '$shooter shot $target\'s placard!');
+  }
+
+  static const int _chatLimit = 200;
+
+  DateTime? matchStarted;
+  DateTime? matchEnded;
+  int handNumber = 0;
+
+  /// Increments every time a trick is won, so watchers can spot new tricks.
+  int trickSerial = 0;
+  GamePlayer? lastTrickWinner;
+
+  Duration get matchElapsed {
+    if (matchStarted == null) return Duration.zero;
+    return (matchEnded ?? DateTime.now()).difference(matchStarted!);
+  }
+
+  void say(String author, String text, {bool system = false}) {
+    final messages = [...chat.value, ChatMessage(author, text, system: system)];
+    chat.value = messages.length > _chatLimit ? messages.sublist(messages.length - _chatLimit) : messages;
+  }
+
+  void _announce(String text) => say('', text, system: true);
+
+  void _botQuip(GamePlayer player, List<String> lines, double chance) {
+    if (!player.human && Random().nextDouble() < chance) {
+      say(player.name, lines[Random().nextInt(lines.length)]);
+    }
+  }
+
+  /// Roughly how long the UI takes to fly a card to its place.
+  static const _cardFlight = Duration(milliseconds: 450);
+
+  /// Stops any game loop in progress.
+  void abort() => _epoch++;
+
+  Future<void> _pause(Duration duration, int epoch) async {
+    await Future.delayed(duration);
+    if (epoch != _epoch) throw _GameAborted();
+  }
 
   Map<String, GamePlayer> playerDB = {};
   List<GamePlayer> get players => playerDB.values.toList();
@@ -70,6 +229,7 @@ class Game {
   /// Folds [player] out of the current hand. Returns false if they may not fold.
   bool fold(GamePlayer player) {
     if (!canFold(player)) return false;
+    if (!player.skip) _announce('${player.name} folds.');
     player.skip = true;
     player.donut = false;
     player.notReady = false;
@@ -90,7 +250,30 @@ class Game {
     discard.dump();
     suddenDeath.clear();
     champion.value = null;
+    matchStarted = null;
+    matchEnded = null;
+    handNumber = 0;
+    holes.value = [];
+    spins.value = {};
+    clearInk();
+    _announce('New match! Everyone starts on $startingScore.');
     state.value = GameState.waitingToDeal;
+  }
+
+  /// Sets up a local game against bots, cancelling anything in progress.
+  void setupOffline(GamePlayer localPlayer, int bots) {
+    abort();
+    playerDB.clear();
+    chat.value = [];
+    addLocalPlayer(localPlayer);
+    final names = List<String>.from(_botNames)..shuffle();
+    for (var i = 0; i < bots; i++) {
+      final bot = GamePlayer(names[i % names.length], players.length, false);
+      playerDB[bot.hashCode.toString()] = bot;
+    }
+    protectedDealer = 0;
+    protectedActive = 1;
+    newMatch();
   }
 
   int get _dealer => __dealer;
@@ -172,15 +355,68 @@ class Game {
   }
 
   void addBot() {
-    var number = Random().nextInt(9999);
-    var newPlayer = GamePlayer('Bot $number', players.length, false);
+    final taken = players.map((element) => element.name).toSet();
+    final free = _botNames.where((element) => !taken.contains(element)).toList()..shuffle();
+    var newPlayer = GamePlayer(free.isNotEmpty ? free.first : 'Bot ${Random().nextInt(9999)}', players.length, false);
     playerDB.addEntries([MapEntry(newPlayer.hashCode.toString(), newPlayer)]);
   }
 
+  /// Seats at the table; enough for everyone to get a full hand plus swaps.
+  static const int maxPlayers = 7;
+
+  /// Bots can only come and go between hands, so turn order never shifts
+  /// under a hand that's being played.
+  bool get canChangeBots =>
+      state.value == GameState.waitingForPlayers ||
+      state.value == GameState.waitingToDeal ||
+      state.value == GameState.gameOver;
+
+  /// Seats a new bot. Returns false if bots can't change now or it's full.
+  bool addBotToTable() {
+    if (!canChangeBots || players.length >= maxPlayers) return false;
+    addBot();
+    _announce('${players.last.name} joined the table.');
+    if (players.length > 2 && state.value == GameState.waitingForPlayers) state.value = GameState.waitingToDeal;
+    return true;
+  }
+
+  /// Removes [bot], or the most recently added bot. Returns false if bots
+  /// can't change now or there are none.
+  bool removeBot([GamePlayer? bot]) {
+    if (!canChangeBots) return false;
+    final bots = players.where((element) => !element.human).toList();
+    final leaving = bot ?? (bots.isEmpty ? null : bots.last);
+    if (leaving == null || leaving.human) return false;
+    playerDB.removeWhere((key, value) => identical(value, leaving));
+    spins.value = {...spins.value}..remove(leaving.name);
+    _announce('${leaving.name} left the table.');
+    if (players.isNotEmpty) {
+      // Keep dealer and turn pointing at real seats
+      protectedDealer = protectedDealer % players.length;
+      protectedActive = (protectedDealer + 1) % players.length;
+    }
+    if (players.length < 3 && state.value == GameState.waitingToDeal) state.value = GameState.waitingForPlayers;
+    return true;
+  }
+
   Future deal({bool? shuffle}) async {
-    if (state.value == GameState.waitingToDeal) {
+    if (state.value != GameState.waitingToDeal) return;
+    final epoch = _epoch;
+    try {
+      await _deal(shuffle ?? true, epoch);
+    } on _GameAborted {
+      // Game was reset while this hand was in progress
+    }
+  }
+
+  Future _deal(bool shuffle, int epoch) async {
+    {
       state.value = GameState.dealing;
-      shuffle ??= true;
+      matchStarted ??= DateTime.now();
+      handNumber++;
+      _announce(suddenDeath.isEmpty
+          ? 'Hand $handNumber: ${dealer.value.name} deals.'
+          : 'Sudden death hand: ${suddenDeath.join(', ')}.');
       if (shuffle) {
         deck.shuffle();
       }
@@ -194,6 +430,7 @@ class Game {
             GamePlayer player = players[i0];
             if (!seated.contains(player)) continue;
             await dealCard(player);
+            await _pause(const Duration(milliseconds: 60), epoch);
           } catch (e) {
             // TODO: Out of cards. Will this ever actually happen?
             // nextDealer();
@@ -201,17 +438,17 @@ class Game {
           }
         }
       }
+      // Let the last cards land before hands are tidied up
+      await _pause(_cardFlight, epoch);
       state.value = GameState.waitingToSwap;
       trumpSuit.value = _lastDeal!.suit;
-      await swap();
-      // nextDealer();
-    } else {
-//Do nothing
+      _announce('Trump is ${suitToString[trumpSuit.value]}.');
+      await _pause(const Duration(milliseconds: 600), epoch);
+      await _swap(epoch);
     }
   }
 
   Future<void> dealCard(GamePlayer player) async {
-    await Future.delayed(const Duration(milliseconds: 50));
     GameCard top;
     try {
       top = deck.contents.first;
@@ -228,7 +465,7 @@ class Game {
     _lastDeal = top;
   }
 
-  Future swap() async {
+  Future _swap(int epoch) async {
     state.value = GameState.swapping;
     for (var i = 0; i < players.length; i++) {
       try {
@@ -252,13 +489,14 @@ class Game {
         player.swaps.value = maxSwaps;
 
         if (!player.human) {
+          await _pause(const Duration(milliseconds: 500), epoch);
           player.botSwap(trumpSuit.value);
           player.notReady = false;
         } else {
           state.value = GameState.waitingForPlayerToSwap;
         }
         while (player.notReady) {
-          await Future.delayed(const Duration(seconds: 1));
+          await _pause(const Duration(milliseconds: 100), epoch);
         }
         state.value = GameState.swapping;
         if (player.skip) {
@@ -272,15 +510,19 @@ class Game {
         } else {
           player.folds = 0;
           final List<GameCard> swapped = player.hand.swapDiscard();
+          _announce(swapped.isEmpty
+              ? '${player.name} keeps their hand.'
+              : '${player.name} swaps ${swapped.length} card${swapped.length == 1 ? '' : 's'}.');
           for (var i = 0; i < swapped.length; i++) {
             player.hand.remove(swapped[i]);
             discard.add(swapped[i]);
-            await Future.delayed(const Duration(milliseconds: 100));
+            await _pause(const Duration(milliseconds: 150), epoch);
           }
           for (var i = 0; i < swapped.length; i++) {
             await dealCard(player);
-            await Future.delayed(const Duration(milliseconds: 100));
+            await _pause(const Duration(milliseconds: 150), epoch);
           }
+          if (swapped.isNotEmpty) await _pause(_cardFlight, epoch);
         }
         _active = _active + 1;
       } catch (e) {
@@ -291,31 +533,39 @@ class Game {
     _tricksRemaining = players.any((element) => !element.skip) ? cardsPerHand : 0;
     while (_tricksRemaining > 0) {
       state.value = GameState.waitingForNextRound;
-      await playRound();
+      await _playRound(epoch);
       _tricksRemaining--;
     }
     // This is where players are scored for donuts
     players.where((element) => element.donut).forEach((element) {
       element.score.value = element.score.value + donutPenalty;
       element.donuts.value++;
+      _announce('${element.name} got a donut! +$donutPenalty');
+      _botQuip(element, _botDonutLines, 0.4);
     });
     for (var player in players) {
       player.voteToDeal = false;
       player.winner.value = false;
       player.hand.dump();
     }
+    final wasSuddenDeath = suddenDeath.isNotEmpty;
     _checkForWinner();
     if (champion.value != null) {
       champion.value!.winner.value = true;
+      matchEnded = DateTime.now();
+      _announce('${champion.value!.name} wins the match!');
       state.value = GameState.gameOver;
       return;
+    }
+    if (suddenDeath.isNotEmpty && !wasSuddenDeath) {
+      _announce('Tie! Sudden death between ${suddenDeath.join(', ')}.');
     }
     _dealer++;
     _active = _dealer + 1;
     state.value = GameState.waitingToDeal;
   }
 
-  Future playRound() async {
+  Future _playRound(int epoch) async {
     leadingCard = null;
     state.value = GameState.playing;
     for (var i = 0; i < players.length; i++) {
@@ -335,15 +585,21 @@ class Game {
           } else {
             card = await player.botPlay(game: this);
           }
+          if (epoch != _epoch) throw _GameAborted();
           addToTable(card);
         } else {
           if (!player.skip) {
             state.value = GameState.waitingForPlayer;
 
-            while (player.cardToPlay == null) {
-              state.value = GameState.playing;
+            player.awaitingCard = true;
+            try {
+              while (player.cardToPlay == null) {
+                state.value = GameState.playing;
 
-              await Future.delayed(const Duration(milliseconds: 100));
+                await _pause(const Duration(milliseconds: 100), epoch);
+              }
+            } finally {
+              player.awaitingCard = false;
             }
             if (player.cardToPlay != null) {
               final card = player.play(player.cardToPlay!);
@@ -362,15 +618,20 @@ class Game {
     winner.tricks++;
     winner.score.value = winner.score.value - 1;
     winner.notifyWin();
+    lastTrickWinner = winner;
+    trickSerial++;
+    _announce('${winner.name} takes the trick.');
+    _botQuip(winner, _botTrickLines, 0.2);
     _active = players.indexOf(winner);
-    await Future.delayed(const Duration(seconds: 1));
+    await _pause(const Duration(milliseconds: 1400), epoch);
     final int toDiscard = table.cards.value.length;
     for (var i = 0; i < toDiscard; i++) {
       final discarded = table.cards.value.first;
       table.remove(discarded);
       discard.add(discarded);
-      await Future.delayed(const Duration(milliseconds: 400));
+      await _pause(const Duration(milliseconds: 120), epoch);
     }
+    await _pause(const Duration(milliseconds: 400), epoch);
   }
 
   void _checkForWinner() {
@@ -416,68 +677,5 @@ class Game {
       }
     });
     return winner.key;
-  }
-
-  Future clientDeal() async {
-    Uri uri = Uri(scheme: 'http', host: serverAddress, port: port, path: '/vote');
-    Response response;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
-
-    String body = '''
-{"id": "${deviceId!}$username", "vote": "${!players.where((element) => element.name == username).first.voteToDeal}"}''';
-    response = await post(uri, body: body);
-    if (response.statusCode == 200) {}
-  }
-
-  Future clientSwap(int cardIndex) async {
-    Uri uri = Uri(scheme: 'http', host: serverAddress, port: port, path: '/swap');
-    Response response;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
-
-    String body = '''
-{"id": "${deviceId!}$username", "swap": $cardIndex}''';
-    response = await post(uri, body: body);
-    if (response.statusCode == 200) {}
-  }
-
-  Future clientSwapFinalize() async {
-    Uri uri = Uri(scheme: 'http', host: serverAddress, port: port, path: '/swapvote');
-    Response response;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
-
-    String body = '''
-{"id": "${deviceId!}$username"}''';
-    response = await post(uri, body: body);
-    if (response.statusCode == 200) {}
-  }
-
-  Future clientPlayCard(int card) async {
-    Uri uri = Uri(scheme: 'http', host: serverAddress, port: port, path: '/play');
-    Response response;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
-
-    String body = '''
-{"id": "${deviceId!}$username", "card": $card}''';
-    response = await post(uri, body: body);
-    if (response.statusCode == 200) {}
-  }
-
-  Future clientFold() async {
-    Uri uri = Uri(scheme: 'http', host: serverAddress, port: port, path: '/fold');
-    Response response;
-    String? deviceId = await PlatformDeviceId.getDeviceId;
-
-    String body = '''
-{"id": "${deviceId!}$username"}''';
-    response = await post(uri, body: body);
-    if (response.statusCode == 200) {}
-  }
-
-  Future adminReset() async {
-    Uri uri = Uri(scheme: 'http', host: serverAddress, port: port, path: '/reset');
-    Response response;
-
-    response = await get(uri);
-    if (response.statusCode == 200) {}
   }
 }

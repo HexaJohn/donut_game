@@ -28,9 +28,10 @@ class GameCard {
 
   static GameCard? fromJson(Map<String, dynamic> element) {
     try {
+      final owners = serverGame.playerDB.values.where((db) => db.name == element['belongsTo']);
       return GameCard(stringToSuit[element['suit']]!, stringToValue[element['value']]!)
         ..state = stringToCardState[element['state']]!
-        ..belongsTo = serverGame.playerDB.values.firstWhere((db) => db.name == element['belongsTo']);
+        ..belongsTo = owners.isEmpty ? null : owners.first;
     } catch (e) {
       return null;
     }

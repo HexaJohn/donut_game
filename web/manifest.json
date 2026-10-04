@@ -1,12 +1,12 @@
 {
-    "name": "donut_game",
-    "short_name": "donut_game",
+    "name": "Donut",
+    "short_name": "Donut",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#FBF6F0",
+    "theme_color": "#E0457B",
+    "description": "A trick-taking card game. Get to zero, avoid the donut.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

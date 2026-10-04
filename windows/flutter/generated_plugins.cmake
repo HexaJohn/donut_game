@@ -3,10 +3,14 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  audioplayers_windows
   platform_device_id_windows
+  screen_retriever_windows
+  window_manager
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
+  jni
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)

@@ -31,6 +31,10 @@ class GamePlayer {
   bool skip = false;
   bool voteToDeal = false;
 
+  /// True only while the game is actually waiting for this player to play a
+  /// card. Plays at any other moment are refused.
+  bool awaitingCard = false;
+
   @override
   String toString() {
     return name;
@@ -50,7 +54,7 @@ class GamePlayer {
     } else {
       card = logicalFirst(game!);
     }
-    await Future.delayed(const Duration(milliseconds: 550));
+    await Future.delayed(const Duration(milliseconds: 800));
     final played = play(card);
     return played;
   }
