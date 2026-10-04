@@ -1,6 +1,7 @@
 import 'package:donut_game/data/settings.dart';
 import 'package:donut_game/modes/bad_batch/bb_builtin_deck.dart';
 import 'package:donut_game/modes/bad_batch/bb_cards.dart';
+import 'package:donut_game/modes/bad_batch/bb_cream_filled_deck.dart';
 import 'package:donut_game/modes/bad_batch/deck_library.dart';
 import 'package:flutter/material.dart';
 
@@ -71,6 +72,17 @@ class _BadBatchOptionsState extends State<BadBatchOptions> {
             title: Text(builtinDeck.name),
             subtitle: Text(_counts(builtinDeck)),
           ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            value: settings.bbXDeck,
+            onChanged: (value) => setState(() {
+              settings.bbXDeck = value;
+              settings.saveBadBatch();
+            }),
+            title: Text(creamFilledDeck.name),
+            subtitle: Text('${_counts(creamFilledDeck)} · explicit, gross and dark'),
+          ),
           for (final deck in imported.values)
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -112,7 +124,7 @@ class _BadBatchOptionsState extends State<BadBatchOptions> {
               padding: const EdgeInsets.only(top: 6),
               child: Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
             ),
-          if (!settings.bbBuiltinDeck && imported.isEmpty)
+          if (!settings.bbBuiltinDeck && !settings.bbXDeck && imported.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text('Turn on the built-in deck or add one to play.',

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:donut_game/data/settings.dart';
 import 'package:donut_game/modes/bad_batch/bb_builtin_deck.dart';
 import 'package:donut_game/modes/bad_batch/bb_cards.dart';
+import 'package:donut_game/modes/bad_batch/bb_cream_filled_deck.dart';
 import 'package:donut_game/modes/bad_batch/crcast.dart';
 import 'package:flutter/foundation.dart';
 
@@ -55,10 +56,14 @@ class DeckLibrary {
     imported.value = {...imported.value}..remove(code);
   }
 
-  /// Everything that goes into a game: the built-in deck if it's switched
+  /// Everything that goes into a game: the built-in decks that are switched
   /// on, then every import.
   List<Deck> get activeDecks {
     load();
-    return [if (_settings.bbBuiltinDeck) builtinDeck, ...imported.value.values];
+    return [
+      if (_settings.bbBuiltinDeck) builtinDeck,
+      if (_settings.bbXDeck) creamFilledDeck,
+      ...imported.value.values,
+    ];
   }
 }

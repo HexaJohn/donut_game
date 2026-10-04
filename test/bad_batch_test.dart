@@ -2,6 +2,7 @@ import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
 import 'package:donut_game/modes/bad_batch/bb_builtin_deck.dart';
 import 'package:donut_game/modes/bad_batch/bb_cards.dart';
+import 'package:donut_game/modes/bad_batch/bb_cream_filled_deck.dart';
 import 'package:donut_game/modes/bad_batch/bb_game.dart';
 import 'package:donut_game/modes/bad_batch/crcast.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,10 +21,12 @@ void main() {
       expect(two.fill(['Lie', 'Run']), 'Step one: Lie. Step two: Run. Profit.');
     });
 
-    test('built-in deck is playable', () {
-      expect(builtinDeck.prompts, isNotEmpty);
-      expect(builtinDeck.responses.length, greaterThanOrEqualTo(7 * BadBatchGame.handSize));
-      expect(builtinDeck.prompts.every((p) => p.pick >= 1), isTrue);
+    test('built-in decks are playable', () {
+      for (final deck in [builtinDeck, creamFilledDeck]) {
+        expect(deck.prompts, isNotEmpty);
+        expect(deck.responses.length, greaterThanOrEqualTo(7 * BadBatchGame.handSize));
+        expect(deck.prompts.every((p) => p.pick >= 1), isTrue);
+      }
     });
 
     test('CrCast codes come from codes or links', () {

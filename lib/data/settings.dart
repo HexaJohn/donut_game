@@ -27,6 +27,7 @@ class Settings {
   // Bad Batch
   List<String> bbDeckCodes = [];
   bool bbBuiltinDeck = true;
+  bool bbXDeck = false;
   int bbPointsToWin = 7;
   int bbBlankCards = 3;
 
@@ -73,6 +74,7 @@ class Settings {
     sfxMuted.value = prefs.getBool('sfxMuted') ?? false;
     bbDeckCodes = prefs.getStringList('bbDeckCodes') ?? [];
     bbBuiltinDeck = prefs.getBool('bbBuiltinDeck') ?? true;
+    bbXDeck = prefs.getBool('bbXDeck') ?? false;
     bbPointsToWin = prefs.getInt('bbPointsToWin') ?? bbPointsToWin;
     bbBlankCards = prefs.getInt('bbBlankCards') ?? bbBlankCards;
     adultConfirmed = prefs.getBool('adultConfirmed') ?? false;
@@ -97,6 +99,7 @@ class Settings {
     _prefs
       ?..setStringList('bbDeckCodes', bbDeckCodes)
       ..setBool('bbBuiltinDeck', bbBuiltinDeck)
+      ..setBool('bbXDeck', bbXDeck)
       ..setInt('bbPointsToWin', bbPointsToWin)
       ..setInt('bbBlankCards', bbBlankCards)
       ..setBool('adultConfirmed', adultConfirmed)
