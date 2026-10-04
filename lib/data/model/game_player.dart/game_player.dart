@@ -11,10 +11,15 @@ class GamePlayer {
   String name;
   String id = '';
   GameCardStack hand = GameCardStack();
-  final ValueNotifier<int> swaps = ValueNotifier(3);
+  final ValueNotifier<int> swaps = ValueNotifier(maxSwaps);
   bool swapped = false;
+
+  /// Consecutive hands folded.
   int folds = 0;
-  ValueNotifier<int> score = ValueNotifier(20);
+
+  /// Tricks taken in the current hand.
+  int tricks = 0;
+  ValueNotifier<int> score = ValueNotifier(startingScore);
   ValueNotifier<int> donuts = ValueNotifier(0);
   ValueNotifier<bool> winner = ValueNotifier(false);
   bool human;

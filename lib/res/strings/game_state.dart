@@ -10,7 +10,8 @@ Map<GameState, String> gameStateToString = {
   GameState.swapping: 'swapping',
   GameState.waitingForPlayerToSwap: 'waitingForPlayerToSwap',
   GameState.waitingForPlayer: 'waitingForPlayer',
-  GameState.playing: 'playing'
+  GameState.playing: 'playing',
+  GameState.gameOver: 'gameOver',
 };
 
 Map<String, GameState> stringToGameState = {
@@ -22,5 +23,7 @@ Map<String, GameState> stringToGameState = {
   'swapping': GameState.swapping,
   'waitingForPlayerToSwap': GameState.waitingForPlayerToSwap,
   'waitingForPlayer': GameState.waitingForPlayer,
+  'waitingForNextRound': GameState.waitingForNextRound,
   'playing': GameState.playing,
+  'gameOver': GameState.gameOver,
 };

@@ -29,6 +29,8 @@ class Game {
     Game().discard.dump();
     Game().state.value = GameState.waitingForPlayers;
     Game().trumpSuit.value = Suit.values.first;
+    Game().suddenDeath.clear();
+    Game().champion.value = null;
     //Provision
     Game().addBot();
     Game().addBot();
@@ -42,9 +44,7 @@ class Game {
   List<GamePlayer> get players => playerDB.values.toList();
   Iterable<GamePlayer> get playersByRef => playerDB.values;
   GameCardDeck deck = GameCardDeck.fresh();
-  int get cardsPerRound => 5;
   int _tricksRemaining = 0;
-  int startingScore = 20;
   GameCard? _lastDeal;
   int __dealer = 0;
   int __active = 1;
@@ -57,6 +57,42 @@ class Game {
   GameCardStack table = GameCardStack();
   GameCardStack discard = GameCardStack();
   GameCard? leadingCard;
+
+  /// Players still in a sudden death tiebreak. Empty during normal play.
+  final List<GamePlayer> suddenDeath = [];
+  final ValueNotifier<GamePlayer?> champion = ValueNotifier(null);
+
+  /// Players taking part in the current hand.
+  Iterable<GamePlayer> get seated => suddenDeath.isEmpty ? players : suddenDeath;
+
+  bool canFold(GamePlayer player) => suddenDeath.isEmpty && player.folds < maxConsecutiveFolds;
+
+  /// Folds [player] out of the current hand. Returns false if they may not fold.
+  bool fold(GamePlayer player) {
+    if (!canFold(player)) return false;
+    player.skip = true;
+    player.donut = false;
+    player.notReady = false;
+    return true;
+  }
+
+  /// Starts a new match with the same players.
+  void newMatch() {
+    for (var player in players) {
+      player.score.value = startingScore;
+      player.donuts.value = 0;
+      player.folds = 0;
+      player.winner.value = false;
+      player.hand.dump();
+    }
+    deck = GameCardDeck.fresh();
+    table.dump();
+    discard.dump();
+    suddenDeath.clear();
+    champion.value = null;
+    state.value = GameState.waitingToDeal;
+  }
+
   int get _dealer => __dealer;
 
   int get protectedDealer => __dealer;
@@ -156,6 +192,7 @@ class Game {
               i0 = i0 - players.length;
             }
             GamePlayer player = players[i0];
+            if (!seated.contains(player)) continue;
             await dealCard(player);
           } catch (e) {
             // TODO: Out of cards. Will this ever actually happen?
@@ -201,9 +238,18 @@ class Game {
         }
         _active = i0;
         final GamePlayer player = players[i0];
+        player.tricks = 0;
+        if (!seated.contains(player)) {
+          // Sitting out a sudden death hand
+          player.skip = true;
+          player.donut = false;
+          _active = _active + 1;
+          continue;
+        }
+        player.skip = false;
         player.donut = true;
         player.notReady = true;
-        player.swaps.value = 3;
+        player.swaps.value = maxSwaps;
 
         if (!player.human) {
           player.botSwap(trumpSuit.value);
@@ -215,16 +261,23 @@ class Game {
           await Future.delayed(const Duration(seconds: 1));
         }
         state.value = GameState.swapping;
-        final List<GameCard> swapped = player.hand.swapDiscard();
-        for (var i = 0; i < swapped.length; i++) {
-          if (!player.skip) {
+        if (player.skip) {
+          // Folded: whole hand goes to the discard pile
+          player.folds++;
+          for (var card in List<GameCard>.from(player.hand.cards.value)) {
+            player.hand.remove(card);
+            card.state = CardState.folded;
+            discard.add(card);
+          }
+        } else {
+          player.folds = 0;
+          final List<GameCard> swapped = player.hand.swapDiscard();
+          for (var i = 0; i < swapped.length; i++) {
             player.hand.remove(swapped[i]);
             discard.add(swapped[i]);
             await Future.delayed(const Duration(milliseconds: 100));
           }
-        }
-        for (var i = 0; i < swapped.length; i++) {
-          if (!player.skip) {
+          for (var i = 0; i < swapped.length; i++) {
             await dealCard(player);
             await Future.delayed(const Duration(milliseconds: 100));
           }
@@ -234,7 +287,8 @@ class Game {
         rethrow;
       }
     }
-    _tricksRemaining = 5;
+    // Nobody left to play if everyone folded
+    _tricksRemaining = players.any((element) => !element.skip) ? cardsPerHand : 0;
     while (_tricksRemaining > 0) {
       state.value = GameState.waitingForNextRound;
       await playRound();
@@ -242,13 +296,19 @@ class Game {
     }
     // This is where players are scored for donuts
     players.where((element) => element.donut).forEach((element) {
-      element.score.value = element.score.value + 5;
+      element.score.value = element.score.value + donutPenalty;
       element.donuts.value++;
     });
     for (var player in players) {
       player.voteToDeal = false;
       player.winner.value = false;
       player.hand.dump();
+    }
+    _checkForWinner();
+    if (champion.value != null) {
+      champion.value!.winner.value = true;
+      state.value = GameState.gameOver;
+      return;
     }
     _dealer++;
     _active = _dealer + 1;
@@ -299,6 +359,7 @@ class Game {
       }
     }
     var winner = evaluateTableForWinner();
+    winner.tricks++;
     winner.score.value = winner.score.value - 1;
     winner.notifyWin();
     _active = players.indexOf(winner);
@@ -309,6 +370,30 @@ class Game {
       table.remove(discarded);
       discard.add(discarded);
       await Future.delayed(const Duration(milliseconds: 400));
+    }
+  }
+
+  void _checkForWinner() {
+    if (suddenDeath.isEmpty) {
+      final finishers = players.where((element) => element.score.value <= 0).toList();
+      if (finishers.length == 1) {
+        champion.value = finishers.single;
+      } else if (finishers.length > 1) {
+        // Tie: play sudden death hands among the finishers
+        suddenDeath.addAll(finishers);
+      }
+      return;
+    }
+    // Sudden death: whoever took the fewest tricks is eliminated,
+    // unless everyone tied, in which case the hand is replayed
+    final fewest = suddenDeath.map((element) => element.tricks).reduce(min);
+    final eliminated = suddenDeath.where((element) => element.tricks == fewest).toList();
+    if (eliminated.length < suddenDeath.length) {
+      suddenDeath.removeWhere(eliminated.contains);
+    }
+    if (suddenDeath.length == 1) {
+      champion.value = suddenDeath.single;
+      suddenDeath.clear();
     }
   }
 
@@ -383,7 +468,7 @@ class Game {
     String? deviceId = await PlatformDeviceId.getDeviceId;
 
     String body = '''
-{"id": "${deviceId!}$username"''';
+{"id": "${deviceId!}$username"}''';
     response = await post(uri, body: body);
     if (response.statusCode == 200) {}
   }

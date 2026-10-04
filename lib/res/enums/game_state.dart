@@ -8,5 +8,6 @@ enum GameState {
   playing,
   waitingToSwap,
   waitingForNextRound,
-  waitingForPlayers
+  waitingForPlayers,
+  gameOver,
 }

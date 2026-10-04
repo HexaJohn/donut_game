@@ -75,7 +75,9 @@ Future main() async {
                   'active': serverGame.protectedActive,
                   'dealer': serverGame.protectedDealer,
                   'trump': suitToString[serverGame.trumpSuit.value],
-                  'leading_card': serverGame.leadingCard?.toJson()
+                  'leading_card': serverGame.leadingCard?.toJson(),
+                  'sudden_death': serverGame.suddenDeath.map((e) => e.name).toList(),
+                  'champion': serverGame.champion.value?.name
                 }
               }
             ];
@@ -128,6 +130,7 @@ final _router = shelf_router.Router()
   ..post('/swap', _executeSwap)
   ..post('/play', _executePlay)
   ..post('/swapvote', _finalizeSwap)
+  ..post('/fold', _executeFold)
   ..get('/reset', _executeReset)
   ..get(
     '/time',
@@ -167,7 +170,9 @@ Future<Response> _activeConnection(Request request) async {
         'active': serverGame.protectedActive,
         'dealer': serverGame.protectedDealer,
         'trump': suitToString[serverGame.trumpSuit.value],
-        'leading_card': serverGame.leadingCard?.toJson()
+        'leading_card': serverGame.leadingCard?.toJson(),
+        'sudden_death': serverGame.suddenDeath.map((e) => e.name).toList(),
+        'champion': serverGame.champion.value?.name
       }
     }
   ];
@@ -218,7 +223,7 @@ Future<Response> _executeSwap(Request request) async {
   String player = swapJson['id'];
   int cardIndex = swapJson['swap'];
   var target = serverGame.playerDB[player]!.hand.cards.value[cardIndex].state;
-  if (target == CardState.held) {
+  if (target == CardState.held && serverGame.playerDB[player]!.swaps.value > 0) {
     serverGame.playerDB[player]!.hand.cards.value[cardIndex].state = CardState.swap;
     serverGame.playerDB[player]!.swaps.value--;
 
@@ -249,6 +254,18 @@ Future<Response> _executePlay(Request request) async {
 
   try {} catch (e) {
     rethrow;
+  }
+  return Response.ok('');
+}
+
+Future<Response> _executeFold(Request request) async {
+  final foldJson = jsonDecode(await request.readAsString());
+  final player = serverGame.playerDB[foldJson['id']];
+  if (player == null ||
+      serverGame.state.value != GameState.waitingForPlayerToSwap ||
+      serverGame.activePlayerLazy != player ||
+      !serverGame.fold(player)) {
+    return Response.badRequest();
   }
   return Response.ok('');
 }

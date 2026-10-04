@@ -232,248 +232,263 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
 
         // TextStyle(color: Theme.of(context).colorScheme.onBackground),
       ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: <Widget>[
-          // TextButton(
-          //   onPressed: () {
-          //     var _gameState;
-          //     debugger();
-          //     _gameState = game;
-          //   },
-          //   child: Text(
-          //     'debugger',
-          //     style: TextStyle(),
-          //   ),
-          // ),
-          Container(
-            margin: const EdgeInsets.only(top: 16),
-            height: 200,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              shrinkWrap: true,
-              itemCount: game.players.length,
-              itemBuilder: (context, playerIndex) {
-                return SizedBox(
-                  width: 150,
-                  child: ValueListenableBuilder(
-                      valueListenable: game.activePlayer,
-                      builder: (context, GamePlayer value, child) {
-                        return Card(
-                          child: Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(4.0),
-                                child: Card(
-                                  color: value == game.players[playerIndex]
-                                      ? Colors.lightGreenAccent.shade100
-                                      : Colors.white,
-                                  child: Stack(
-                                    children: [
-                                      ValueListenableBuilder(
-                                          valueListenable: game.players[playerIndex].winner,
-                                          builder: (context, bool value, child) {
-                                            return value
-                                                ? LinearProgressIndicator(
-                                                    minHeight: 33,
-                                                    color: Colors.yellow,
-                                                    backgroundColor: Colors.yellow.shade100,
-                                                  )
-                                                : Container();
-                                          }),
-                                      Padding(
-                                        padding: const EdgeInsets.all(8.0),
-                                        child: Row(
-                                          children: [
-                                            Padding(
-                                              padding: const EdgeInsets.only(top: 2.0, left: 8.0, right: 4.0),
-                                              child: ValueListenableBuilder(
-                                                  valueListenable: game.dealer,
-                                                  builder: (context, value, child) {
-                                                    return Icon(
-                                                      value == game.players[playerIndex]
-                                                          ? Icons.star
-                                                          : game.players[playerIndex].human
-                                                              ? game.players[playerIndex] == localPlayer
-                                                                  ? Icons.account_circle
-                                                                  : Icons.account_circle_outlined
-                                                              : Icons.psychology_rounded,
-                                                      size: 14,
+      body: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: <Widget>[
+            // TextButton(
+            //   onPressed: () {
+            //     var _gameState;
+            //     debugger();
+            //     _gameState = game;
+            //   },
+            //   child: Text(
+            //     'debugger',
+            //     style: TextStyle(),
+            //   ),
+            // ),
+            Container(
+              margin: const EdgeInsets.only(top: 16),
+              height: 200,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                shrinkWrap: true,
+                itemCount: game.players.length,
+                itemBuilder: (context, playerIndex) {
+                  return SizedBox(
+                    width: 150,
+                    child: ValueListenableBuilder(
+                        valueListenable: game.activePlayer,
+                        builder: (context, GamePlayer value, child) {
+                          return Card(
+                            child: Column(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(4.0),
+                                  child: Card(
+                                    color: value == game.players[playerIndex]
+                                        ? Colors.lightGreenAccent.shade100
+                                        : Colors.white,
+                                    child: Stack(
+                                      children: [
+                                        ValueListenableBuilder(
+                                            valueListenable: game.players[playerIndex].winner,
+                                            builder: (context, bool value, child) {
+                                              return value
+                                                  ? LinearProgressIndicator(
+                                                      minHeight: 33,
+                                                      color: Colors.yellow,
+                                                      backgroundColor: Colors.yellow.shade100,
+                                                    )
+                                                  : Container();
+                                            }),
+                                        Padding(
+                                          padding: const EdgeInsets.all(8.0),
+                                          child: Row(
+                                            children: [
+                                              Padding(
+                                                padding: const EdgeInsets.only(top: 2.0, left: 8.0, right: 4.0),
+                                                child: ValueListenableBuilder(
+                                                    valueListenable: game.dealer,
+                                                    builder: (context, value, child) {
+                                                      return Icon(
+                                                        value == game.players[playerIndex]
+                                                            ? Icons.star
+                                                            : game.players[playerIndex].human
+                                                                ? game.players[playerIndex] == localPlayer
+                                                                    ? Icons.account_circle
+                                                                    : Icons.account_circle_outlined
+                                                                : Icons.psychology_rounded,
+                                                        size: 14,
+                                                      );
+                                                    }),
+                                              ),
+                                              Text(
+                                                game.players.toList()[playerIndex].name,
+                                              ),
+                                              Expanded(child: Container()),
+                                              ValueListenableBuilder(
+                                                  valueListenable: game.players[playerIndex].score,
+                                                  builder: (context, int value, child) {
+                                                    return Text(
+                                                      '$value',
+                                                      style: const TextStyle(fontWeight: FontWeight.bold),
                                                     );
                                                   }),
-                                            ),
-                                            Text(
-                                              game.players.toList()[playerIndex].name,
-                                            ),
-                                            Expanded(child: Container()),
-                                            ValueListenableBuilder(
-                                                valueListenable: game.players[playerIndex].score,
-                                                builder: (context, int value, child) {
-                                                  return Text(
-                                                    '$value',
-                                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                                  );
-                                                }),
-                                          ],
+                                            ],
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                              ValueListenableBuilder(
-                                valueListenable: game.players[playerIndex].hand.cards,
-                                builder: (context, List<GameCard> value, child) {
-                                  List<Widget> children = List.generate(
-                                    value.length,
-                                    (index) {
-                                      var child = (game.dealer.value == game.players[playerIndex] &&
-                                              index == 4 &&
-                                              (game.state.value == GameState.swapping ||
-                                                  game.state.value == GameState.waitingForPlayerToSwap))
-                                          ? PlayingCardWidget(
-                                              card: value[index],
-                                              back: false,
-                                              trump: game.trumpSuit.value,
-                                            )
-                                          : PlayingCardWidget(
-                                              card: value[index],
-                                              back: true,
-                                            );
-                                      return child;
-                                    },
-                                  );
-                                  return Wrap(
-                                    alignment: WrapAlignment.center,
-                                    children: children,
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                );
-              },
-            ),
-          ),
-          ValueListenableBuilder(
-              valueListenable: game.trumpSuit,
-              builder: (context, Suit value, child) {
-                return Text("Current Trump: ${suitToString[value] ?? 'none'}");
-              }),
-          Container(
-            decoration: BoxDecoration(
-                color: Colors.green.shade900,
-                borderRadius: BorderRadius.circular(5),
-                boxShadow: const [BoxShadow(color: Colors.black26, offset: Offset(0, 1), blurRadius: 1.0)]),
-            padding: const EdgeInsets.all(8),
-            margin: const EdgeInsets.all(8),
-            height: 185,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: ValueListenableBuilder(
-                    valueListenable: game.table.cards,
-                    builder: (context, List<GameCard> value, child) {
-                      return ListView.builder(
-                          reverse: false,
-                          // shrinkWrap: true,
-                          scrollDirection: Axis.horizontal,
-                          itemCount: value.length,
-                          itemBuilder: (context, index) {
-                            return Column(
-                              children: [
-                                PlayingCardWidget(
-                                  card: value[index],
-                                  size: index == 0 ? 100 : 75,
-                                  trump: game.trumpSuit.value,
-                                  label:
-                                      // "${value[index].belongsTo.toString()}: ${scoreThis(value[index], game)}",
-                                      value[index].belongsTo.toString(),
-                                ),
-                              ],
-                            );
-                          });
-                    },
-                  ),
-                ),
-                ValueListenableBuilder(
-                  valueListenable: game.discard.cards,
-                  builder: (context, List<GameCard> value, child) {
-                    return PlayingCardStackWidget(
-                      cards: value,
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(8),
-            margin: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(5),
-                boxShadow: const [BoxShadow(color: Colors.black26, offset: Offset(0, 1), blurRadius: 1.0)]),
-            height: 175,
-            child: ValueListenableBuilder(
-                valueListenable: game.trumpSuit,
-                builder: (useless, unnusedValue, nope) {
-                  return ValueListenableBuilder(
-                      valueListenable: localPlayer.hand.cards,
-                      builder: (context, snapshot, child) {
-                        return ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          // shrinkWrap: true,
-                          itemCount: localPlayer.hand.cards.value.length,
-                          itemBuilder: (context, index) {
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                PlayingCardWidget(
-                                  card: localPlayer.hand.cards.value[index],
-                                  size: 100,
-                                  trump: game.trumpSuit.value,
-                                ),
                                 ValueListenableBuilder(
-                                    valueListenable: game.state,
-                                    builder: (context, value, child) {
-                                      return Container(
-                                        color: Colors.amber.withAlpha(Random().nextInt(255)),
-                                        child: Row(
-                                          // alignment: MainAxisAlignment.center,
-                                          children: [
-                                            ValueListenableBuilder(
-                                              builder: (context, value, child) => (value != 0 ||
-                                                          localPlayer.hand.cards.value[index].state ==
-                                                              CardState.swap) &&
-                                                      game.state.value == GameState.waitingForPlayerToSwap
-                                                  ? layoutSwapActions(index)
-                                                  : Container(),
-                                              valueListenable: localPlayer.swaps,
-                                            ),
-                                            ValueListenableBuilder(
-                                              builder: (context, GameState value, child) =>
-                                                  (value == GameState.playing && game.activePlayerLazy == localPlayer)
-                                                      ? layoutPlayActions(index)
-                                                      : Container(),
-                                              valueListenable: game.state,
-                                            )
-                                          ],
-                                        ),
-                                      );
-                                    })
+                                  valueListenable: game.players[playerIndex].hand.cards,
+                                  builder: (context, List<GameCard> value, child) {
+                                    List<Widget> children = List.generate(
+                                      value.length,
+                                      (index) {
+                                        var child = (game.dealer.value == game.players[playerIndex] &&
+                                                index == 4 &&
+                                                (game.state.value == GameState.swapping ||
+                                                    game.state.value == GameState.waitingForPlayerToSwap))
+                                            ? PlayingCardWidget(
+                                                card: value[index],
+                                                back: false,
+                                                trump: game.trumpSuit.value,
+                                              )
+                                            : PlayingCardWidget(
+                                                card: value[index],
+                                                back: true,
+                                              );
+                                        return child;
+                                      },
+                                    );
+                                    return Wrap(
+                                      alignment: WrapAlignment.center,
+                                      children: children,
+                                    );
+                                  },
+                                ),
                               ],
-                            );
-                          },
-                        );
+                            ),
+                          );
+                        }),
+                  );
+                },
+              ),
+            ),
+            ValueListenableBuilder(
+                valueListenable: game.trumpSuit,
+                builder: (context, Suit value, child) {
+                  return ValueListenableBuilder(
+                      valueListenable: game.champion,
+                      builder: (context, GamePlayer? champion, child) {
+                        if (champion != null) {
+                          return Text('${champion.name} wins!',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.bold));
+                        }
+                        final suddenDeath =
+                            game.suddenDeath.isEmpty ? '' : 'Sudden death: ${game.suddenDeath.join(', ')} | ';
+                        return Text("${suddenDeath}Current Trump: ${suitToString[value] ?? 'none'}",
+                            maxLines: 1, overflow: TextOverflow.ellipsis);
                       });
                 }),
-          ),
-        ],
+            Container(
+              decoration: BoxDecoration(
+                  color: Colors.green.shade900,
+                  borderRadius: BorderRadius.circular(5),
+                  boxShadow: const [BoxShadow(color: Colors.black26, offset: Offset(0, 1), blurRadius: 1.0)]),
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.all(8),
+              height: 185,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: ValueListenableBuilder(
+                      valueListenable: game.table.cards,
+                      builder: (context, List<GameCard> value, child) {
+                        return ListView.builder(
+                            reverse: false,
+                            // shrinkWrap: true,
+                            scrollDirection: Axis.horizontal,
+                            itemCount: value.length,
+                            itemBuilder: (context, index) {
+                              return Column(
+                                children: [
+                                  PlayingCardWidget(
+                                    card: value[index],
+                                    size: index == 0 ? 100 : 75,
+                                    trump: game.trumpSuit.value,
+                                    label:
+                                        // "${value[index].belongsTo.toString()}: ${scoreThis(value[index], game)}",
+                                        value[index].belongsTo.toString(),
+                                  ),
+                                ],
+                              );
+                            });
+                      },
+                    ),
+                  ),
+                  ValueListenableBuilder(
+                    valueListenable: game.discard.cards,
+                    builder: (context, List<GameCard> value, child) {
+                      return PlayingCardStackWidget(
+                        cards: value,
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(5),
+                  boxShadow: const [BoxShadow(color: Colors.black26, offset: Offset(0, 1), blurRadius: 1.0)]),
+              height: 175,
+              child: ValueListenableBuilder(
+                  valueListenable: game.trumpSuit,
+                  builder: (useless, unnusedValue, nope) {
+                    return ValueListenableBuilder(
+                        valueListenable: localPlayer.hand.cards,
+                        builder: (context, snapshot, child) {
+                          return ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            // shrinkWrap: true,
+                            itemCount: localPlayer.hand.cards.value.length,
+                            itemBuilder: (context, index) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  PlayingCardWidget(
+                                    card: localPlayer.hand.cards.value[index],
+                                    size: 100,
+                                    trump: game.trumpSuit.value,
+                                  ),
+                                  ValueListenableBuilder(
+                                      valueListenable: game.state,
+                                      builder: (context, value, child) {
+                                        return Container(
+                                          color: Colors.amber.withAlpha(Random().nextInt(255)),
+                                          child: Row(
+                                            // alignment: MainAxisAlignment.center,
+                                            children: [
+                                              ValueListenableBuilder(
+                                                builder: (context, value, child) => (value != 0 ||
+                                                            localPlayer.hand.cards.value[index].state ==
+                                                                CardState.swap) &&
+                                                        game.state.value == GameState.waitingForPlayerToSwap
+                                                    ? layoutSwapActions(index)
+                                                    : Container(),
+                                                valueListenable: localPlayer.swaps,
+                                              ),
+                                              ValueListenableBuilder(
+                                                builder: (context, GameState value, child) =>
+                                                    (value == GameState.playing && game.activePlayerLazy == localPlayer)
+                                                        ? layoutPlayActions(index)
+                                                        : Container(),
+                                                valueListenable: game.state,
+                                              )
+                                            ],
+                                          ),
+                                        );
+                                      })
+                                ],
+                              );
+                            },
+                          );
+                        });
+                  }),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: ValueListenableBuilder(
           valueListenable: game.state,
@@ -487,6 +502,14 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
                   tooltip: 'Deal',
                   child: const Icon(Icons.style_sharp),
                 );
+              case GameState.gameOver:
+                return FloatingActionButton(
+                  onPressed: () => setState(() {
+                    game.newMatch();
+                  }),
+                  tooltip: 'New match',
+                  child: const Icon(Icons.replay),
+                );
               case GameState.dealing:
                 return Container();
 
@@ -497,11 +520,7 @@ class _OfflineGamePageState extends State<OfflineGamePage> {
                     Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: FloatingActionButton(
-                        onPressed: () async {
-                          localPlayer.skip = true;
-                          localPlayer.notReady = false;
-                          localPlayer.donut = false;
-                        },
+                        onPressed: game.canFold(localPlayer) ? () => game.fold(localPlayer) : null,
                         tooltip: 'Fold',
                         child: const Icon(Icons.close),
                       ),
