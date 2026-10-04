@@ -1,14 +1,26 @@
 import 'package:donut_game/data/model/chat_message.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
-import 'package:donut_game/ui/game/game_controller.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 const _quickReactions = ['\u{1F44D}', '\u{1F602}', '\u{1F631}', '\u{1F369}', 'GG', 'Nice one!'];
 
 class ChatPanel extends StatefulWidget {
-  const ChatPanel({super.key, required this.controller, required this.open, required this.onClose});
+  const ChatPanel({
+    super.key,
+    required this.chat,
+    required this.localName,
+    required this.onSend,
+    required this.open,
+    required this.onClose,
+  });
 
-  final GameController controller;
+  /// The table's messages; shared by every game mode.
+  final ValueListenable<List<ChatMessage>> chat;
+
+  /// Your name, so your own messages sit on the right.
+  final String? localName;
+  final Future<void> Function(String text) onSend;
   final bool open;
   final VoidCallback onClose;
 
@@ -30,7 +42,7 @@ class _ChatPanelState extends State<ChatPanel> {
   void _send([String? text]) {
     final message = (text ?? _input.text).trim();
     if (message.isEmpty) return;
-    widget.controller.sendChat(message);
+    widget.onSend(message);
     if (text == null) _input.clear();
     _focus.requestFocus();
   }
@@ -66,7 +78,7 @@ class _ChatPanelState extends State<ChatPanel> {
             ),
             Expanded(
               child: ValueListenableBuilder(
-                valueListenable: widget.controller.game.chat,
+                valueListenable: widget.chat,
                 builder: (context, List<ChatMessage> messages, _) => ListView.builder(
                   reverse: true,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -75,7 +87,7 @@ class _ChatPanelState extends State<ChatPanel> {
                     final message = messages[messages.length - 1 - index];
                     return _MessageTile(
                       message: message,
-                      mine: !message.system && message.author == widget.controller.localPlayer?.name,
+                      mine: !message.system && message.author == widget.localName,
                     );
                   },
                 ),

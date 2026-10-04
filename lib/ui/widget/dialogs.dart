@@ -1,3 +1,4 @@
+import 'package:donut_game/ai/acrotron.dart';
 import 'package:donut_game/audio/music_player.dart';
 import 'package:donut_game/data/settings.dart';
 import 'package:donut_game/res/rules.dart';
@@ -327,6 +328,285 @@ class _VolumeRow extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+const _badBatchRules = <(String, List<String>)>[
+  (
+    'Adults only',
+    [
+      'Bad Batch is full of offensive, dark and adult humour. Imported decks can be worse.',
+    ]
+  ),
+  (
+    'Each round',
+    [
+      'One player is the Card Czar and reveals a black prompt card.',
+      'Everyone else plays answer cards into its blanks. Two blanks means two cards, in order.',
+      'Blank answer cards let you write your own answer.',
+      'Answers are shown anonymously and the Czar picks the one they like best.',
+    ]
+  ),
+  (
+    'Winning',
+    [
+      'The best answer scores a point, and the Czar moves to the next player.',
+      'First to the target score wins.',
+    ]
+  ),
+];
+
+Future<void> showBadBatchRules(BuildContext context) {
+  final theme = Theme.of(context);
+  return showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520, maxHeight: 600),
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          shrinkWrap: true,
+          children: [
+            Text('How to play Bad Batch', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+            for (final (title, lines) in _badBatchRules) ...[
+              const SizedBox(height: 18),
+              Text(title.toUpperCase(),
+                  style: theme.textTheme.labelMedium
+                      ?.copyWith(color: theme.colorScheme.primary, letterSpacing: 1.2, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              for (final line in lines)
+                Padding(padding: const EdgeInsets.symmetric(vertical: 3), child: Text('•  $line')),
+            ],
+            const SizedBox(height: 20),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Got it')),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Asks once per device before the first adult-content game. Returns
+/// whether to go ahead.
+Future<bool> confirmAdultContent(BuildContext context) async {
+  final settings = Settings.instance;
+  if (settings.adultConfirmed) return true;
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      icon: const Icon(Icons.eighteen_up_rating_rounded, size: 40),
+      title: const Text('Adults only'),
+      content: const Text(
+        'Bad Batch is packed with offensive, dark and adult humour, and decks imported from CrCast '
+        'can say anything at all.\n\nAre you 18 or over, and happy to see that kind of content?',
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No thanks')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text("I'm 18+, deal me in")),
+      ],
+    ),
+  );
+  if (ok == true) {
+    settings.adultConfirmed = true;
+    settings.saveBadBatch();
+  }
+  return ok == true;
+}
+
+/// Acrotron's settings: where Ollama is, which model, how chatty, and who it is.
+Future<void> showAcrotronSettings(BuildContext context) {
+  return showDialog(context: context, builder: (context) => const _AcrotronSettings());
+}
+
+class _AcrotronSettings extends StatefulWidget {
+  const _AcrotronSettings();
+
+  @override
+  State<_AcrotronSettings> createState() => _AcrotronSettingsState();
+}
+
+class _AcrotronSettingsState extends State<_AcrotronSettings> {
+  final settings = Settings.instance;
+  late final _url = TextEditingController(text: settings.ollamaUrl);
+  late final _model = TextEditingController(text: settings.ollamaModel);
+  late final _personality = TextEditingController(text: settings.acrotronPersonality);
+  List<String> _installed = [];
+  String? _status;
+  bool _testing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadModels();
+  }
+
+  @override
+  void dispose() {
+    _url.dispose();
+    _model.dispose();
+    _personality.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    settings
+      ..ollamaUrl = _url.text.trim().isEmpty ? 'http://localhost:11434' : _url.text.trim()
+      ..ollamaModel = _model.text.trim().isEmpty ? 'gemma3:4b' : _model.text.trim()
+      ..acrotronPersonality = _personality.text.trim()
+      ..saveAcrotron();
+  }
+
+  Future<void> _loadModels() async {
+    _save();
+    try {
+      final models = await Acrotron.instance.client.models();
+      if (mounted) {
+        setState(() {
+          _installed = models;
+          _status = models.contains(settings.ollamaModel)
+              ? 'Connected. ${settings.ollamaModel} is installed.'
+              : 'Connected, but ${settings.ollamaModel} isn\'t installed. Run: ollama pull ${settings.ollamaModel}';
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _status = '$e');
+    }
+  }
+
+  Future<void> _test() async {
+    _save();
+    setState(() {
+      _testing = true;
+      _status = 'Asking Acrotron...';
+    });
+    try {
+      final line = await Acrotron.instance.test();
+      if (mounted) setState(() => _status = 'Acrotron: $line');
+    } catch (e) {
+      if (mounted) setState(() => _status = 'No answer: $e');
+    }
+    if (mounted) setState(() => _testing = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 720),
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          shrinkWrap: true,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.memory_rounded, color: theme.colorScheme.primary, size: 30),
+                const SizedBox(width: 10),
+                Text('Acrotron', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'An AI player powered by Ollama on this computer. Online, it runs on the server machine, '
+              'so Ollama needs to be installed there.',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _url,
+              decoration: const InputDecoration(labelText: 'Ollama address', prefixIcon: Icon(Icons.dns_rounded)),
+              onSubmitted: (_) => _loadModels(),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _model,
+                    decoration: const InputDecoration(labelText: 'Model', prefixIcon: Icon(Icons.psychology_rounded)),
+                    onSubmitted: (_) => _loadModels(),
+                  ),
+                ),
+                if (_installed.isNotEmpty)
+                  PopupMenuButton<String>(
+                    tooltip: 'Installed models',
+                    icon: const Icon(Icons.arrow_drop_down_circle_outlined),
+                    onSelected: (value) {
+                      _model.text = value;
+                      _loadModels();
+                    },
+                    itemBuilder: (context) => [for (final m in _installed) PopupMenuItem(value: m, child: Text(m))],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Text('Chattiness', style: theme.textTheme.labelLarge),
+                const Spacer(),
+                Text(switch (settings.acrotronChattiness) {
+                  < 0.15 => 'Only when spoken to',
+                  < 0.5 => 'Chimes in',
+                  < 0.8 => 'Talkative',
+                  _ => 'Won\'t shut up',
+                }),
+              ],
+            ),
+            Slider(
+              value: settings.acrotronChattiness,
+              onChanged: (value) => setState(() => settings.acrotronChattiness = value),
+              onChangeEnd: (_) => settings.saveAcrotron(),
+            ),
+            Row(
+              children: [
+                Text('Personality', style: theme.textTheme.labelLarge),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => setState(() => _personality.text = ''),
+                  child: const Text('Reset to default'),
+                ),
+              ],
+            ),
+            TextField(
+              controller: _personality,
+              minLines: 5,
+              maxLines: 10,
+              decoration: InputDecoration(
+                hintText: defaultAcrotronPersonality.trim(),
+                hintMaxLines: 10,
+                helperText: 'Leave empty for the default crude, curt persona.',
+              ),
+            ),
+            if (_status != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(_status!, style: theme.textTheme.bodyMedium),
+              ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _testing ? null : _test,
+                  icon: const Icon(Icons.chat_rounded),
+                  label: const Text('Test'),
+                ),
+                const Spacer(),
+                FilledButton(
+                  onPressed: () {
+                    _save();
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Done'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

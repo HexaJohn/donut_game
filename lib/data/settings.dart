@@ -24,6 +24,29 @@ class Settings {
   final ValueNotifier<double> sfxVolume = ValueNotifier(0.8);
   final ValueNotifier<bool> sfxMuted = ValueNotifier(false);
 
+  // Bad Batch
+  List<String> bbDeckCodes = [];
+  bool bbBuiltinDeck = true;
+  int bbPointsToWin = 7;
+  int bbBlankCards = 3;
+
+  /// Has confirmed they're an adult and fine with offensive humour.
+  bool adultConfirmed = false;
+
+  /// The mode a server starts in, as chosen in the server window.
+  String serverMode = 'donut';
+
+  // Acrotron, the AI player running on a local Ollama
+  String ollamaUrl = 'http://localhost:11434';
+  String ollamaModel = 'gemma3:4b';
+
+  /// Empty means the default personality.
+  String acrotronPersonality = '';
+
+  /// 0..1: how often it chimes in uninvited.
+  double acrotronChattiness = 0.35;
+  bool seatAcrotronOffline = false;
+
   double get effectiveMusicVolume => musicMuted.value ? 0 : musicVolume.value;
   double get effectiveSfxVolume => sfxMuted.value ? 0 : sfxVolume.value;
 
@@ -48,7 +71,42 @@ class Settings {
     musicMuted.value = prefs.getBool('musicMuted') ?? false;
     sfxVolume.value = prefs.getDouble('sfxVolume') ?? sfxVolume.value;
     sfxMuted.value = prefs.getBool('sfxMuted') ?? false;
+    bbDeckCodes = prefs.getStringList('bbDeckCodes') ?? [];
+    bbBuiltinDeck = prefs.getBool('bbBuiltinDeck') ?? true;
+    bbPointsToWin = prefs.getInt('bbPointsToWin') ?? bbPointsToWin;
+    bbBlankCards = prefs.getInt('bbBlankCards') ?? bbBlankCards;
+    adultConfirmed = prefs.getBool('adultConfirmed') ?? false;
+    serverMode = prefs.getString('serverMode') ?? serverMode;
+    ollamaUrl = prefs.getString('ollamaUrl') ?? ollamaUrl;
+    ollamaModel = prefs.getString('ollamaModel') ?? ollamaModel;
+    acrotronPersonality = prefs.getString('acrotronPersonality') ?? '';
+    acrotronChattiness = prefs.getDouble('acrotronChattiness') ?? acrotronChattiness;
+    seatAcrotronOffline = prefs.getBool('seatAcrotronOffline') ?? false;
   }
+
+  void saveAcrotron() {
+    _prefs
+      ?..setString('ollamaUrl', ollamaUrl)
+      ..setString('ollamaModel', ollamaModel)
+      ..setString('acrotronPersonality', acrotronPersonality)
+      ..setDouble('acrotronChattiness', acrotronChattiness)
+      ..setBool('seatAcrotronOffline', seatAcrotronOffline);
+  }
+
+  void saveBadBatch() {
+    _prefs
+      ?..setStringList('bbDeckCodes', bbDeckCodes)
+      ..setBool('bbBuiltinDeck', bbBuiltinDeck)
+      ..setInt('bbPointsToWin', bbPointsToWin)
+      ..setInt('bbBlankCards', bbBlankCards)
+      ..setBool('adultConfirmed', adultConfirmed)
+      ..setString('serverMode', serverMode);
+  }
+
+  /// Downloaded decks are kept so they still work offline.
+  String? cachedDeck(String code) => _prefs?.getString('deck.$code');
+  void cacheDeck(String code, String json) => _prefs?.setString('deck.$code', json);
+  void forgetDeck(String code) => _prefs?.remove('deck.$code');
 
   void saveAudio() {
     _prefs

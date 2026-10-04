@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:donut_game/ai/acrotron.dart';
 import 'package:donut_game/audio/sfx.dart';
 import 'package:donut_game/data/model/chat_message.dart';
 import 'package:donut_game/data/model/game/game.dart';
@@ -10,6 +11,7 @@ import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:donut_game/ui/game/announcer.dart';
 import 'package:donut_game/ui/game/game_controller.dart';
+import 'package:donut_game/ui/widget/fable_mark.dart';
 import 'package:donut_game/ui/widget/playing_card.dart';
 import 'package:donut_game/ui/widget/revolver.dart';
 import 'package:donut_game/ui/widget/suit_icon.dart';
@@ -1119,14 +1121,21 @@ class PlayerAvatar extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          CircleAvatar(
-            radius: size / 2,
-            backgroundColor: background,
-            child: player.human
-                ? Text(player.name.isEmpty ? '?' : player.name.characters.first.toUpperCase(),
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: size * 0.42))
-                : Icon(Icons.smart_toy_rounded, color: Colors.white, size: size * 0.55),
-          ),
+          if (player.agent && player.name == fableName)
+            FableMark(size: size)
+          else
+            CircleAvatar(
+              radius: size / 2,
+              backgroundColor: background,
+              child: player.name == acrotronName
+                  ? Icon(Icons.memory_rounded, color: Colors.white, size: size * 0.6)
+                  : player.agent
+                      ? Icon(Icons.auto_awesome_rounded, color: Colors.white, size: size * 0.55)
+                      : player.human
+                          ? Text(player.name.isEmpty ? '?' : player.name.characters.first.toUpperCase(),
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: size * 0.42))
+                          : Icon(Icons.smart_toy_rounded, color: Colors.white, size: size * 0.55),
+            ),
           if (dealer)
             Positioned(
               right: -4,

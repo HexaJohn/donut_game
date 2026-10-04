@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "donut": {
+      "command": "dart",
+      "args": ["tool/donut_mcp.dart"]
+    }
+  }
+}

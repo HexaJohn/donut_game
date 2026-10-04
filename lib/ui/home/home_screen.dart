@@ -8,6 +8,11 @@ import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:donut_game/ui/game/game_controller.dart';
 import 'package:donut_game/ui/game/game_screen.dart';
+import 'package:donut_game/ui/home/routes.dart';
+import 'package:donut_game/modes/bad_batch/bb_controller.dart';
+import 'package:donut_game/modes/bad_batch/bb_options.dart';
+import 'package:donut_game/modes/bad_batch/bb_screen.dart';
+import 'package:donut_game/modes/game_mode.dart';
 import 'package:donut_game/ui/widget/dialogs.dart';
 import 'package:donut_game/ui/widget/donut_logo.dart';
 import 'package:donut_game/ui/widget/suit_icon.dart';
@@ -78,22 +83,20 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     }
   }
 
-  Route _gameRoute(GameController controller) => PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 500),
-        reverseTransitionDuration: const Duration(milliseconds: 350),
-        pageBuilder: (_, __, ___) => GameScreen(controller: controller),
-        transitionsBuilder: (_, animation, __, child) {
-          final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
-          return FadeTransition(
-            opacity: curved,
-            child: ScaleTransition(scale: Tween(begin: 1.04, end: 1.0).animate(curved), child: child),
-          );
-        },
-      );
+  GameMode _offlineMode = GameMode.donut;
 
-  void _playOffline() {
+  Future<void> _playOffline() async {
     _save();
-    Navigator.of(context).push(_gameRoute(OfflineGameController(nickname: settings.nickname, bots: settings.bots)));
+    if (_offlineMode == GameMode.badBatch) {
+      if (!await confirmAdultContent(context) || !mounted) return;
+      Navigator.of(context).push(gameRoute(
+        BbScreen(controller: OfflineBbController(nickname: settings.nickname, bots: settings.bots)),
+      ));
+      return;
+    }
+    Navigator.of(context).push(gameRoute(
+      GameScreen(controller: OfflineGameController(nickname: settings.nickname, bots: settings.bots)),
+    ));
   }
 
   Future<void> _joinOnline() async {
@@ -108,13 +111,18 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     });
     try {
       await OnlineGameController.join(settings.serverHost, settings.serverPort, settings.nickname);
+      // Open whichever game the server is running
+      final mode = await fetchServerMode(settings.serverHost, settings.serverPort);
       if (!mounted) return;
       setState(() => _joining = false);
-      await Navigator.of(context).push(_gameRoute(OnlineGameController(
+      if (mode.adult && !await confirmAdultContent(context)) return;
+      if (!mounted) return;
+      await Navigator.of(context).push(onlineRoute(
+        mode,
         host: settings.serverHost,
         port: settings.serverPort,
         username: settings.nickname,
-      )));
+      ));
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -276,6 +284,29 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       key: const ValueKey('offline'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Text('Game', style: theme.textTheme.labelLarge),
+        const SizedBox(height: 8),
+        SegmentedButton<GameMode>(
+          segments: [
+            for (final mode in GameMode.values)
+              ButtonSegment(
+                value: mode,
+                label: Text(mode.adult ? '${mode.label} 18+' : mode.label),
+                icon: Icon(mode == GameMode.donut ? Icons.donut_large_rounded : Icons.style_rounded),
+              ),
+          ],
+          selected: {_offlineMode},
+          onSelectionChanged: (value) => setState(() => _offlineMode = value.first),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 6, bottom: 14),
+          child: Text(_offlineMode.tagline,
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+        ),
+        if (_offlineMode == GameMode.badBatch) ...[
+          const BadBatchOptions(),
+          const SizedBox(height: 12),
+        ],
         Row(
           children: [
             Text('Opponents', style: theme.textTheme.labelLarge),
@@ -286,6 +317,23 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 child: Icon(Icons.smart_toy_rounded, size: 18, color: theme.colorScheme.primary),
               ),
           ],
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          value: settings.seatAcrotronOffline,
+          onChanged: (value) => setState(() {
+            settings
+              ..seatAcrotronOffline = value
+              ..saveAcrotron();
+          }),
+          secondary: IconButton(
+            tooltip: 'Acrotron settings',
+            icon: const Icon(Icons.tune_rounded),
+            onPressed: () => showAcrotronSettings(context),
+          ),
+          title: const Text('Seat Acrotron'),
+          subtitle: const Text('AI player on your local Ollama. Takes one bot seat.'),
         ),
         Slider(
           value: settings.bots.toDouble(),

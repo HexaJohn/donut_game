@@ -1,6 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:donut_game/ai/acrotron.dart';
+import 'package:donut_game/data/settings.dart';
+import 'package:donut_game/modes/bad_batch/bb_game.dart';
+import 'package:donut_game/modes/bad_batch/deck_library.dart';
+import 'package:donut_game/modes/game_mode.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/data/model/game/game.dart';
@@ -16,6 +21,19 @@ import 'package:window_manager/window_manager.dart';
 
 Game serverGame = Game();
 
+/// What the table is playing. Switched from the server window between games.
+GameMode serverMode = GameMode.donut;
+final BadBatchGame badBatch = BadBatchGame(serverGame);
+
+/// Loads the server's Bad Batch settings and decks into [badBatch].
+void configureBadBatch() {
+  final settings = Settings.instance;
+  badBatch
+    ..decks = DeckLibrary.instance.activeDecks
+    ..pointsToWin = settings.bbPointsToWin
+    ..blankCards = settings.bbBlankCards;
+}
+
 Future main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (isDesktop) {
@@ -23,6 +41,12 @@ Future main() async {
     await windowManager.ensureInitialized();
     await windowManager.setTitle('Donut Server');
   }
+  // Decks and Bad Batch options are shared with the game app on this machine
+  await Settings.instance.load();
+  DeckLibrary.instance.load();
+  // DONUT_MODE (e.g. badBatch) overrides the mode saved from the server window
+  const definedMode = String.fromEnvironment('DONUT_MODE');
+  serverMode = GameModeInfo.fromName(definedMode.isNotEmpty ? definedMode : Settings.instance.serverMode);
   serverGame.addBot();
   serverGame.addBot();
   // DONUT_PORT (environment variable or --dart-define) runs a second server
@@ -131,6 +155,8 @@ final _router = shelf_router.Router()
   ..post('/shoot', _executeShoot)
   ..post('/draw', _executeDraw)
   ..post('/flashbang', _executeFlashbang)
+  ..post('/bb/submit', _bbSubmit)
+  ..post('/bb/judge', _bbJudge)
   ..get('/reset', _executeReset)
   ..get(
     '/time',
@@ -143,12 +169,17 @@ Response _helloWorldHandler(Request request) => Response.ok('Hello, World!');
 Future<Response> _newConnectionHandler(Request request) async {
   String playerData = await request.readAsString();
   final playerJson = jsonDecode(playerData);
+  if ('${playerJson['username']}'.trim().toLowerCase() == acrotronName.toLowerCase()) {
+    return Response(409, body: 'That name belongs to the house AI. Pick another.');
+  }
   final player = GamePlayer('${playerJson['username']}', 0, true);
   player.id = playerJson['id'] + playerJson['username'];
+  player.agent = playerJson['agent'] == true;
   // Reconnecting keeps the existing seat
   final rejoining = serverGame.playerDB.containsKey(player.id);
   if (!rejoining) {
     serverGame.addLocalPlayer(player);
+    badBatch.rosterChanged();
     serverGame.say('', '${player.name} joined the game.', system: true);
   }
   if (serverGame.playerDB.length == 2) {
@@ -199,10 +230,14 @@ Future<Response> _activeConnection(Request request) async {
   if (serverGame.playerDB.length > 2 && serverGame.state.value == GameState.waitingForPlayers) {
     serverGame.state.value = GameState.waitingToDeal;
   }
+  // Bad Batch hands are private: only the asking player's is sent
+  final viewer = serverGame.playerDB[request.url.queryParameters['id']]?.name;
   var scores = [
     {
+      'mode': serverMode.name,
       'players': _playersToJson(),
-      'game': _gameToJson(inkRevision: int.tryParse(request.url.queryParameters['ink_rev'] ?? ''))
+      'game': _gameToJson(inkRevision: int.tryParse(request.url.queryParameters['ink_rev'] ?? '')),
+      if (serverMode == GameMode.badBatch) 'bb': badBatch.toJson(viewer: viewer),
     }
   ];
 
@@ -215,7 +250,8 @@ Future<Response> _voteResponse(Request request) async {
     String playerData = await request.readAsString();
     final playerJson = jsonDecode(playerData);
     final player = serverGame.playerDB[playerJson['id']]!;
-    player.voteToDeal = true;
+    // "vote": "false" takes a ready back
+    player.voteToDeal = playerJson['vote'] != 'false';
     evaluateDeal();
     return Response.ok('');
   } catch (e) {
@@ -243,7 +279,8 @@ List<Map<String, dynamic>> _playersToJson() {
       'folds': player.folds,
       'tricks': player.tricks,
       'skip': player.skip.toString(),
-      'awaitingCard': player.awaitingCard.toString()
+      'awaitingCard': player.awaitingCard.toString(),
+      'agent': player.agent
     });
   }
   return compound;
@@ -290,6 +327,29 @@ Future<Response> _executePlay(Request request) async {
   }
   player.cardToPlay = hand[cardIndex];
   return Response.ok('');
+}
+
+/// Bad Batch answer: {"id", "cards": [hand indexes in blank order],
+/// "written": {"<index>": "text for a blank card"}}.
+Future<Response> _bbSubmit(Request request) async {
+  final body = jsonDecode(await request.readAsString());
+  final player = serverGame.playerDB[body['id']];
+  if (player == null || body['cards'] is! List) return Response.badRequest();
+  final written = <int, String>{
+    for (final entry in (body['written'] as Map? ?? {}).entries)
+      if (int.tryParse('${entry.key}') != null) int.parse('${entry.key}'): '${entry.value}',
+  };
+  final problem = badBatch.submit(player.name, List<int>.from(body['cards']), written: written);
+  return problem == null ? Response.ok('') : Response(409, body: problem);
+}
+
+/// Bad Batch judging: {"id", "index"} of the winning answer, in reveal order.
+Future<Response> _bbJudge(Request request) async {
+  final body = jsonDecode(await request.readAsString());
+  final player = serverGame.playerDB[body['id']];
+  if (player == null || body['index'] is! int) return Response.badRequest();
+  final problem = badBatch.judge(player.name, body['index']);
+  return problem == null ? Response.ok('') : Response(409, body: problem);
 }
 
 /// {"id", "x", "y"}: throws a flashbang onto the table. 429 while the last
@@ -375,8 +435,22 @@ Future<Response> _finalizeSwap(Request request) async {
 }
 
 void evaluateDeal() {
-  if (serverGame.playerDB.values.where((element) => element.voteToDeal == false).isEmpty) {
+  // Bots are always ready
+  for (final player in serverGame.players) {
+    if (!player.human) player.voteToDeal = true;
+  }
+  if (serverGame.playerDB.values.where((element) => element.voteToDeal == false).isNotEmpty) return;
+  if (serverMode == GameMode.donut) {
     serverGame.deal(shuffle: true);
+    return;
+  }
+  // Bad Batch: everyone's ready, so start a game
+  if (badBatch.running) return;
+  configureBadBatch();
+  final problem = badBatch.start();
+  if (problem != null) serverGame.say('', problem, system: true);
+  for (final player in serverGame.players) {
+    if (player.human) player.voteToDeal = false;
   }
 }
 

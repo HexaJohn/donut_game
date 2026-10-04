@@ -35,6 +35,10 @@ class GamePlayer {
   /// card. Plays at any other moment are refused.
   bool awaitingCard = false;
 
+  /// An AI agent playing through the MCP harness (e.g. Fable). Plays like a
+  /// human, but gets its own avatar and Acrotron rations its replies to it.
+  bool agent = false;
+
   @override
   String toString() {
     return name;

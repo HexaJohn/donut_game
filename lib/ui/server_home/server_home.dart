@@ -4,6 +4,12 @@ import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
+import 'package:donut_game/ai/acrotron.dart';
+import 'package:donut_game/data/settings.dart';
+import 'package:donut_game/ui/widget/dialogs.dart';
+import 'package:donut_game/modes/bad_batch/bb_game.dart';
+import 'package:donut_game/modes/bad_batch/bb_options.dart';
+import 'package:donut_game/modes/game_mode.dart';
 import 'package:donut_game/ws_server.dart';
 import 'package:flutter/material.dart';
 
@@ -55,6 +61,15 @@ class _ServerGUIState extends State<ServerGUI> {
           children: [
             SizedBox(width: 360, child: _TablePanel(game: serverGame, onChanged: () => setState(() {}))),
             const SizedBox(width: 16),
+            if (serverMode == GameMode.badBatch) ...[
+              const SizedBox(
+                width: 380,
+                child: Card(
+                  child: SingleChildScrollView(padding: EdgeInsets.all(16), child: BadBatchOptions()),
+                ),
+              ),
+              const SizedBox(width: 16),
+            ],
             Expanded(
               child: Card(
                 child: Padding(
@@ -108,7 +123,9 @@ class _TablePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final players = game.players;
-    final canChange = game.canChangeBots;
+    // Bad Batch copes with seats changing mid-game; Donut only between hands
+    final canChange = serverMode == GameMode.badBatch || game.canChangeBots;
+    final busy = badBatch.running || !game.canChangeBots;
     final full = players.length >= Game.maxPlayers;
     final hasBots = players.any((element) => !element.human);
 
@@ -125,9 +142,47 @@ class _TablePanel extends StatelessWidget {
                 Text('${players.length}/${Game.maxPlayers} seats', style: theme.textTheme.bodySmall),
               ],
             ),
+            const SizedBox(height: 12),
+            SegmentedButton<GameMode>(
+              segments: [for (final mode in GameMode.values) ButtonSegment(value: mode, label: Text(mode.label))],
+              selected: {serverMode},
+              // Switching mid-game would strand everyone's hands
+              onSelectionChanged: busy
+                  ? null
+                  : (value) {
+                      serverMode = value.first;
+                      Settings.instance
+                        ..serverMode = serverMode.name
+                        ..saveBadBatch();
+                      if (serverMode != GameMode.badBatch) badBatch.stop();
+                      for (final player in game.players) {
+                        player.voteToDeal = false;
+                      }
+                      game.say('', 'The table is now playing ${serverMode.label}.', system: true);
+                      onChanged();
+                    },
+            ),
+            if (busy)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text('The game can be changed between games.', style: theme.textTheme.bodySmall),
+              ),
+            if (badBatch.running)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () {
+                    badBatch.stop();
+                    game.say('', 'The host stopped the game.', system: true);
+                    onChanged();
+                  },
+                  icon: const Icon(Icons.stop_circle_outlined),
+                  label: const Text('Stop Bad Batch game'),
+                ),
+              ),
             const SizedBox(height: 4),
             Text(
-              _describe(game.state.value),
+              serverMode == GameMode.badBatch ? _describeBadBatch() : _describe(game.state.value),
               style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
             ),
             const SizedBox(height: 12),
@@ -140,6 +195,7 @@ class _TablePanel extends StatelessWidget {
                       onRemove: !player.human && canChange
                           ? () {
                               game.removeBot(player);
+                              badBatch.rosterChanged();
                               onChanged();
                             }
                           : null,
@@ -160,6 +216,7 @@ class _TablePanel extends StatelessWidget {
                     onPressed: canChange && hasBots
                         ? () {
                             game.removeBot();
+                            badBatch.rosterChanged();
                             onChanged();
                           }
                         : null,
@@ -173,6 +230,7 @@ class _TablePanel extends StatelessWidget {
                     onPressed: canChange && !full
                         ? () {
                             game.addBotToTable();
+                            badBatch.rosterChanged();
                             onChanged();
                           }
                         : null,
@@ -182,11 +240,41 @@ class _TablePanel extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: canChange && !full && !players.any((p) => p.name == acrotronName)
+                        ? () {
+                            game.addAcrotron();
+                            badBatch.rosterChanged();
+                            onChanged();
+                          }
+                        : null,
+                    icon: const Icon(Icons.memory_rounded),
+                    label: const Text('Add Acrotron'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Acrotron settings',
+                  onPressed: () => showAcrotronSettings(context),
+                  icon: const Icon(Icons.tune_rounded),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
+
+  String _describeBadBatch() => switch (badBatch.state) {
+        BbState.lobby => 'Bad Batch lobby, waiting for everyone to be ready',
+        BbState.gameOver => 'Bad Batch game over: ${badBatch.champion} won',
+        _ => 'Bad Batch round ${badBatch.round}, ${badBatch.czar} is Card Czar',
+      };
 
   String _describe(GameState state) => switch (state) {
         GameState.waitingForPlayers => 'Waiting for players (3 needed)',

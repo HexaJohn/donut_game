@@ -7,6 +7,8 @@ import 'package:donut_game/data/model/bullet_hole.dart';
 import 'package:donut_game/data/model/chat_message.dart';
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/data/model/ink_stroke.dart';
+import 'package:donut_game/data/settings.dart';
+import 'package:donut_game/modes/game_mode.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/data/model/game_card/game_card_stack.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
@@ -25,6 +27,9 @@ abstract class GameController {
 
   /// Connection problem to show the player, if any.
   final ValueNotifier<String?> error = ValueNotifier(null);
+
+  /// Set when an online server switches the table to another game.
+  final ValueNotifier<GameMode?> switchedTo = ValueNotifier(null);
 
   void start() {}
   void dispose() {}
@@ -102,7 +107,7 @@ abstract class GameController {
 class OfflineGameController extends GameController {
   OfflineGameController({required String nickname, required int bots})
       : _local = GamePlayer(nickname.isEmpty ? 'You' : nickname, 0, true)..id = 'local' {
-    game.setupOffline(_local, bots);
+    game.setupOffline(_local, bots, acrotron: Settings.instance.seatAcrotronOffline);
   }
 
   final GamePlayer _local;
@@ -242,6 +247,11 @@ class OnlineGameController extends GameController {
   }
 
   void _apply(Map<String, dynamic> json) {
+    final mode = GameModeInfo.fromName(json['mode']);
+    if (mode != GameMode.donut) {
+      switchedTo.value = mode;
+      return;
+    }
     final activeKeys = <String>{};
     for (var element in json['players']) {
       final String id = element['id'];
@@ -266,6 +276,7 @@ class OnlineGameController extends GameController {
       final awaiting = element['awaitingCard'] == 'true';
       if (awaiting && !player.awaitingCard) player.cardToPlay = null;
       player.awaitingCard = awaiting;
+      player.agent = element['agent'] == true;
       // Keep the same stack so listeners survive; only replace its contents
       player.hand.cards.value = cards.cards.value;
     }
