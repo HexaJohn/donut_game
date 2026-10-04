@@ -2,7 +2,7 @@ import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const String appVersion = '2.0.0';
+const String appVersion = '2.1.0';
 const int defaultPort = 27960;
 
 /// User preferences that survive restarts.
