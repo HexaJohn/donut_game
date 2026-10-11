@@ -61,6 +61,12 @@ Resources:
                 Effect: Allow
                 Action: [s3:GetObject, s3:PutObject, s3:DeleteObject]
                 Resource: !Sub ${TablesBucket.Arn}/*
+              - Sid: FindOpenTables
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt TablesBucket.Arn
+                Condition:
+                  StringLike: {s3:prefix: open/*}
               - Sid: TalkToPlayers
                 Effect: Allow
                 Action: execute-api:ManageConnections

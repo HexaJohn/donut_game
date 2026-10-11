@@ -140,4 +140,17 @@ void main() {
     expect(guest.partyCode, isNull);
     guest.dispose();
   });
+
+  test('Find a game opens a public table, and a second player is sent to it', () async {
+    final first = PartyController(
+        matchmake: true, nickname: 'Ann', url: gateway.url, playerId: 'ann-device', secret: 'ann-secret-0123456789ab');
+    first.start();
+    await until(() => first.partyCode != null && first.publicParty, reason: 'a public table opened');
+    final stranger = await RawPlayer.connect(gateway.url);
+    stranger.send({'a': 'matchmake', 'name': 'Ben', 'player': 'ben-device', 'secret': 'ben-secret-0123456789ab'});
+    await until(() => first.game.players.length == 2, reason: 'Ben was matched in');
+    expect(stranger.messages.first['code'], first.partyCode);
+    first.dispose();
+    await stranger.socket.close();
+  });
 }

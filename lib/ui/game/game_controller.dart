@@ -89,6 +89,9 @@ abstract class GameController {
   final ValueNotifier<String?> party = ValueNotifier(null);
   String? get partyCode => party.value;
 
+  /// Whether the party is open to matchmaking, not just friends with the code.
+  bool get publicParty => false;
+
   /// Whether this player may add and remove bots right now (a party's host,
   /// between matches).
   bool get canManageBots => false;

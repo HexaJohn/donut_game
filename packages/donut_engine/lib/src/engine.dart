@@ -79,9 +79,10 @@ class DonutEngine {
     String? back,
     String? face,
     Map<String, dynamic>? emblem,
+    bool public = false,
     required int now,
   }) {
-    final table = TableState(code: code, hostId: hostId, createdAt: now);
+    final table = TableState(code: code, hostId: hostId, createdAt: now)..public = public;
     table.deck = _freshDeck();
     join(table, id: hostId, name: hostName, secret: secret, back: back, face: face, emblem: emblem, now: now);
     return table;
@@ -806,6 +807,7 @@ class DonutEngine {
         'target': table.target,
         'host': nameOf(table.hostId),
         'code': table.code,
+        'public': table.public,
         'flash': {
           'serial': table.flashSerial,
           'x': table.flashX,

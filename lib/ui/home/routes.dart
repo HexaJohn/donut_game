@@ -22,5 +22,5 @@ Route<void> onlineRoute({required String host, required int port, required Strin
     gameRoute(GameScreen(controller: OnlineGameController(host: host, port: port, username: username)));
 
 /// A party on the party server: a new one hosted by this player, or [code].
-Route<void> partyRoute({String? code, required String nickname}) =>
-    gameRoute(GameScreen(controller: PartyController(code: code, nickname: nickname)));
+Route<void> partyRoute({String? code, bool matchmake = false, required String nickname}) =>
+    gameRoute(GameScreen(controller: PartyController(code: code, matchmake: matchmake, nickname: nickname)));

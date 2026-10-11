@@ -177,6 +177,10 @@ class TableState {
   final int createdAt;
   int updatedAt;
 
+  /// Listed for matchmaking, so strangers can be sent here, rather than
+  /// only friends with the code.
+  bool public = false;
+
   List<Seat> seats = [];
   List<TableCard> deck = [];
   List<TableCard> discard = [];
@@ -221,11 +225,22 @@ class TableState {
 
   Seat? get host => seat(hostId);
 
+  /// Whether matchmaking may send someone here now: public, not started,
+  /// room for another person, and someone still here to play with.
+  bool get openToMatchmaking =>
+      public &&
+      phase == Phase.lobby &&
+      handNumber == 0 &&
+      seats.length < maxSeats &&
+      seats.where((seat) => seat.human).length < maxPublicPlayers &&
+      seats.any((seat) => seat.human && seat.connected);
+
   Map<String, dynamic> toJson() => {
         'code': code,
         'hostId': hostId,
         'createdAt': createdAt,
         'updatedAt': updatedAt,
+        'public': public,
         'seats': [for (final seat in seats) seat.toJson()],
         'deck': [for (final card in deck) card.toJson()],
         'discard': [for (final card in discard) card.toJson()],
@@ -267,6 +282,7 @@ class TableState {
     return TableState(
         code: json['code'] as String, hostId: json['hostId'] as String, createdAt: json['createdAt'] as int)
       ..updatedAt = json['updatedAt'] as int
+      ..public = json['public'] as bool? ?? false
       ..seats = [for (final seat in json['seats'] as List) Seat.fromJson(Map<String, dynamic>.from(seat as Map))]
       ..deck = cards(json['deck'])
       ..discard = cards(json['discard'])

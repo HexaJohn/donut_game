@@ -141,4 +141,57 @@ void main() {
         'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-east-1/service/aws4_request, '
         'SignedHeaders=host;x-amz-date, Signature=5fa00fa31553b73ebf1942676e86291e8372ff2a2260956d9b8aae1d763fbf31');
   });
+
+  group('matchmaking', () {
+    Future<String> matchmake(String who) async {
+      await server.handle(_event('\$default', 'c-$who', {'a': 'matchmake', ..._hello('player-$who', who)}));
+      return sender.of('c-$who', 'joined').single['code'] as String;
+    }
+
+    Iterable<String> listed() => store.keys.where((key) => key.startsWith('open/'));
+
+    test('fills the oldest public table, up to four people, then opens another', () async {
+      final first = await matchmake('ann');
+      expect(listed(), hasLength(1), reason: 'nobody was waiting, so a public table opened');
+      expect(sender.of('c-ann', 'snap').last['game']['public'], isTrue);
+      final second = await matchmake('ben');
+      expect(second, first);
+      await matchmake('cat');
+      await matchmake('dan');
+      expect(listed(), isEmpty, reason: 'four people: no longer listed');
+      final fifth = await matchmake('eve');
+      expect(fifth, isNot(first));
+      expect(listed(), hasLength(1));
+    });
+
+    test('a table leaves the listing when it deals or empties', () async {
+      final code = await matchmake('ann');
+      await matchmake('ben');
+      for (final who in ['ann', 'ben']) {
+        await server.handle(_event('\$default', 'c-$who', {'a': 'vote', 'b': {'vote': 'true'}, 'n': 1}));
+      }
+      expect(listed(), isEmpty, reason: 'the match started');
+      expect(await matchmake('cat'), isNot(code));
+      // Cat leaves before anyone joins: an empty table isn't offered
+      await server.handle(_event('\$disconnect', 'c-cat'));
+      expect(listed(), isEmpty);
+      expect(await matchmake('dan'), isNot(code));
+    });
+
+    test('a stale listing is skipped and cleared', () async {
+      final code = await matchmake('ann');
+      // The table moved on without its listing being cleared
+      final state = (await store.get('tables/$code/state.json'))!;
+      await store.put('tables/$code/state.json', {...state.json, 'handNumber': 1});
+      final next = await matchmake('ben');
+      expect(next, isNot(code));
+      expect(listed().where((key) => key.contains(code)), isEmpty);
+    });
+
+    test('parties with a code are never matchmade into', () async {
+      final code = await host();
+      expect(listed(), isEmpty);
+      expect(await matchmake('ben'), isNot(code));
+    });
+  });
 }

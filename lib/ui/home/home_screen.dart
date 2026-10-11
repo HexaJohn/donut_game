@@ -93,8 +93,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     ));
   }
 
-  /// Hosts a new party ([join] false) or joins the one whose code is typed in.
-  void _party({required bool join}) {
+  /// Hosts a new party ([join] false), joins the one whose code is typed in,
+  /// or with [matchmake] finds a public table.
+  void _party({bool join = false, bool matchmake = false}) {
     _save();
     if (settings.nickname.isEmpty) {
       setState(() => _partyError = 'Pick a nickname first.');
@@ -106,7 +107,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       return;
     }
     setState(() => _partyError = null);
-    Navigator.of(context).push(partyRoute(code: join ? code : null, nickname: settings.nickname));
+    Navigator.of(context)
+        .push(partyRoute(code: join ? code : null, matchmake: matchmake, nickname: settings.nickname));
   }
 
   Future<void> _joinOnline() async {
@@ -376,14 +378,22 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       key: const ValueKey('online'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Friends anywhere: one of them hosts, the rest type in the code
-        Text('Party', style: theme.textTheme.labelLarge),
+        // Strangers: matchmaking fills public tables. Friends: one hosts,
+        // the rest type in the code
+        Text('Play online', style: theme.textTheme.labelLarge),
         const SizedBox(height: 8),
         FilledButton.icon(
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+          onPressed: () => _party(matchmake: true),
+          icon: const Icon(Icons.travel_explore_rounded),
+          label: const Text('Find a game', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
           onPressed: () => _party(join: false),
           icon: const Icon(Icons.celebration_rounded),
-          label: const Text('Host a party', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          label: const Text('Host a party', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
         ),
         const SizedBox(height: 10),
         Row(

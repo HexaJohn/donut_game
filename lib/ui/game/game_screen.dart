@@ -718,7 +718,10 @@ class PartyCodeBanner extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
                   child: Row(
                     children: [
-                      Text('Party code', style: theme.textTheme.labelLarge),
+                      Flexible(
+                        child: Text(controller.publicParty ? 'Public game' : 'Party code',
+                            maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelLarge),
+                      ),
                       const SizedBox(width: 10),
                       Text(code,
                           style: theme.textTheme.titleLarge?.copyWith(

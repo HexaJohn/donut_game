@@ -6,6 +6,9 @@ import 'package:donut_engine/donut_engine.dart';
 import 'aws.dart';
 import 'store.dart';
 
+/// Who's asking to sit down: what create, join and matchmake carry.
+typedef Who = ({String name, String player, String secret, String? back, String? face, Map<String, dynamic>? emblem});
+
 /// Delivers messages to players' open WebSocket connections.
 abstract interface class Sender {
   /// Returns false if the connection has gone.
@@ -46,9 +49,12 @@ class ApiGatewaySender implements Sender {
 ///   tables/<CODE>/state.json    the table (TableState)
 ///   tables/<CODE>/players.json  {player id: connection id}
 ///   conns/<connection id>.json  {code, player}
+///   open/<created>-<CODE>.json  a public table matchmaking can fill,
+///                               oldest first
 ///
-/// Client messages are {"a": action, ...}: "create" and "join" carry name,
-/// back, face, player (a device id) and secret; moves carry "b" (the body
+/// Client messages are {"a": action, ...}: "create", "join" (with "code")
+/// and "matchmake" carry name, back, face, emblem, player (a device id) and
+/// secret; moves carry "b" (the body
 /// the app's online moves use) and "n" (a serial to acknowledge). The
 /// server sends "joined" {code, player}, "snap" {delay, players, game} for
 /// each frame, "ack" {n, ok, status, message} and "error" {message}.
@@ -65,6 +71,8 @@ class PartyServer {
   static String _stateKey(String code) => 'tables/$code/state.json';
   static String _playersKey(String code) => 'tables/$code/players.json';
   static String _connKey(String connection) => 'conns/$connection.json';
+  static String _openKey(TableState table) => 'open/${'${table.createdAt}'.padLeft(15, '0')}-${table.code}.json';
+  static String? _codeOfOpenKey(String key) => RegExp(r'-([A-Z0-9]{6})\.json$').firstMatch(key)?.group(1);
 
   /// Handles one API Gateway WebSocket event.
   Future<void> handle(Map<String, dynamic> event) async {
@@ -110,7 +118,12 @@ class PartyServer {
         case 'create':
           await _create(connection, message);
         case 'join':
-          await _join(connection, message);
+          final code = '${message['code'] ?? ''}'.trim().toUpperCase();
+          if (!RegExp(r'^[A-Z0-9]{6}$').hasMatch(code))
+            throw const Refusal(400, 'Party codes are six letters and numbers.');
+          await _join(connection, _who(message), code);
+        case 'matchmake':
+          await _matchmake(connection, _who(message));
         case 'ping':
           return;
         default:
@@ -124,14 +137,13 @@ class PartyServer {
         'status': refusal.status,
         'message': refusal.message,
       });
-      if (action == 'create' || action == 'join') {
+      if (action == 'create' || action == 'join' || action == 'matchmake') {
         await sender.send(connection, {'k': 'error', 'message': refusal.message});
       }
     }
   }
 
-  ({String name, String player, String secret, String? back, String? face, Map<String, dynamic>? emblem}) _who(
-      Map<String, dynamic> message) {
+  Who _who(Map<String, dynamic> message) {
     final player = message['player'];
     final secret = message['secret'];
     final name = message['name'];
@@ -149,8 +161,11 @@ class PartyServer {
     );
   }
 
-  Future<void> _create(String connection, Map<String, dynamic> message) async {
-    final who = _who(message);
+  Future<void> _create(String connection, Map<String, dynamic> message) => _host(connection, _who(message));
+
+  /// Opens a new table with this player as host; [public] lists it for
+  /// matchmaking.
+  Future<void> _host(String connection, Who who, {bool public = false}) async {
     final now = _clock();
     // A fresh code nobody holds: claiming it only succeeds if it's free
     for (var attempt = 0; attempt < 8; attempt++) {
@@ -163,12 +178,14 @@ class PartyServer {
           back: who.back,
           face: who.face,
           emblem: who.emblem,
+          public: public,
           now: now);
       try {
         await store.put(_stateKey(code), table.toJson(), ifAbsent: true);
       } on Conflict {
         continue;
       }
+      if (table.openToMatchmaking) await store.put(_openKey(table), {'code': code});
       await store.put(_playersKey(code), {who.player: connection});
       await store.put(_connKey(connection), {'code': code, 'player': who.player});
       await sender.send(connection, {'k': 'joined', 'code': code, 'player': who.player});
@@ -179,20 +196,39 @@ class PartyServer {
     throw const Refusal(503, 'Couldn\'t make a party. Try again.');
   }
 
-  Future<void> _join(String connection, Map<String, dynamic> message) async {
-    final who = _who(message);
-    final code = '${message['code'] ?? ''}'.trim().toUpperCase();
-    if (!RegExp(r'^[A-Z0-9]{6}$').hasMatch(code)) throw const Refusal(400, 'Party codes are six letters and numbers.');
-    final frames = await _update(
-        code,
-        (table, now) => engine.join(table,
-            id: who.player,
-            name: who.name,
-            secret: who.secret,
-            back: who.back,
-            face: who.face,
-            emblem: who.emblem,
-            now: now));
+  /// Sends the player to the oldest public table with room, or opens a new
+  /// one for others to be sent to.
+  Future<void> _matchmake(String connection, Who who) async {
+    for (final key in await store.list('open/', limit: 10)) {
+      final code = _codeOfOpenKey(key);
+      if (code == null) continue;
+      try {
+        await _join(connection, who, code, matchmaking: true);
+        return;
+      } on Refusal {
+        // Started, full or abandoned since it was listed
+        await store.delete(key);
+      }
+    }
+    await _host(connection, who, public: true);
+  }
+
+  /// Seats the player at [code]. [matchmaking] only takes a table that's
+  /// still open to strangers.
+  Future<void> _join(String connection, Who who, String code, {bool matchmaking = false}) async {
+    final frames = await _update(code, (table, now) {
+      if (matchmaking && !table.openToMatchmaking && table.seat(who.player) == null) {
+        throw const Refusal(409, 'That table filled up.');
+      }
+      return engine.join(table,
+          id: who.player,
+          name: who.name,
+          secret: who.secret,
+          back: who.back,
+          face: who.face,
+          emblem: who.emblem,
+          now: now);
+    });
     await _setConnection(code, who.player, connection);
     await store.put(_connKey(connection), {'code': code, 'player': who.player});
     await sender.send(connection, {'k': 'joined', 'code': code, 'player': who.player});
@@ -238,9 +274,13 @@ class PartyServer {
       final stored = await store.get(_stateKey(code));
       if (stored == null) throw const Refusal(404, 'No party with that code. It may have ended.');
       final table = TableState.fromJson(stored.json);
+      final wasOpen = table.openToMatchmaking;
       final frames = change(table, _clock());
       try {
         await store.put(_stateKey(code), table.toJson(), ifMatch: stored.etag);
+        // Keep the matchmaking listing in step with the table
+        if (table.openToMatchmaking && !wasOpen) await store.put(_openKey(table), {'code': code});
+        if (!table.openToMatchmaking && wasOpen) await store.delete(_openKey(table));
         return (table, frames);
       } on Conflict {
         continue;

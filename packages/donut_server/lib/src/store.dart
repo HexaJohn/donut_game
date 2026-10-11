@@ -25,6 +25,9 @@ abstract interface class Store {
   Future<String> put(String key, Map<String, dynamic> json, {String? ifMatch, bool ifAbsent = false});
 
   Future<void> delete(String key);
+
+  /// Up to [limit] keys starting with [prefix], in order.
+  Future<List<String>> list(String prefix, {int limit = 20});
 }
 
 /// Documents in an S3 bucket, using its conditional writes.
@@ -72,6 +75,18 @@ class S3Store implements Store {
   Future<void> delete(String key) async {
     await awsRequest(_signer, method: 'DELETE', host: _host, path: _path(key), signPayloadHeader: true);
   }
+
+  @override
+  Future<List<String>> list(String prefix, {int limit = 20}) async {
+    final response = await awsRequest(_signer,
+        method: 'GET',
+        host: _host,
+        path: '/',
+        query: {'list-type': '2', 'prefix': prefix, 'max-keys': '$limit'},
+        signPayloadHeader: true);
+    if (response.status != 200) throw StateError('S3 LIST $prefix: ${response.status} ${response.text}');
+    return [for (final match in RegExp(r'<Key>([^<]*)</Key>').allMatches(response.text)) match.group(1)!];
+  }
 }
 
 /// Documents in memory, for tests.
@@ -99,4 +114,8 @@ class MemoryStore implements Store {
 
   @override
   Future<void> delete(String key) async => _docs.remove(key);
+
+  @override
+  Future<List<String>> list(String prefix, {int limit = 20}) async =>
+      (_docs.keys.where((key) => key.startsWith(prefix)).toList()..sort()).take(limit).toList();
 }

@@ -115,6 +115,7 @@ Future<AwsResponse> awsRequest(
   required String method,
   required String host,
   required String path,
+  Map<String, String> query = const {},
   Map<String, String> headers = const {},
   List<int> body = const [],
   bool signPayloadHeader = false,
@@ -123,12 +124,16 @@ Future<AwsResponse> awsRequest(
     method: method,
     host: host,
     path: path,
+    query: query,
     headers: headers,
     body: body,
     time: DateTime.now(),
     signPayloadHeader: signPayloadHeader,
   );
-  final request = await _http.openUrl(method, Uri.parse('https://$host$path'));
+  final queryString =
+      (query.keys.toList()..sort()).map((k) => '${SigV4.encode(k)}=${SigV4.encode(query[k]!)}').join('&');
+  final request =
+      await _http.openUrl(method, Uri.parse('https://$host$path${queryString.isEmpty ? '' : '?$queryString'}'));
   signed.forEach(request.headers.set);
   request.contentLength = body.length;
   if (body.isNotEmpty) request.add(body);

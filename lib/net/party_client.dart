@@ -20,13 +20,15 @@ const partyServerUrl = 'wss://lb41mv4lkc.execute-api.us-east-2.amazonaws.com/liv
 /// clearing), each with how long to wait after the previous one, so they're
 /// played back in order on a timed queue rather than all at once.
 class PartyController extends RemoteTableController with WidgetsBindingObserver {
-  /// Hosts a new party, or joins [code].
-  PartyController({String? code, required this.nickname, this.url = partyServerUrl, String? playerId, String? secret})
+  /// Hosts a new party, joins [code], or with [matchmake] finds a public
+  /// table with room (opening one if none has).
+  PartyController({String? code, this.matchmake = false, required this.nickname, this.url = partyServerUrl, String? playerId, String? secret})
       : _code = code,
         _playerId = playerId,
         _secret = secret ?? '';
 
   final String nickname;
+  final bool matchmake;
   final String url;
   String? _code;
   String? _playerId;
@@ -45,7 +47,11 @@ class PartyController extends RemoteTableController with WidgetsBindingObserver 
   bool _draining = false;
 
   @override
-  String get label => _code == null ? 'Party' : 'Party $_code';
+  String get label => matchmake ? 'Public game' : (_code == null ? 'Party' : 'Party $_code');
+
+  @override
+  bool get publicParty => _public;
+  bool _public = false;
 
   @override
   GamePlayer? get localPlayer {
@@ -111,7 +117,8 @@ class PartyController extends RemoteTableController with WidgetsBindingObserver 
       _subscription = channel.stream.listen(_receive, onDone: _lost, onError: (_) => _lost());
       final profile = PlayerProfile.instance;
       _write({
-        'a': _code == null ? 'create' : 'join',
+        // Once seated, coming back is always by code
+        'a': _code != null ? 'join' : (matchmake ? 'matchmake' : 'create'),
         if (_code != null) 'code': _code,
         'name': nickname,
         'player': _playerId,
@@ -160,6 +167,7 @@ class PartyController extends RemoteTableController with WidgetsBindingObserver 
         _playerId = message['player'] as String? ?? _playerId;
         party.value = _code;
       case 'snap':
+        _public = (message['game'] as Map?)?['public'] == true;
         _queue.add((message['delay'] as int? ?? 0, message));
         _drain();
       case 'ack':

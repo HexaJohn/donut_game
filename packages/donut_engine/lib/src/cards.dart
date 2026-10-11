@@ -39,6 +39,9 @@ const int donutPenalty = 5;
 /// Seats at a table.
 const int maxSeats = 7;
 
+/// People matchmaking puts at one public table.
+const int maxPublicPlayers = 4;
+
 const Map<Value, int> valueToScore = {
   Value.two: 2,
   Value.three: 3,
