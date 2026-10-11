@@ -1,0 +1,445 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Cost guardrails for the whole account and the Donut game. Alarms watch for
+  floods within minutes; budgets catch anything else within a day. When one
+  trips, a switch turns that scope off (game, or everything) rather than run
+  up a bill, and emails what it did. Deploy with deploy.sh.
+
+# Scopes:
+#   game     resources named <GamePrefix>* in this region. Tripped by the game
+#            alarms and the $1 game budget (resources tagged app=donut).
+#   account  every Lambda function, API stage, Amplify site and public bucket
+#            in <Regions>. Tripped by the account alarms and the account budget.
+#
+# Switch a scope back on:
+#   aws lambda invoke --function-name guardrails-switch \
+#     --cli-binary-format raw-in-base64-out \
+#     --payload '{"action":"restore","scope":"account"}' /dev/stdout
+
+Parameters:
+  AlertEmail:
+    Type: String
+    Description: Where warnings and shutoff notices go. Confirm the subscription emails AWS sends.
+  StateBucket:
+    Type: String
+    Description: Private bucket for the switch's code and its record of what it switched off (made by deploy.sh).
+  Regions:
+    Type: String
+    Default: us-east-2,eu-west-2
+    Description: Regions the account shutoff covers, comma separated.
+  AccountBudget:
+    Type: Number
+    Default: 5
+    Description: US dollars a month the whole account may spend before everything is switched off.
+  GameBudget:
+    Type: Number
+    Default: 1
+    Description: US dollars a month the game may spend before it's switched off.
+  GamePrefix:
+    Type: String
+    Default: donut-game
+  GameSpike:
+    Type: Number
+    Default: 300
+    Description: Game requests in 5 minutes that switch the game off.
+  GameWindow:
+    Type: Number
+    Default: 1200
+    Description: Game requests in 6 hours that switch the game off (at most ~144k a month).
+  AccountLambdaSpike:
+    Type: Number
+    Default: 500
+    Description: Lambda runs in 5 minutes, account-wide, that switch everything off. Normal is 0.
+  AccountLambdaWindow:
+    Type: Number
+    Default: 3000
+    Description: Lambda runs in 6 hours, account-wide, that switch everything off.
+  SiteBytes:
+    Type: Number
+    Default: 262144000
+    Description: >
+      Bytes a site may serve in 6 hours before everything is switched off:
+      250 MB by default, against a normal of under 5 MB a day.
+  OfficeApiRequests:
+    Type: Number
+    Default: 25000
+    Description: Acro Office data API requests in 6 hours that switch everything off.
+  WebsiteAppId:
+    Type: String
+    Default: d8ta0x7n3w53x
+    Description: Amplify app id of the Acro Visuals website.
+  OfficeAppId:
+    Type: String
+    Default: d3mp4n3bfqok9h
+    Description: Amplify app id of Acro Office.
+  OfficeApiId:
+    Type: String
+    Default: sde26rlqc5cipocatjas3gg6hq
+    Description: AppSync API id of Acro Office (the dev environment, which is the live one).
+  NormalConcurrency:
+    Type: Number
+    Default: 2
+    Description: Copies of the game function allowed at once when it's on.
+  NormalRateLimit:
+    Type: Number
+    Default: 10
+  NormalBurstLimit:
+    Type: Number
+    Default: 20
+
+Resources:
+  # --- Where alerts go --------------------------------------------------------
+  # Anything on a shutoff topic switches that scope off (and emails); Notify
+  # only emails, so the switch can report without setting itself off again.
+  GameShutoffTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: guardrails-game-shutoff
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref AlertEmail
+
+  AccountShutoffTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: guardrails-account-shutoff
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref AlertEmail
+
+  NotifyTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: guardrails-notify
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref AlertEmail
+
+  # Budgets need permission to post to a topic; one policy per topic
+  GameShutoffTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [!Ref GameShutoffTopic]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: BudgetsAndAlarmsMayPublish
+            Effect: Allow
+            Principal:
+              Service: [budgets.amazonaws.com, cloudwatch.amazonaws.com]
+            Action: sns:Publish
+            Resource: !Ref GameShutoffTopic
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+
+  AccountShutoffTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [!Ref AccountShutoffTopic]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: BudgetsAndAlarmsMayPublish
+            Effect: Allow
+            Principal:
+              Service: [budgets.amazonaws.com, cloudwatch.amazonaws.com]
+            Action: sns:Publish
+            Resource: !Ref AccountShutoffTopic
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+
+  # --- The switch ----------------------------------------------------------------
+  SwitchLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/guardrails-switch
+      RetentionInDays: 90
+
+  SwitchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: guardrails-switch
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: switch-spending-off-and-on
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: Logs
+                Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !GetAtt SwitchLogs.Arn
+              - Sid: BlockAndUnblockFunctions
+                Effect: Allow
+                Action:
+                  - lambda:ListFunctions
+                  - lambda:GetFunctionConcurrency
+                  - lambda:PutFunctionConcurrency
+                  - lambda:DeleteFunctionConcurrency
+                Resource: '*'
+              - Sid: ThrottleApis
+                Effect: Allow
+                Action: [apigateway:GET, apigateway:PATCH]
+                Resource:
+                  - arn:aws:apigateway:*::/apis
+                  - arn:aws:apigateway:*::/apis/*
+                  - arn:aws:apigateway:*::/restapis
+                  - arn:aws:apigateway:*::/restapis/*
+              - Sid: LockSites
+                Effect: Allow
+                Action: [amplify:ListApps, amplify:ListBranches, amplify:UpdateBranch]
+                Resource: '*'
+              - Sid: BlockPublicBuckets
+                Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+                  - s3:GetBucketPolicyStatus
+                  - s3:GetBucketWebsite
+                  - s3:GetBucketPublicAccessBlock
+                  - s3:PutBucketPublicAccessBlock
+                Resource: '*'
+              - Sid: RememberWhatWasSwitched
+                Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:DeleteObject]
+                Resource: !Sub arn:aws:s3:::${StateBucket}/state/*
+              - Sid: ReadOwnRecords
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Sub arn:aws:s3:::${StateBucket}
+              - Sid: Report
+                Effect: Allow
+                Action: sns:Publish
+                Resource: !Ref NotifyTopic
+
+  Switch:
+    Type: AWS::Lambda::Function
+    DependsOn: SwitchLogs
+    Properties:
+      FunctionName: guardrails-switch
+      Description: Switches spending off when a guardrail trips, and back on by hand.
+      Runtime: python3.12
+      Handler: index.handler
+      Code: ./switch
+      Timeout: 300
+      MemorySize: 128
+      ReservedConcurrentExecutions: 1
+      Role: !GetAtt SwitchRole.Arn
+      Environment:
+        Variables:
+          GAME_PREFIX: !Ref GamePrefix
+          REGIONS: !Ref Regions
+          STATE_BUCKET: !Ref StateBucket
+          NOTIFY_TOPIC: !Ref NotifyTopic
+          ACCOUNT_TOPIC: !Ref AccountShutoffTopic
+          NORMAL_CONCURRENCY: !Ref NormalConcurrency
+          NORMAL_RATE: !Ref NormalRateLimit
+          NORMAL_BURST: !Ref NormalBurstLimit
+
+  GameSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref GameShutoffTopic
+      Protocol: lambda
+      Endpoint: !GetAtt Switch.Arn
+
+  AccountSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AccountShutoffTopic
+      Protocol: lambda
+      Endpoint: !GetAtt Switch.Arn
+
+  GameInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref Switch
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref GameShutoffTopic
+
+  AccountInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref Switch
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref AccountShutoffTopic
+
+  # --- Game tripwires (minutes) -----------------------------------------------
+  GameSpikeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: guardrails-game-spike
+      AlarmDescription: !Sub Donut game - more than ${GameSpike} requests in 5 minutes.
+      Namespace: AWS/Lambda
+      MetricName: Invocations
+      Dimensions: [{Name: FunctionName, Value: !Sub '${GamePrefix}-api'}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: !Ref GameSpike
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref GameShutoffTopic]
+
+  GameWindowAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: guardrails-game-sustained
+      AlarmDescription: !Sub Donut game - more than ${GameWindow} requests in 6 hours.
+      Namespace: AWS/Lambda
+      MetricName: Invocations
+      Dimensions: [{Name: FunctionName, Value: !Sub '${GamePrefix}-api'}]
+      Statistic: Sum
+      Period: 21600
+      EvaluationPeriods: 1
+      Threshold: !Ref GameWindow
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref GameShutoffTopic]
+
+  # --- Account tripwires (minutes) --------------------------------------------
+  # Lambda metrics with no dimensions are the account-wide total for the region
+  AccountLambdaSpikeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: guardrails-account-lambda-spike
+      AlarmDescription: !Sub Account - more than ${AccountLambdaSpike} Lambda runs in 5 minutes.
+      Namespace: AWS/Lambda
+      MetricName: Invocations
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: !Ref AccountLambdaSpike
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AccountShutoffTopic]
+
+  AccountLambdaWindowAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: guardrails-account-lambda-sustained
+      AlarmDescription: !Sub Account - more than ${AccountLambdaWindow} Lambda runs in 6 hours.
+      Namespace: AWS/Lambda
+      MetricName: Invocations
+      Statistic: Sum
+      Period: 21600
+      EvaluationPeriods: 1
+      Threshold: !Ref AccountLambdaWindow
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AccountShutoffTopic]
+
+  WebsiteTrafficAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: guardrails-website-traffic
+      AlarmDescription: Acro Visuals website - more than 250 MB (by default) served in 6 hours.
+      Namespace: AWS/AmplifyHosting
+      MetricName: BytesDownloaded
+      Dimensions: [{Name: App, Value: !Ref WebsiteAppId}]
+      Statistic: Sum
+      Period: 21600
+      EvaluationPeriods: 1
+      Threshold: !Ref SiteBytes
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AccountShutoffTopic]
+
+  OfficeTrafficAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: guardrails-office-traffic
+      AlarmDescription: Acro Office - more than 250 MB (by default) served in 6 hours.
+      Namespace: AWS/AmplifyHosting
+      MetricName: BytesDownloaded
+      Dimensions: [{Name: App, Value: !Ref OfficeAppId}]
+      Statistic: Sum
+      Period: 21600
+      EvaluationPeriods: 1
+      Threshold: !Ref SiteBytes
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AccountShutoffTopic]
+
+  OfficeApiAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: guardrails-office-api
+      AlarmDescription: !Sub Acro Office data API - more than ${OfficeApiRequests} requests in 6 hours.
+      Namespace: AWS/AppSync
+      MetricName: Requests
+      Dimensions: [{Name: GraphQLAPIId, Value: !Ref OfficeApiId}]
+      Statistic: Sum
+      Period: 21600
+      EvaluationPeriods: 1
+      Threshold: !Ref OfficeApiRequests
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AccountShutoffTopic]
+
+  # A silent failure is the worst case, so say if the switch errors
+  SwitchErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: guardrails-switch-failed
+      AlarmDescription: The guardrails switch errored; things it should have switched off may still be on.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: [{Name: FunctionName, Value: !Ref Switch}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref NotifyTopic]
+
+  # --- Budgets (slow backstop: billing data lags up to a day) -------------------
+  AccountBudgetGuard:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: account-monthly
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit: {Amount: !Ref AccountBudget, Unit: USD}
+      NotificationsWithSubscribers:
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 50, ThresholdType: PERCENTAGE}
+          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlertEmail}]
+        - Notification: {NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE}
+          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlertEmail}]
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE}
+          Subscribers: [{SubscriptionType: SNS, Address: !Ref AccountShutoffTopic}]
+
+  # Counts only resources tagged app=donut (once that tag is activated as a
+  # cost allocation tag in Billing)
+  GameBudgetGuard:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: donut-game-monthly
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit: {Amount: !Ref GameBudget, Unit: USD}
+        CostFilters:
+          TagKeyValue: [user:app$donut]
+      NotificationsWithSubscribers:
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 50, ThresholdType: PERCENTAGE}
+          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlertEmail}]
+        - Notification: {NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE}
+          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlertEmail}]
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE}
+          Subscribers: [{SubscriptionType: SNS, Address: !Ref GameShutoffTopic}]
+
+Outputs:
+  SwitchFunction:
+    Value: !Ref Switch
+    Description: Invoke with {"action":"restore","scope":"game"|"account"} to switch back on.
