@@ -1,6 +1,1 @@
-enum Suit {
-  spades,
-  clubs,
-  diamonds,
-  hearts,
-}
+export 'package:donut_engine/donut_engine.dart' show Suit;

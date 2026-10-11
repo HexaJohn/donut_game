@@ -2,9 +2,10 @@ import 'dart:math';
 
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
 import 'package:donut_game/res/resources.dart';
+import 'package:donut_engine/donut_engine.dart' show PlayingCard;
 import 'package:donut_game/ws_server.dart';
 
-class GameCard {
+class GameCard implements PlayingCard {
   GameCard(this.suit, this.value);
 
   /// A card whose face this player isn't allowed to see: someone else's

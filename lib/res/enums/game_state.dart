@@ -1,13 +1,1 @@
-enum GameState {
-  waiting,
-  waitingToDeal,
-  dealing,
-  swapping,
-  waitingForPlayerToSwap,
-  waitingForPlayer,
-  playing,
-  waitingToSwap,
-  waitingForNextRound,
-  waitingForPlayers,
-  gameOver,
-}
+export 'package:donut_engine/donut_engine.dart' show GameState;
