@@ -48,9 +48,6 @@ class TableOptionsPicker extends StatelessWidget {
               selected: points == target,
               showCheckmark: false,
               visualDensity: VisualDensity.compact,
-              // Snug, so all six fit on one line on a phone
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              labelPadding: const EdgeInsets.symmetric(horizontal: 8),
               onSelected: (_) => onTarget(points),
             ),
         ]),
