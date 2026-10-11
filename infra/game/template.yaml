@@ -49,6 +49,11 @@ Resources:
             Status: Enabled
             Prefix: stats/uniques/
             ExpirationInDays: 30
+          # Counts and hashed ids in 15-minute windows, for recent activity
+          - Id: forget-quarter-hours
+            Status: Enabled
+            Prefix: stats/quarters/
+            ExpirationInDays: 30
           - Id: forget-hash-keys
             Status: Enabled
             Prefix: stats/salts/

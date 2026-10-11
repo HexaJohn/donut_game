@@ -217,6 +217,10 @@ void main() {
 
     final uniques = (await store.get('stats/uniques/1970-01-01.json'))!.json['players'] as List;
     expect(uniques, hasLength(2));
+    // The same counts land in the 15-minute window too (the test clock is 1970-01-01 00:00)
+    final quarter = (await store.get('stats/quarters/1970-01-01T00:00.json'))!.json;
+    expect(quarter, allOf(containsPair('hands', 1), containsPair('chats', 1)));
+    expect(quarter['players'], hasLength(2));
     final everything = jsonEncode([for (final key in store.keys.where((k) => k.startsWith('stats/'))) (await store.get(key))!.json]);
     expect(everything, isNot(contains('player-')), reason: 'a raw install id was stored');
     expect(everything, isNot(contains('Alice')), reason: 'a name was stored');

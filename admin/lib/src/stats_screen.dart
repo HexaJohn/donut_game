@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'activity_chart.dart';
 import 'app_usage.dart';
 import 'model.dart';
 import 'widgets.dart';
@@ -23,6 +24,8 @@ class StatsScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
+        ActivityChart(model: model),
+        const SizedBox(height: 16),
         Wrap(
           spacing: 12,
           runSpacing: 12,

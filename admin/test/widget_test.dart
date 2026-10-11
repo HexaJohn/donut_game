@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:donut_admin/src/model.dart';
 import 'package:donut_admin/src/reports_screen.dart';
 import 'package:donut_admin/src/app_usage.dart';
+import 'package:donut_admin/src/activity_chart.dart';
 import 'package:donut_admin/src/aws.dart';
 import 'package:donut_admin/src/tables_screen.dart';
 import 'package:donut_admin/src/widgets.dart';
@@ -123,6 +124,25 @@ void main() {
     expect(find.text('10.0 min'), findsOneWidget);
     expect(find.text('50%'), findsOneWidget);
     expect(find.text('web'), findsOneWidget, reason: 'launches by platform');
+  });
+
+  testWidgets('recent activity shows 15-minute windows for the chosen number', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final now = DateTime.now().toUtc();
+    final window = DateTime.utc(now.year, now.month, now.day, now.hour, now.minute ~/ 15 * 15);
+    final model = AdminModel(_NoAws());
+    // Seeded the way a refresh would leave it
+    model.debugSetQuarters([
+      QuarterStats(window, {'hands': 4, 'chats': 2}, 3),
+      QuarterStats(window.subtract(const Duration(minutes: 15)), {'hands': 6}, 5),
+    ]);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: ActivityChart(model: model))));
+    expect(find.text('Players per 15 minutes · peak 5'), findsOneWidget);
+    await tester.tap(find.text('Hands'));
+    await tester.pump();
+    expect(find.text('Hands per 15 minutes · peak 6 · 10 in all'), findsOneWidget);
   });
 }
 

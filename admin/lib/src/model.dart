@@ -36,6 +36,20 @@ class DayStats {
   int get matches => this['matchesStartedParty'] + this['matchesStartedPublic'];
 }
 
+/// One 15-minute window's counts (the server keeps 30 days of them).
+class QuarterStats {
+  const QuarterStats(this.start, this.counts, this.players);
+
+  /// When the window began (UTC).
+  final DateTime start;
+  final Map<String, int> counts;
+
+  /// Different players active in the window.
+  final int players;
+
+  int operator [](String key) => counts[key] ?? 0;
+}
+
 /// A player's report, as the server filed it.
 class Report {
   const Report(this.key, this.json);
@@ -87,6 +101,38 @@ class AdminModel extends ChangeNotifier {
   int openConnections = 0;
   List<Report> reports = [];
   List<Ban> bans = [];
+
+  /// Recent activity in 15-minute windows, over [activityRange].
+  Duration activityRange = const Duration(hours: 24);
+  final Map<String, (DateTime, QuarterStats)> _quarters = {};
+
+  List<QuarterStats> get quarters {
+    final since = DateTime.now().toUtc().subtract(activityRange);
+    return [
+      for (final entry in _quarters.values)
+        if (!entry.$2.start.isBefore(since)) entry.$2,
+    ]..sort((a, b) => a.start.compareTo(b.start));
+  }
+
+  @visibleForTesting
+  void debugSetQuarters(List<QuarterStats> quarters) {
+    _quarters
+      ..clear()
+      ..addAll({for (final q in quarters) q.start.toIso8601String(): (q.start, q)});
+  }
+
+  /// Shows [range] of recent activity, fetching what's missing.
+  Future<void> showActivity(Duration range) async {
+    activityRange = range;
+    notifyListeners();
+    try {
+      await _refreshQuarters();
+    } catch (e) {
+      error = '$e';
+    }
+    notifyListeners();
+  }
+
   String? error;
   DateTime? updated;
   bool loading = false;
@@ -220,7 +266,39 @@ class AdminModel extends ChangeNotifier {
     ]);
     final all = {...counts.keys, ...players.keys}.toList()..sort();
     days = [for (final day in all) DayStats(day, counts[day] ?? {}, players[day] ?? {})];
+    await _refreshQuarters();
     _statsAt = DateTime.now();
+  }
+
+  /// Reads the 15-minute windows in [activityRange], skipping any already
+  /// read that haven't changed since.
+  Future<void> _refreshQuarters() async {
+    final since = DateTime.now().toUtc().subtract(activityRange + const Duration(minutes: 15));
+    final listed = await aws.list('stats/quarters/');
+    final wanted = <S3Object>[];
+    for (final object in listed) {
+      final name = object.key.split('/').last.replaceAll('.json', '');
+      final start = DateTime.tryParse('${name}Z');
+      if (start == null || start.isBefore(since)) continue;
+      final known = _quarters[object.key];
+      if (known == null || known.$1 != object.modified) wanted.add(object);
+    }
+    for (var i = 0; i < wanted.length; i += 16) {
+      await Future.wait([
+        for (final object in wanted.skip(i).take(16))
+          () async {
+            final json = await aws.getJson(object.key) ?? {};
+            final name = object.key.split('/').last.replaceAll('.json', '');
+            _quarters[object.key] = (
+              object.modified,
+              QuarterStats(DateTime.parse('${name}Z'), {
+                for (final e in json.entries)
+                  if (e.value is num) e.key: (e.value as num).toInt(),
+              }, (json['players'] as List? ?? []).length),
+            );
+          }(),
+      ]);
+    }
   }
 
   /// Unique players over the last [n] days (from the hashes still kept).

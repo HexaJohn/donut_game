@@ -14,6 +14,10 @@ import 'store.dart';
 ///
 ///   stats/days/<YYYY-MM-DD>.json     {counter: n}
 ///   stats/uniques/<YYYY-MM-DD>.json  {"players": [hash, ...]}
+///   stats/quarters/<YYYY-MM-DDTHH:MM>.json
+///                                    the same counts for a 15-minute window
+///                                    (UTC), and "players": [hash, ...];
+///                                    deleted after 30 days
 ///   stats/salts/<YYYY-MM>.json       {"salt": random}
 class Stats {
   Stats(this.store, {this.log, Random? random}) : _random = random ?? Random.secure();
@@ -37,7 +41,9 @@ class Stats {
     final players = Set.of(_players);
     _counts.clear();
     _players.clear();
-    final day = DateTime.fromMillisecondsSinceEpoch(nowMs, isUtc: true).toIso8601String().substring(0, 10);
+    final time = DateTime.fromMillisecondsSinceEpoch(nowMs, isUtc: true);
+    final day = time.toIso8601String().substring(0, 10);
+    final quarter = '${day}T${'${time.hour}'.padLeft(2, '0')}:${'${time.minute ~/ 15 * 15}'.padLeft(2, '0')}';
     try {
       if (counts.isNotEmpty) {
         await _merge('stats/days/$day.json', (doc) {
@@ -45,11 +51,10 @@ class Stats {
           return true;
         });
       }
+      var hashes = <String>{};
       if (players.isNotEmpty) {
         final key = utf8.encode(await _salt(day.substring(0, 7)));
-        final hashes = {
-          for (final id in players) Hmac(sha256, key).convert(utf8.encode(id)).toString().substring(0, 16)
-        };
+        hashes = {for (final id in players) Hmac(sha256, key).convert(utf8.encode(id)).toString().substring(0, 16)};
         await _merge('stats/uniques/$day.json', (doc) {
           final seen = Set<String>.from(doc['players'] as List? ?? []);
           final before = seen.length;
@@ -58,6 +63,15 @@ class Stats {
           return seen.length != before;
         });
       }
+      // The same, for this 15-minute window: one document for both
+      await _merge('stats/quarters/$quarter.json', (doc) {
+        counts.forEach((name, by) => doc[name] = ((doc[name] as num?) ?? 0).toInt() + by);
+        final seen = Set<String>.from(doc['players'] as List? ?? []);
+        final before = seen.length;
+        seen.addAll(hashes);
+        doc['players'] = seen.toList();
+        return counts.isNotEmpty || seen.length != before;
+      });
     } catch (error) {
       log?.call('stats not saved: $error');
     }
