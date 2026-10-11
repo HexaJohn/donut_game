@@ -72,6 +72,9 @@ Future<void> until(bool Function() condition, {String reason = ''}) async {
 }
 
 void main() {
+  // The controller watches the app's lifecycle; real sockets stay allowed
+  TestWidgetsFlutterBinding.ensureInitialized();
+  HttpOverrides.global = null;
   late LocalGateway gateway;
   setUp(() async {
     gateway = LocalGateway();

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:donut_engine/donut_engine.dart';
 
@@ -69,6 +70,7 @@ class PartyServer {
   Future<void> handle(Map<String, dynamic> event) async {
     final context = Map<String, dynamic>.from(event['requestContext'] as Map);
     final connection = context['connectionId'] as String;
+    _log(connection, '${context['routeKey']}', event['body'] as String?);
     switch (context['routeKey']) {
       case r'$connect':
         return;
@@ -84,6 +86,21 @@ class PartyServer {
         }
         await _message(connection, message);
     }
+  }
+
+  /// One line per event in the function's log: which connection did what.
+  /// Never the body itself, which carries the player's secret.
+  void log(String line) => stderr.writeln(line);
+
+  void _log(String connection, String route, String? body) {
+    var action = '';
+    if (body != null) {
+      try {
+        final message = jsonDecode(body);
+        if (message is Map) action = ' ${message['a']}${message['code'] is String ? ' ${message['code']}' : ''}';
+      } catch (_) {}
+    }
+    log('event $route ${connection.substring(0, connection.length.clamp(0, 8))}$action');
   }
 
   Future<void> _message(String connection, Map<String, dynamic> message) async {

@@ -137,6 +137,11 @@ void main() {
           for (final frame in frames) {
             _expectAllCards(frame.state);
           }
+          // What players were last shown is exactly what was saved
+          if (frames.isNotEmpty) {
+            expect(jsonEncode(frames.last.state.toJson()), jsonEncode(table.toJson()),
+                reason: 'the last frame left players behind the table');
+          }
           now += 1000;
         }
         expect(table.champion, isNotNull);
@@ -195,6 +200,29 @@ void main() {
       expect(frames[shown].state.seats.any((s) => s.winner), isTrue);
       expect(frames[shown + 1].state.trick, isEmpty);
       expect(frames[shown + 1].delayMs, engine.trickMs);
+    });
+
+    test('dropping out and coming back mid-swap leaves everyone on the saved table', () {
+      // The S8 bug: the last swapper's move handed play to a human without a frame
+      final (engine, table) = _table(seed: 9);
+      engine.act(table, 'alice', 'vote', {'vote': 'true'}, now: 1);
+      engine.act(table, 'bob', 'vote', {'vote': 'true'}, now: 2);
+      var now = 3;
+      for (var i = 0; i < 20 && table.phase == Phase.swap; i++) {
+        final seat = table.seats[table.active];
+        final other = seat.id == 'alice' ? 'bob' : 'alice';
+        void check(List<Frame> frames) {
+          if (frames.isNotEmpty) expect(jsonEncode(frames.last.state.toJson()), jsonEncode(table.toJson()));
+        }
+
+        check(engine.disconnect(table, other, now: now++));
+        check(
+            engine.join(table, id: other, name: other, secret: other == 'bob' ? _bobSecret : _aliceSecret, now: now++));
+        if (table.phase == Phase.swap && table.seats[table.active].human) {
+          check(engine.act(table, table.seats[table.active].id, 'swapvote', {}, now: now++));
+        }
+      }
+      expect(table.phase, isNot(Phase.swap));
     });
 
     test('a disconnected player is played for, so the table carries on', () {

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'brain.dart';
@@ -100,11 +101,13 @@ class DonutEngine {
     final existing = table.seat(id);
     if (existing != null) {
       if (existing.secret != secret) throw const Refusal(403, 'That seat belongs to someone else.');
+      // Reopening the app reconnects without ever having been missed
+      final wasGone = !existing.connected;
       existing
         ..connected = true
         ..back = back ?? existing.back
         ..face = face ?? existing.face;
-      _say(table, '', '${existing.name} is back.', now, system: true);
+      if (wasGone) _say(table, '', '${existing.name} is back.', now, system: true);
       _frame(table, frames, 0, now);
       return frames;
     }
@@ -270,6 +273,15 @@ class DonutEngine {
   /// Plays every turn that doesn't need a human, until one does or the hand
   /// or match ends.
   void _advance(TableState table, List<Frame> frames, int now) {
+    _playOn(table, frames, now);
+    // Players only ever see frames, so the last must be the table as saved,
+    // even when the final steps (handing a human their turn) made none
+    if (frames.isEmpty || jsonEncode(frames.last.state.toJson()) != jsonEncode(table.toJson())) {
+      _frame(table, frames, frames.isEmpty ? 0 : 300, now);
+    }
+  }
+
+  void _playOn(TableState table, List<Frame> frames, int now) {
     for (var guard = 0; guard < 1000; guard++) {
       switch (table.phase) {
         case Phase.lobby:

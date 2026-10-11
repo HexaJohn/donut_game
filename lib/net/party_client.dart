@@ -4,7 +4,10 @@ import 'dart:convert';
 import 'package:donut_game/data/device_id.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
 import 'package:donut_game/progression/profile.dart';
+import 'package:donut_game/net/party_socket_io.dart'
+    if (dart.library.js_interop) 'package:donut_game/net/party_socket_web.dart';
 import 'package:donut_game/ui/game/game_controller.dart';
+import 'package:flutter/widgets.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 /// The party server in AWS (infra/game). Every table there has a six
@@ -16,7 +19,7 @@ const partyServerUrl = 'wss://lb41mv4lkc.execute-api.us-east-2.amazonaws.com/liv
 /// The server sends one "snap" per step of the table (a bot playing, a trick
 /// clearing), each with how long to wait after the previous one, so they're
 /// played back in order on a timed queue rather than all at once.
-class PartyController extends RemoteTableController {
+class PartyController extends RemoteTableController with WidgetsBindingObserver {
   /// Hosts a new party, or joins [code].
   PartyController({String? code, required this.nickname, this.url = partyServerUrl, String? playerId, String? secret})
       : _code = code,
@@ -65,12 +68,25 @@ class PartyController extends RemoteTableController {
   void start() {
     resetTable();
     _running = true;
+    WidgetsBinding.instance.addObserver(this);
     _connect();
+  }
+
+  /// Back from the background: the connection may have died while asleep,
+  /// so start a fresh one, which also brings the whole table back
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _running && _channel != null) {
+      _subscription?.cancel();
+      _channel?.sink.close();
+      _lost();
+    }
   }
 
   @override
   void dispose() {
     _running = false;
+    WidgetsBinding.instance.removeObserver(this);
     _keepAlive?.cancel();
     _subscription?.cancel();
     _channel?.sink.close();
@@ -85,7 +101,7 @@ class PartyController extends RemoteTableController {
     if (_secret.isEmpty) _secret = await deviceSecret();
     if (!_running) return;
     try {
-      final channel = WebSocketChannel.connect(Uri.parse(url));
+      final channel = openPartySocket(Uri.parse(url));
       await channel.ready.timeout(const Duration(seconds: 8));
       if (!_running) {
         channel.sink.close();
