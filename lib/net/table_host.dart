@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:donut_game/progression/emblem.dart';
 import 'package:donut_game/ai/bot_brain.dart';
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
@@ -61,13 +62,14 @@ class TableHost {
 
   /// Seats a human, or updates their deck if they're back. Coming back to a
   /// seat needs the secret it was taken with.
-  ActionResult join(String id, String name, {String? back, String? face, String? secret}) {
+  ActionResult join(String id, String name, {String? back, String? face, Emblem? emblem, String? secret}) {
     final existing = game.playerDB[id];
     if (existing != null) {
       if (!verify(id, secret)) return const ActionResult.refused(409, 'That seat belongs to someone else.');
       // Reconnecting keeps the seat, wearing whatever deck it brought
       if (back != null) existing.cardBack = back;
       if (face != null) existing.cardFace = face;
+      if (emblem != null) existing.emblem = emblem;
       return const ActionResult.ok();
     }
     if (checkSecrets && (secret == null || secret.length < 16)) {
@@ -83,6 +85,7 @@ class TableHost {
     final player = GamePlayer(trimmed, 0, true)..id = id;
     if (back != null) player.cardBack = back;
     if (face != null) player.cardFace = face;
+    player.emblem = emblem;
     game.addLocalPlayer(player);
     game.say('', '$trimmed joined the game.', system: true);
     if (game.playerDB.length == 2) {
@@ -273,6 +276,7 @@ class TableHost {
             'awaitingCard': player.awaitingCard.toString(),
             'back': player.cardBack,
             'face': player.cardFace,
+            if (player.human && player.emblem != null) 'emblem': player.emblem!.toJson(),
           }
       ];
 

@@ -4,6 +4,7 @@ import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/net/match_controllers.dart';
 import 'package:donut_game/net/match_link.dart';
 import 'package:donut_game/net/table_host.dart';
+import 'package:donut_game/progression/emblem.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -233,6 +234,18 @@ void main() {
       final players = (toBob['players'] as List).cast<Map>();
       expect(players.firstWhere((p) => p['pid'] == _alice.id)['cards'], everyElement(isNot(contains('suit'))));
       expect(link.sent.where((s) => s.$2['k'] == 'snap').every((s) => s.$1 != null), isTrue);
+    });
+
+    test('a guest\'s emblem from their hello reaches everyone', () async {
+      final link = FakeLink(_alice.id, [_alice, _bob]);
+      final host = MatchHostController(link);
+      addTearDown(host.dispose);
+      const emblem = Emblem(shape: EmblemShape.star, icon: 'crown');
+      link.receive(LinkMessage(_bob.id, {'k': 'hello', 'emblem': emblem.toJson()}));
+      await _until(() => link.ofKind('snap').isNotEmpty);
+      final players = (link.ofKind('snap').last['players'] as List).cast<Map>();
+      expect(Emblem.tryParse(players.firstWhere((p) => p['pid'] == _bob.id)['emblem']), emblem);
+      expect(players.where((p) => p['human'] == 'false').every((p) => p['emblem'] == null), isTrue);
     });
 
     test('two humans get a bot, since Donut needs three', () {

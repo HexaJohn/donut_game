@@ -4,6 +4,7 @@ import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/progression/catalog.dart';
+import 'package:donut_game/progression/emblem.dart';
 import 'package:donut_game/ws_server.dart';
 import 'package:flutter/widgets.dart';
 
@@ -44,6 +45,9 @@ class GamePlayer {
   /// bring their own; bots get one picked from their name.
   late String cardBack = human ? 'pattern.classic' : botDeck(name).back;
   late String cardFace = human ? 'face.classic' : botDeck(name).face;
+
+  /// The emblem this player shows at the table; null shows their initial.
+  Emblem? emblem;
 
   /// How well this player plays when the game plays for them.
   BotSkill skill = BotSkill.regular;

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:donut_game/net/party_client.dart';
+import 'package:donut_game/progression/emblem.dart';
+import 'package:flutter/painting.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_server/donut_server.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -100,8 +102,12 @@ void main() {
       'name': 'Bob',
       'player': 'bob-device',
       'secret': 'bob-secret-0123456789ab',
+      'emblem': const Emblem(shape: EmblemShape.hexagon, icon: 'crown', background: Color(0xFF123456)).toJson(),
     });
     await until(() => host.game.players.length == 2, reason: 'Bob appeared at the host');
+    // Bob's emblem came along for the host to see
+    expect(host.game.players.firstWhere((player) => player.name == 'Bob').emblem,
+        const Emblem(shape: EmblemShape.hexagon, icon: 'crown', background: Color(0xFF123456)));
     expect(friend.messages.first, {'k': 'joined', 'code': code, 'player': 'bob-device'});
 
     // The host's menu adds a bot

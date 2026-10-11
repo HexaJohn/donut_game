@@ -7,6 +7,7 @@ import 'package:donut_game/data/model/bullet_hole.dart';
 import 'package:donut_game/data/model/chat_message.dart';
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/data/model/ink_stroke.dart';
+import 'package:donut_game/progression/emblem.dart';
 import 'package:donut_game/progression/profile.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/data/model/game_card/game_card_stack.dart';
@@ -254,6 +255,7 @@ abstract class RemoteTableController extends GameController {
       if (element['pid'] is String) player.id = element['pid'];
       player.cardBack = element['back'] ?? player.cardBack;
       player.cardFace = element['face'] ?? player.cardFace;
+      if (element['emblem'] != null) player.emblem = Emblem.tryParse(element['emblem']);
       // Keep the same stack so listeners survive; only replace its contents
       player.hand.cards.value = cards.cards.value;
     }
@@ -494,6 +496,7 @@ class OnlineGameController extends RemoteTableController {
                 'secret': await deviceSecret(),
                 'back': PlayerProfile.instance.cardPattern,
                 'face': PlayerProfile.instance.cardFace,
+                'emblem': PlayerProfile.instance.emblem.toJson(),
               }))
           .timeout(const Duration(seconds: 5));
     } on TimeoutException {

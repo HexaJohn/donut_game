@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:donut_game/progression/emblem.dart';
 import 'package:donut_game/data/settings.dart';
 import 'package:donut_game/net/table_host.dart';
 import 'package:donut_game/res/resources.dart';
@@ -152,6 +153,7 @@ Future<Response> _newConnectionHandler(Request request) async {
   final result = tableHost.join(id, '${playerJson['username']}',
       back: playerJson['back'] is String ? playerJson['back'] : null,
       face: playerJson['face'] is String ? playerJson['face'] : null,
+      emblem: Emblem.tryParse(playerJson['emblem']),
       secret: playerJson['secret'] is String ? playerJson['secret'] : null);
   if (!result.ok) return _respond(result);
   return Response.ok(jsonEncode({'topic': 'generic', 'error': '', 'data': 'Welcome, ${playerJson['username']}'}));

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:donut_game/progression/emblem.dart';
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
@@ -67,7 +68,8 @@ class MatchHostController extends GameController {
       final local = peer.id == link.localId;
       table.join(peer.id, name,
           back: local ? PlayerProfile.instance.cardPattern : null,
-          face: local ? PlayerProfile.instance.cardFace : null);
+          face: local ? PlayerProfile.instance.cardFace : null,
+          emblem: local ? PlayerProfile.instance.emblem : null);
     }
     while (game.players.length < 3) {
       game.addBot();
@@ -96,7 +98,8 @@ class MatchHostController extends GameController {
         if (player != null) {
           table.join(from, player.name,
               back: message['back'] is String ? message['back'] : null,
-              face: message['face'] is String ? message['face'] : null);
+              face: message['face'] is String ? message['face'] : null,
+              emblem: Emblem.tryParse(message['emblem']));
         }
         _broadcast(force: true);
       case 'act':
@@ -237,6 +240,7 @@ class MatchClientController extends RemoteTableController {
         'k': 'hello',
         'back': PlayerProfile.instance.cardPattern,
         'face': PlayerProfile.instance.cardFace,
+        'emblem': PlayerProfile.instance.emblem.toJson(),
       }, to: link.hostId).catchError((_) {});
 
   @override

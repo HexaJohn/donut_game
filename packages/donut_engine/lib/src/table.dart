@@ -67,6 +67,7 @@ class Seat {
     this.skill = BotSkill.regular,
     this.back,
     this.face,
+    this.emblem,
     this.secret,
     this.score = startingScore,
   });
@@ -78,6 +79,9 @@ class Seat {
   BotSkill skill;
   String? back;
   String? face;
+
+  /// The player's emblem, as the app stores it (see [cleanEmblem]).
+  Map<String, dynamic>? emblem;
 
   /// Proves a reconnecting player is the one who took the seat. Never sent
   /// to anyone.
@@ -115,6 +119,7 @@ class Seat {
         'skill': skill.index,
         'back': back,
         'face': face,
+        'emblem': emblem,
         'secret': secret,
         'hand': [for (final card in hand) card.toJson()],
         'score': score,
@@ -140,6 +145,7 @@ class Seat {
         skill: BotSkill.values[json['skill'] as int? ?? BotSkill.regular.index],
         back: json['back'] as String?,
         face: json['face'] as String?,
+        emblem: cleanEmblem(json['emblem']),
         secret: json['secret'] as String?,
         score: json['score'] as int,
       )
@@ -258,7 +264,8 @@ class TableState {
         [for (final card in list as List) TableCard.fromJson(Map<String, dynamic>.from(card as Map))];
     List<Map<String, dynamic>> maps(Object? list) =>
         [for (final item in list as List? ?? []) Map<String, dynamic>.from(item as Map)];
-    return TableState(code: json['code'] as String, hostId: json['hostId'] as String, createdAt: json['createdAt'] as int)
+    return TableState(
+        code: json['code'] as String, hostId: json['hostId'] as String, createdAt: json['createdAt'] as int)
       ..updatedAt = json['updatedAt'] as int
       ..seats = [for (final seat in json['seats'] as List) Seat.fromJson(Map<String, dynamic>.from(seat as Map))]
       ..deck = cards(json['deck'])
@@ -300,4 +307,22 @@ class TableState {
 String newPartyCode() {
   const letters = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   return String.fromCharCodes(List.generate(6, (_) => letters.codeUnitAt(_secure.nextInt(letters.length))));
+}
+
+/// A player's emblem as sent by their app, keeping only the fields an
+/// emblem has, of the right types and sizes, so nothing else rides along to
+/// the other players. Null if there's nothing usable.
+Map<String, dynamic>? cleanEmblem(Object? raw) {
+  if (raw is! Map) return null;
+  String? text(Object? value) => value is String && value.length <= 32 ? value : null;
+  int? colour(Object? value) => value is int && value >= 0 && value <= 0xFFFFFFFF ? value : null;
+  final emblem = <String, dynamic>{
+    if (text(raw['shape']) != null) 'shape': text(raw['shape']),
+    if (text(raw['icon']) != null) 'icon': text(raw['icon']),
+    if (colour(raw['bg']) != null) 'bg': colour(raw['bg']),
+    if (colour(raw['fg']) != null) 'fg': colour(raw['fg']),
+    if (colour(raw['accent']) != null) 'accent': colour(raw['accent']),
+    if (raw['ring'] is bool) 'ring': raw['ring'],
+  };
+  return emblem.isEmpty ? null : emblem;
 }

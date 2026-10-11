@@ -118,6 +118,7 @@ class PartyController extends RemoteTableController with WidgetsBindingObserver 
         'secret': _secret,
         'back': profile.cardPattern,
         'face': profile.cardFace,
+        'emblem': profile.emblem.toJson(),
       });
       // The API hangs up on connections quiet for ten minutes
       _keepAlive?.cancel();

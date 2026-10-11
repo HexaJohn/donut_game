@@ -54,6 +54,17 @@ class Emblem {
         'ring': ring,
       };
 
+  /// Another player's emblem off the network: null unless it's a map, and
+  /// anything malformed in it falls back to the default.
+  static Emblem? tryParse(Object? json) {
+    if (json is! Map) return null;
+    try {
+      return Emblem.fromJson(Map<String, dynamic>.from(json));
+    } catch (_) {
+      return const Emblem();
+    }
+  }
+
   factory Emblem.fromJson(Map<String, dynamic>? json) {
     if (json == null) return const Emblem();
     const fallback = Emblem();

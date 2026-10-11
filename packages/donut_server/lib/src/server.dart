@@ -130,7 +130,8 @@ class PartyServer {
     }
   }
 
-  ({String name, String player, String secret, String? back, String? face}) _who(Map<String, dynamic> message) {
+  ({String name, String player, String secret, String? back, String? face, Map<String, dynamic>? emblem}) _who(
+      Map<String, dynamic> message) {
     final player = message['player'];
     final secret = message['secret'];
     final name = message['name'];
@@ -138,7 +139,14 @@ class PartyServer {
     if (secret is! String || secret.length < 16 || secret.length > 200) throw const Refusal(400, 'Missing secret.');
     if (name is! String) throw const Refusal(400, 'Pick a name first.');
     String? optional(Object? value) => value is String && value.length <= 60 ? value : null;
-    return (name: name, player: player, secret: secret, back: optional(message['back']), face: optional(message['face']));
+    return (
+      name: name,
+      player: player,
+      secret: secret,
+      back: optional(message['back']),
+      face: optional(message['face']),
+      emblem: cleanEmblem(message['emblem']),
+    );
   }
 
   Future<void> _create(String connection, Map<String, dynamic> message) async {
@@ -154,6 +162,7 @@ class PartyServer {
           secret: who.secret,
           back: who.back,
           face: who.face,
+          emblem: who.emblem,
           now: now);
       try {
         await store.put(_stateKey(code), table.toJson(), ifAbsent: true);
@@ -163,7 +172,8 @@ class PartyServer {
       await store.put(_playersKey(code), {who.player: connection});
       await store.put(_connKey(connection), {'code': code, 'player': who.player});
       await sender.send(connection, {'k': 'joined', 'code': code, 'player': who.player});
-      await sender.send(connection, {'k': 'snap', 'delay': 0, ...engine.view(table, who.player, now: now, withInk: true)});
+      await sender
+          .send(connection, {'k': 'snap', 'delay': 0, ...engine.view(table, who.player, now: now, withInk: true)});
       return;
     }
     throw const Refusal(503, 'Couldn\'t make a party. Try again.');
@@ -173,15 +183,24 @@ class PartyServer {
     final who = _who(message);
     final code = '${message['code'] ?? ''}'.trim().toUpperCase();
     if (!RegExp(r'^[A-Z0-9]{6}$').hasMatch(code)) throw const Refusal(400, 'Party codes are six letters and numbers.');
-    final frames = await _update(code, (table, now) => engine.join(table,
-        id: who.player, name: who.name, secret: who.secret, back: who.back, face: who.face, now: now));
+    final frames = await _update(
+        code,
+        (table, now) => engine.join(table,
+            id: who.player,
+            name: who.name,
+            secret: who.secret,
+            back: who.back,
+            face: who.face,
+            emblem: who.emblem,
+            now: now));
     await _setConnection(code, who.player, connection);
     await store.put(_connKey(connection), {'code': code, 'player': who.player});
     await sender.send(connection, {'k': 'joined', 'code': code, 'player': who.player});
     final latest = frames.$1;
     // The newcomer gets the whole table, drawing included; everyone else
     // sees them arrive
-    await sender.send(connection, {'k': 'snap', 'delay': 0, ...engine.view(latest, who.player, now: _clock(), withInk: true)});
+    await sender
+        .send(connection, {'k': 'snap', 'delay': 0, ...engine.view(latest, who.player, now: _clock(), withInk: true)});
     await _broadcast(code, frames.$2, except: who.player, inkChanged: false);
   }
 
@@ -278,8 +297,8 @@ class PartyServer {
         if (player != except)
           () async {
             for (var i = 0; i < frames.length; i++) {
-              final view = engine.view(frames[i].state, player,
-                  now: now, withInk: inkChanged && i == frames.length - 1);
+              final view =
+                  engine.view(frames[i].state, player, now: now, withInk: inkChanged && i == frames.length - 1);
               if (!await sender.send(connection, {'k': 'snap', 'delay': frames[i].delayMs, ...view})) {
                 gone.add(connection);
                 return;

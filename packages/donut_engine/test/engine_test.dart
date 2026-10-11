@@ -259,6 +259,27 @@ void main() {
       expect(jsonEncode(view), isNot(contains(_aliceSecret)));
     });
 
+    test('players show their emblems, and only real emblem fields get through', () {
+      final engine = DonutEngine(random: Random(10));
+      final table = engine.create(
+          code: 'ABC234',
+          hostId: 'alice',
+          hostName: 'Alice',
+          secret: _aliceSecret,
+          emblem: {'shape': 'star', 'icon': 'crown', 'bg': 0xFF112233, 'ring': false, 'evil': 'x' * 5000},
+          now: 0);
+      engine.join(table, id: 'bob', name: 'Bob', secret: _bobSecret, emblem: {'bg': 'not a colour'}, now: 0);
+      engine.act(table, 'alice', 'addBot', {}, now: 1);
+      final players = (engine.view(table, 'bob', now: 2)['players'] as List).cast<Map>();
+      expect(players[0]['emblem'], {'shape': 'star', 'icon': 'crown', 'bg': 0xFF112233, 'ring': false});
+      expect(players[1]['emblem'], isNull, reason: 'nothing usable was sent');
+      expect(players[2]['emblem'], isNull, reason: 'bots have no emblem');
+      // Survives saving, and a reconnect can change it
+      final saved = TableState.fromJson(jsonDecode(jsonEncode(table.toJson())) as Map<String, dynamic>);
+      engine.join(saved, id: 'alice', name: 'Alice', secret: _aliceSecret, emblem: {'shape': 'heart'}, now: 3);
+      expect(saved.seat('alice')!.emblem, {'shape': 'heart'});
+    });
+
     test('a saved table carries on exactly where it left off', () {
       final (engine, table) = _table(seed: 8);
       engine.act(table, 'alice', 'vote', {'vote': 'true'}, now: 1);

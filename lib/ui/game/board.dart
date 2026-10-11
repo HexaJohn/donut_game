@@ -1398,8 +1398,11 @@ class PlayerAvatar extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
+          // Our own follows the profile live; others' come from the table
           if (player.human && (player.id == 'local' || player.name == Settings.instance.nickname))
             EmblemWidget(emblem: PlayerProfile.instance.emblem, size: size)
+          else if (player.human && player.emblem != null)
+            EmblemWidget(emblem: player.emblem!, size: size)
           else
             CircleAvatar(
               radius: size / 2,

@@ -78,11 +78,12 @@ class DonutEngine {
     required String secret,
     String? back,
     String? face,
+    Map<String, dynamic>? emblem,
     required int now,
   }) {
     final table = TableState(code: code, hostId: hostId, createdAt: now);
     table.deck = _freshDeck();
-    join(table, id: hostId, name: hostName, secret: secret, back: back, face: face, now: now);
+    join(table, id: hostId, name: hostName, secret: secret, back: back, face: face, emblem: emblem, now: now);
     return table;
   }
 
@@ -95,6 +96,7 @@ class DonutEngine {
     required String secret,
     String? back,
     String? face,
+    Map<String, dynamic>? emblem,
     required int now,
   }) {
     final frames = <Frame>[];
@@ -106,7 +108,8 @@ class DonutEngine {
       existing
         ..connected = true
         ..back = back ?? existing.back
-        ..face = face ?? existing.face;
+        ..face = face ?? existing.face
+        ..emblem = cleanEmblem(emblem) ?? existing.emblem;
       if (wasGone) _say(table, '', '${existing.name} is back.', now, system: true);
       _frame(table, frames, 0, now);
       return frames;
@@ -121,8 +124,9 @@ class DonutEngine {
     for (var n = 2; table.seats.any((seat) => seat.name.toLowerCase() == trimmed.toLowerCase()); n++) {
       trimmed = '$base $n';
     }
-    table.seats.add(Seat(id: id, name: trimmed, human: true, back: back, face: face, secret: secret)
-      ..score = table.target);
+    table.seats.add(
+        Seat(id: id, name: trimmed, human: true, back: back, face: face, emblem: cleanEmblem(emblem), secret: secret)
+          ..score = table.target);
     _say(table, '', '$trimmed joined the game.', now, system: true);
     _frame(table, frames, 0, now);
     return frames;
@@ -688,8 +692,8 @@ class DonutEngine {
       final target = body['seat'] as String;
       if (!table.seats.any((s) => s.name == target)) throw const Refusal(400, 'Nobody by that name.');
       table.spins[target] = (table.spins[target] ?? 0) + 1;
-      _say(table, '', seat.name == target ? '${seat.name} shot their own placard.' : '${seat.name} shot $target\'s placard!',
-          now,
+      _say(table, '',
+          seat.name == target ? '${seat.name} shot their own placard.' : '${seat.name} shot $target\'s placard!', now,
           system: true);
     } else if (body['x'] is num && body['y'] is num) {
       table.holes.add({
@@ -772,6 +776,7 @@ class DonutEngine {
             'skip': '${seat.skip}',
             'awaitingCard': '${_awaitingCard(table, seat)}',
             'back': seat.human ? seat.back : null,
+            'emblem': seat.human ? seat.emblem : null,
             'face': seat.human ? seat.face : null,
           }
       ],
@@ -783,7 +788,9 @@ class DonutEngine {
         'active': table.active,
         'dealer': table.dealer,
         'trump': suitToString[table.trump],
-        'leading_card': table.trick.isEmpty ? null : table.trick.first.clientJson(hide: false, ownerName: nameOf(table.trick.first.owner)),
+        'leading_card': table.trick.isEmpty
+            ? null
+            : table.trick.first.clientJson(hide: false, ownerName: nameOf(table.trick.first.owner)),
         'sudden_death': [for (final id in table.suddenDeath) nameOf(id)],
         'champion': table.champion == null ? null : nameOf(table.champion),
         'elapsed_ms': table.matchStartedAt == null ? 0 : (table.matchEndedAt ?? now) - table.matchStartedAt!,
