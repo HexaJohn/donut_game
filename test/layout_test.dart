@@ -97,11 +97,21 @@ final screens = <Screen>[
   Screen('dialog_sound', () => _DialogHost(showSoundSettings)),
   Screen('dialog_rules', () => _DialogHost(showRulesDialog)),
   Screen('home', () => const HomeScreen()),
+  Screen('home_online', () => const HomeScreen(), setUp: (tester) async {
+    await tester.tap(find.text('Online'));
+    await tester.pump(const Duration(milliseconds: 600));
+    // Down to the party controls
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -600));
+    await tester.pump(const Duration(milliseconds: 600));
+  }),
   Screen('career_rank', () => const CareerScreen()),
   Screen('career_shop', () => const CareerScreen(initialTab: 1)),
   Screen('career_emblem', () => const CareerScreen(initialTab: 2)),
   Screen('campaign', () => const CampaignScreen()),
   Screen('game_lobby', () => GameScreen(controller: OfflineGameController(nickname: 'You', bots: 3))),
+  // How a party's lobby shows its code
+  Screen('game_party_lobby',
+      () => GameScreen(controller: OfflineGameController(nickname: 'You', bots: 3)..party.value = 'ABC234')),
   Screen(
     'game_swap',
     () => GameScreen(controller: OfflineGameController(nickname: 'You', bots: 5)),

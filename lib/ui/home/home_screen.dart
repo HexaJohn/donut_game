@@ -34,6 +34,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   late final _nickname = TextEditingController(text: settings.nickname);
   late final _host = TextEditingController(text: settings.serverHost);
   late final _port = TextEditingController(text: '${settings.serverPort}');
+  final _partyCode = TextEditingController();
+  String? _partyError;
   late final AnimationController _spin = AnimationController(vsync: this, duration: const Duration(seconds: 24))
     ..repeat();
 
@@ -55,6 +57,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _nickname.dispose();
     _host.dispose();
     _port.dispose();
+    _partyCode.dispose();
     _spin.dispose();
     super.dispose();
   }
@@ -87,6 +90,22 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     Navigator.of(context).push(gameRoute(
       GameScreen(controller: OfflineGameController(nickname: settings.nickname, bots: settings.bots)),
     ));
+  }
+
+  /// Hosts a new party ([join] false) or joins the one whose code is typed in.
+  void _party({required bool join}) {
+    _save();
+    if (settings.nickname.isEmpty) {
+      setState(() => _partyError = 'Pick a nickname first.');
+      return;
+    }
+    final code = _partyCode.text.trim().toUpperCase();
+    if (join && !RegExp(r'^[A-Z0-9]{6}$').hasMatch(code)) {
+      setState(() => _partyError = 'Party codes are six letters and numbers.');
+      return;
+    }
+    setState(() => _partyError = null);
+    Navigator.of(context).push(partyRoute(code: join ? code : null, nickname: settings.nickname));
   }
 
   Future<void> _joinOnline() async {
@@ -356,6 +375,43 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       key: const ValueKey('online'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Friends anywhere: one of them hosts, the rest type in the code
+        Text('Party', style: theme.textTheme.labelLarge),
+        const SizedBox(height: 8),
+        FilledButton.icon(
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+          onPressed: () => _party(join: false),
+          icon: const Icon(Icons.celebration_rounded),
+          label: const Text('Host a party', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _partyCode,
+                maxLength: 6,
+                textCapitalization: TextCapitalization.characters,
+                autocorrect: false,
+                decoration: const InputDecoration(
+                    hintText: 'Party code', counterText: '', prefixIcon: Icon(Icons.tag_rounded)),
+                onSubmitted: (_) => _party(join: true),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.tonal(
+              style: FilledButton.styleFrom(minimumSize: const Size(96, 48)),
+              onPressed: () => _party(join: true),
+              child: const Text('Join', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+        if (_partyError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(_partyError!, style: TextStyle(color: theme.colorScheme.error)),
+          ),
+        const SizedBox(height: 20),
         if (GameCenterLobby.instance.supported) ...[
           // No server needed: friends join through Game Center
           FilledButton.tonalIcon(
@@ -370,7 +426,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
           ),
         ],
-        Text('Server', style: theme.textTheme.labelLarge),
+        Text('Your own server', style: theme.textTheme.labelLarge),
         const SizedBox(height: 8),
         Row(
           children: [

@@ -84,6 +84,16 @@ abstract class GameController {
   /// the table's host.
   bool get canRestart => true;
 
+  /// The code friends type in to join this table, for party games.
+  final ValueNotifier<String?> party = ValueNotifier(null);
+  String? get partyCode => party.value;
+
+  /// Whether this player may add and remove bots right now (a party's host,
+  /// between matches).
+  bool get canManageBots => false;
+  Future<void> addBot() async {}
+  Future<void> removeBot() async {}
+
   /// Whether the local player may play [card] right now.
   bool isLegal(GameCard card) {
     final hand = localPlayer?.hand.cards.value ?? [];

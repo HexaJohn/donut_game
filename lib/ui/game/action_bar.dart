@@ -6,7 +6,7 @@ import 'package:donut_game/ui/game/game_controller.dart';
 import 'package:donut_game/ui/widget/dialogs.dart';
 import 'package:flutter/material.dart';
 
-enum _MenuAction { rules, theme, sound, restart, leave }
+enum _MenuAction { rules, theme, sound, addBot, removeBot, restart, leave }
 
 class ActionBar extends StatelessWidget {
   const ActionBar({
@@ -188,12 +188,21 @@ class ActionBar extends StatelessWidget {
               value: _MenuAction.theme, child: ListTile(leading: Icon(Icons.palette_outlined), title: Text('Theme'))),
           const PopupMenuItem(
               value: _MenuAction.sound, child: ListTile(leading: Icon(Icons.volume_up_rounded), title: Text('Sound'))),
+          if (controller.canManageBots) ...[
+            const PopupMenuItem(
+                value: _MenuAction.addBot,
+                child: ListTile(leading: Icon(Icons.smart_toy_rounded), title: Text('Add a bot'))),
+            if (game.players.any((player) => !player.human))
+              const PopupMenuItem(
+                  value: _MenuAction.removeBot,
+                  child: ListTile(leading: Icon(Icons.person_remove_rounded), title: Text('Remove a bot'))),
+          ],
           if (controller.canRestart)
             PopupMenuItem(
                 value: _MenuAction.restart,
                 child: ListTile(
                     leading: const Icon(Icons.restart_alt_rounded),
-                    title: Text(controller.online ? 'Restart server game' : 'Restart match'))),
+                    title: Text(controller.online && controller.partyCode == null ? 'Restart server game' : 'Restart match'))),
           const PopupMenuDivider(),
           const PopupMenuItem(
               value: _MenuAction.leave,
@@ -209,13 +218,17 @@ class ActionBar extends StatelessWidget {
         showThemePicker(context);
       case _MenuAction.sound:
         showSoundSettings(context);
+      case _MenuAction.addBot:
+        controller.addBot();
+      case _MenuAction.removeBot:
+        controller.removeBot();
       case _MenuAction.restart:
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: Text(controller.online ? 'Restart the server game?' : 'Restart the match?'),
             content: Text(controller.online
-                ? 'Everyone on the server goes back to the lobby and scores are wiped.'
+                ? 'Everyone at the table goes back to the lobby and scores are wiped.'
                 : 'Scores go back to ${controller.game.targetScore} and a new match starts.'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),

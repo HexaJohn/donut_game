@@ -27,6 +27,7 @@ import 'package:donut_game/ui/widget/playing_card.dart';
 import 'package:donut_game/ui/widget/suit_icon.dart';
 import 'package:donut_game/ui/widget/title_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key, required this.controller});
@@ -433,6 +434,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             title: controller.label,
             trailing: GameClock(elapsed: () => game.matchElapsed),
           ),
+          PartyCodeBanner(controller: controller),
           ValueListenableBuilder(
             valueListenable: controller.error,
             builder: (context, String? error, _) => AnimatedSize(
@@ -687,6 +689,57 @@ class _StageActions extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// The party's code, shown in the lobby so the host can pass it on.
+class PartyCodeBanner extends StatelessWidget {
+  const PartyCodeBanner({super.key, required this.controller});
+
+  final GameController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListenableBuilder(
+      listenable: Listenable.merge([controller.party, controller.game.state]),
+      builder: (context, _) {
+        final code = controller.partyCode;
+        final game = controller.game;
+        final lobby = game.handNumber == 0 || game.champion.value != null;
+        return AnimatedSize(
+          duration: const Duration(milliseconds: 250),
+          child: code == null || !lobby
+              ? const SizedBox(width: double.infinity)
+              : Container(
+                  width: double.infinity,
+                  color: theme.colorScheme.secondaryContainer,
+                  padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
+                  child: Row(
+                    children: [
+                      Text('Party code', style: theme.textTheme.labelLarge),
+                      const SizedBox(width: 10),
+                      Text(code,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 3,
+                              fontFeatures: const [FontFeature.tabularFigures()])),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: code));
+                          ScaffoldMessenger.maybeOf(context)
+                              ?.showSnackBar(const SnackBar(content: Text('Copied. Send it to your friends.')));
+                        },
+                        icon: const Icon(Icons.copy_rounded, size: 18),
+                        label: const Text('Copy'),
+                      ),
+                    ],
+                  ),
+                ),
+        );
+      },
     );
   }
 }

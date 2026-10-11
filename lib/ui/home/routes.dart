@@ -1,3 +1,4 @@
+import 'package:donut_game/net/party_client.dart';
 import 'package:donut_game/ui/game/game_controller.dart';
 import 'package:donut_game/ui/game/game_screen.dart';
 import 'package:flutter/material.dart';
@@ -19,3 +20,7 @@ Route<void> gameRoute(Widget screen) => PageRouteBuilder(
 /// The game on the server at [host]:[port].
 Route<void> onlineRoute({required String host, required int port, required String username}) =>
     gameRoute(GameScreen(controller: OnlineGameController(host: host, port: port, username: username)));
+
+/// A party on the party server: a new one hosted by this player, or [code].
+Route<void> partyRoute({String? code, required String nickname}) =>
+    gameRoute(GameScreen(controller: PartyController(code: code, nickname: nickname)));
