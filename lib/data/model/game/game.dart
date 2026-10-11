@@ -58,10 +58,12 @@ class Game {
     Game().matchStarted = null;
     Game().matchEnded = null;
     Game().handNumber = 0;
+    Game().targetScore = startingScore;
     Game().playerDB.clear();
     Game().deck = GameCardDeck.fresh();
     Game().table.dump();
     Game().discard.dump();
+    Game().revealed.clear();
     Game().state.value = GameState.waitingForPlayers;
     Game().trumpSuit.value = Suit.values.first;
     Game().suddenDeath.clear();
@@ -184,7 +186,7 @@ class Game {
   void _announce(String text) => say('', text, system: true);
 
   void _botQuip(GamePlayer player, List<String> lines, double chance) {
-    if (!player.human && Random().nextDouble() < chance) {
+    if (!player.human && lines.isNotEmpty && Random().nextDouble() < chance) {
       say(player.name, lines[Random().nextInt(lines.length)]);
     }
   }
@@ -201,6 +203,9 @@ class Game {
   }
 
   Map<String, GamePlayer> playerDB = {};
+
+  /// The score everyone starts a match on; first to zero wins.
+  int targetScore = startingScore;
   List<GamePlayer> get players => playerDB.values.toList();
   Iterable<GamePlayer> get playersByRef => playerDB.values;
   GameCardDeck deck = GameCardDeck.fresh();
@@ -217,6 +222,11 @@ class Game {
   GameCardStack table = GameCardStack();
   GameCardStack discard = GameCardStack();
   GameCard? leadingCard;
+
+  /// Cards played face up since the discard pile was last shuffled back into
+  /// the deck: what a player at the table could have seen. Swapped and folded
+  /// cards go to the discard face down, so they aren't in here.
+  final Set<GameCard> revealed = {};
 
   /// Players still in a sudden death tiebreak. Empty during normal play.
   final List<GamePlayer> suddenDeath = [];
@@ -240,7 +250,7 @@ class Game {
   /// Starts a new match with the same players.
   void newMatch() {
     for (var player in players) {
-      player.score.value = startingScore;
+      player.score.value = targetScore;
       player.donuts.value = 0;
       player.folds = 0;
       player.matchTricks = 0;
@@ -250,6 +260,7 @@ class Game {
     deck = GameCardDeck.fresh();
     table.dump();
     discard.dump();
+    revealed.clear();
     suddenDeath.clear();
     champion.value = null;
     matchStarted = null;
@@ -258,7 +269,7 @@ class Game {
     holes.value = [];
     spins.value = {};
     clearInk();
-    _announce('New match! Everyone starts on $startingScore.');
+    _announce('New match! Everyone starts on $targetScore.');
     state.value = GameState.waitingToDeal;
   }
 
@@ -275,16 +286,27 @@ class Game {
   }
 
   /// Sets up a local game against bots, cancelling anything in progress.
-  /// With [acrotron], one of the [bots] seats goes to Acrotron.
-  void setupOffline(GamePlayer localPlayer, int bots, {bool acrotron = false}) {
+  /// With [acrotron], one of the [bots] seats goes to Acrotron. Preset
+  /// [opponents] take the place of random bots; [target] is the score
+  /// everyone starts on.
+  void setupOffline(GamePlayer localPlayer, int bots,
+      {bool acrotron = false, List<GamePlayer>? opponents, int target = startingScore}) {
     abort();
     playerDB.clear();
     chat.value = [];
+    targetScore = target;
     addLocalPlayer(localPlayer);
-    final names = List<String>.from(_botNames)..shuffle();
-    for (var i = 0; i < bots - (acrotron ? 1 : 0); i++) {
-      final bot = GamePlayer(names[i % names.length], players.length, false);
-      playerDB[bot.hashCode.toString()] = bot;
+    if (opponents != null) {
+      for (final opponent in opponents) {
+        opponent.number = players.length;
+        playerDB[opponent.hashCode.toString()] = opponent;
+      }
+    } else {
+      final names = List<String>.from(_botNames)..shuffle();
+      for (var i = 0; i < bots - (acrotron ? 1 : 0); i++) {
+        final bot = GamePlayer(names[i % names.length], players.length, false);
+        playerDB[bot.hashCode.toString()] = bot;
+      }
     }
     if (acrotron) {
       playerDB['acrotron'] = GamePlayer(acrotronName, players.length, false);
@@ -474,6 +496,7 @@ class Game {
     } catch (e) {
       deck.contents = discard.cards.value;
       discard.dump();
+      revealed.clear();
       deck.contents.shuffle();
       top = deck.contents.first;
     }
@@ -509,8 +532,10 @@ class Game {
 
         if (!player.human) {
           await _pause(const Duration(milliseconds: 500), epoch);
-          player.botSwap(trumpSuit.value);
-          player.notReady = false;
+          if (!(player.brain.shouldFold(player, this) && fold(player))) {
+            player.botSwap(trumpSuit.value);
+            player.notReady = false;
+          }
         } else {
           state.value = GameState.waitingForPlayerToSwap;
         }
@@ -560,7 +585,7 @@ class Game {
       element.score.value = element.score.value + donutPenalty;
       element.donuts.value++;
       _announce('${element.name} got a donut! +$donutPenalty');
-      _botQuip(element, _botDonutLines, 0.4);
+      _botQuip(element, element.lines?.donut ?? _botDonutLines, 0.4);
     });
     for (var player in players) {
       player.voteToDeal = false;
@@ -597,13 +622,9 @@ class Game {
         final GamePlayer player = players[i0];
         player.cardToPlay = null;
         if (!player.human && !player.skip) {
-          GameCard card;
-          if (leadingCard == null) {
-            card = await player.botPlay(leading: true);
-            leadingCard = card;
-          } else {
-            card = await player.botPlay(game: this);
-          }
+          final card = await player.botPlay(game: this);
+          card.belongsTo = player;
+          leadingCard ??= card;
           if (epoch != _epoch) throw _GameAborted();
           addToTable(card);
         } else {
@@ -641,7 +662,7 @@ class Game {
     lastTrickWinner = winner;
     trickSerial++;
     _announce('${winner.name} takes the trick.');
-    _botQuip(winner, _botTrickLines, 0.2);
+    _botQuip(winner, winner.lines?.trick ?? _botTrickLines, 0.2);
     _active = players.indexOf(winner);
     await _pause(const Duration(milliseconds: 1400), epoch);
     final int toDiscard = table.cards.value.length;
@@ -680,6 +701,7 @@ class Game {
 
   void addToTable(GameCard card) {
     table.add(card);
+    revealed.add(card);
   }
 
   GamePlayer evaluateTableForWinner() {

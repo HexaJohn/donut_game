@@ -3,21 +3,26 @@ import 'dart:async';
 import 'package:donut_game/audio/flashbang.dart';
 import 'package:donut_game/audio/music_player.dart';
 import 'package:donut_game/audio/sfx.dart';
+import 'package:donut_game/campaign/campaign.dart';
+import 'package:donut_game/campaign/campaign_controller.dart';
 import 'package:donut_game/data/model/chat_message.dart';
 import 'package:donut_game/data/model/game/game.dart';
+import 'package:donut_game/data/model/game_player.dart/game_player.dart';
+import 'package:donut_game/data/settings.dart';
 import 'package:donut_game/modes/bad_batch/bb_screen.dart';
 import 'package:donut_game/modes/game_mode.dart';
 import 'package:donut_game/progression/profile.dart';
 import 'package:donut_game/progression/rewards.dart';
-import 'package:donut_game/ui/career/match_rewards.dart';
-import 'package:donut_game/data/model/game_player.dart/game_player.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
+import 'package:donut_game/ui/campaign/campaign_screen.dart';
+import 'package:donut_game/ui/career/match_rewards.dart';
 import 'package:donut_game/ui/game/action_bar.dart';
 import 'package:donut_game/ui/game/announcer.dart';
 import 'package:donut_game/ui/game/board.dart';
 import 'package:donut_game/ui/game/chat_panel.dart';
 import 'package:donut_game/ui/game/game_controller.dart';
+import 'package:donut_game/ui/home/routes.dart';
 import 'package:donut_game/ui/widget/donut_logo.dart';
 import 'package:donut_game/ui/widget/game_clock.dart';
 import 'package:donut_game/ui/widget/playing_card.dart';
@@ -45,6 +50,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   /// the title bar, clock and chat panel aren't rebuilt with every move.
   final _revision = ValueNotifier(0);
 
+  /// The board also redraws when campaign scenery is switched, which can
+  /// happen mid-match from the theme picker while nothing else moves.
+  late final Listenable _boardChanges = Listenable.merge([_revision, Settings.instance.venueScenery]);
+
   /// Flashbang: where it's fizzing before it goes off, and the white-out.
   final ValueNotifier<Offset?> _fuse = ValueNotifier(null);
   late final AnimationController _whiteout = AnimationController(vsync: this, duration: FlashbangAudio.length);
@@ -68,7 +77,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   bool _awarded = false;
   bool _inSuddenDeath = false;
 
+  /// Set when this screen gives way straight to another game.
+  bool _handedOff = false;
+
   GameController get controller => widget.controller;
+  CampaignGameController? get _campaign => switch (controller) { CampaignGameController c => c, _ => null };
   Game get game => controller.game;
 
   /// Notifiers in the model that fire the moment something moves, so the
@@ -134,8 +147,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     // Never leave the game deafened if we leave mid-bang
     audioDuck.value = 1;
     controller.dispose();
-    // Back to the menus
-    MusicPlayer.instance.playMenu();
+    // Back to the menus, unless the next campaign stage is already playing
+    if (!_handedOff) MusicPlayer.instance.playMenu();
     super.dispose();
   }
 
@@ -295,6 +308,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       ..remove(champion)
       ..insert(0, champion);
     final profile = PlayerProfile.instance;
+    final campaign = _campaign;
+    final won = champion == local;
     _outcome = MatchOutcome.awardDonut(
       profile,
       DonutMatchSummary(
@@ -307,7 +322,24 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         duration: game.matchElapsed,
         firstWinToday: profile.firstWinTodayAvailable,
       ),
+      extra: campaign != null && won
+          ? stageClearRewards(campaign.stage, campaign.difficulty, profile.bestClear(campaign.stage))
+          : const [],
     );
+    if (campaign != null) {
+      if (won) {
+        profile.recordStageClear(campaign.stage, campaign.difficulty);
+      } else {
+        campaign.gloat(champion.name);
+      }
+    }
+  }
+
+  /// Opens [stage] in place of this match.
+  void _playStage(Stage stage, Difficulty difficulty) {
+    _handedOff = true;
+    Navigator.pushReplacement(
+        context, gameRoute(GameScreen(controller: CampaignGameController(stage: stage, difficulty: difficulty))));
   }
 
   void _detectFlashbang() {
@@ -395,6 +427,17 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildScreen(BuildContext context) {
+    // The system back button asks first, like Leave in the menu
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _leave();
+      },
+      child: _scaffold(context),
+    );
+  }
+
+  Widget _scaffold(BuildContext context) {
     return Scaffold(
       body: Column(
         children: [
@@ -423,41 +466,38 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             ),
           ),
           Expanded(
-            child: Row(
-              children: [
-                Expanded(
-                  child: ListenableBuilder(
-                    listenable: _revision,
-                    builder: (context, _) {
-                      final champion = game.champion.value;
-                      return Stack(
-                        children: [
-                          Positioned.fill(child: GameBoard(controller: controller, announcer: _announcer, fuse: _fuse)),
-                          Positioned.fill(
-                            child: IgnorePointer(
-                              ignoring: champion == null,
-                              child: AnimatedOpacity(
-                                opacity: champion == null ? 0 : 1,
-                                duration: const Duration(milliseconds: 500),
-                                child: champion == null
-                                    ? const SizedBox()
-                                    : _MatchOverOverlay(controller: controller, outcome: _outcome),
-                              ),
-                            ),
+            child: ChatLayout(
+              table: ListenableBuilder(
+                listenable: _boardChanges,
+                builder: (context, _) {
+                  final champion = game.champion.value;
+                  return Stack(
+                    children: [
+                      Positioned.fill(child: GameBoard(controller: controller, announcer: _announcer, fuse: _fuse)),
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          ignoring: champion == null,
+                          child: AnimatedOpacity(
+                            opacity: champion == null ? 0 : 1,
+                            duration: const Duration(milliseconds: 500),
+                            child: champion == null
+                                ? const SizedBox()
+                                : _MatchOverOverlay(controller: controller, outcome: _outcome, onPlayStage: _playStage),
                           ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-                ChatPanel(
-                  chat: game.chat,
-                  localName: controller.localPlayer?.name,
-                  onSend: controller.sendChat,
-                  open: _chatOpen,
-                  onClose: () => setState(() => _chatOpen = false),
-                ),
-              ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              panel: (width) => ChatPanel(
+                chat: game.chat,
+                localName: controller.localPlayer?.name,
+                onSend: controller.sendChat,
+                open: _chatOpen,
+                onClose: () => setState(() => _chatOpen = false),
+                width: width,
+              ),
             ),
           ),
           ListenableBuilder(
@@ -480,9 +520,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 }
 
 class _MatchOverOverlay extends StatelessWidget {
-  const _MatchOverOverlay({required this.controller, required this.outcome});
+  const _MatchOverOverlay({required this.controller, required this.outcome, required this.onPlayStage});
 
   final GameController controller;
+  final void Function(Stage stage, Difficulty difficulty) onPlayStage;
 
   /// Null online, where there's nothing to pay.
   final MatchOutcome? outcome;
@@ -494,6 +535,8 @@ class _MatchOverOverlay extends StatelessWidget {
     final game = controller.game;
     final champion = game.champion.value!;
     final youWon = champion.name == controller.localPlayer?.name;
+    final campaign = switch (controller) { CampaignGameController c => c, _ => null };
+    final next = campaign == null ? null : nextStage(campaign.stage);
     final standings = [...game.players]..sort((a, b) => a.score.value.compareTo(b.score.value));
 
     return Container(
@@ -524,6 +567,10 @@ class _MatchOverOverlay extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
                   const SizedBox(height: 4),
+                  if (campaign != null) ...[
+                    _StageResult(campaign: campaign, cleared: youWon),
+                    const SizedBox(height: 4),
+                  ],
                   Text('Match time ${formatDuration(game.matchElapsed)}',
                       style: theme.textTheme.bodyMedium
                           ?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
@@ -556,26 +603,102 @@ class _MatchOverOverlay extends StatelessWidget {
                     ),
                 ],
               ),
-              actions: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Main menu'),
+              actions: campaign != null
+                  ? _StageActions(
+                      onCampaign: () => Navigator.pop(context),
+                      onRetry: controller.newMatch,
+                      onNext: youWon && next != null ? () => onPlayStage(next, campaign.difficulty) : null,
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Main menu'),
+                          ),
+                        ),
+                        if (!controller.online) ...[
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton(onPressed: controller.newMatch, child: const Text('Play again')),
+                          ),
+                        ],
+                      ],
                     ),
-                  ),
-                  if (!controller.online) ...[
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(onPressed: controller.newMatch, child: const Text('Play again')),
-                    ),
-                  ],
-                ],
-              ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Under the headline after a campaign match: the stage, the difficulty and
+/// the stars it earned.
+class _StageResult extends StatelessWidget {
+  const _StageResult({required this.campaign, required this.cleared});
+
+  final CampaignGameController campaign;
+  final bool cleared;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final difficulty = campaign.difficulty;
+    return Column(
+      children: [
+        Text(
+          cleared
+              ? '${campaign.stage.boss ? 'Boss defeated' : 'Stage cleared'} on ${difficulty.label}'
+              : '${campaign.stage.name} on ${difficulty.label}',
+          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: theme.colorScheme.primary),
+        ),
+        if (cleared) ...[
+          const SizedBox(height: 4),
+          StageStars(stars: difficulty.stars, size: 22),
+        ],
+      ],
+    );
+  }
+}
+
+/// Campaign, Retry and, after a win, Next stage: three buttons in a narrow
+/// panel, so labels stay on one line and shrink rather than wrap.
+class _StageActions extends StatelessWidget {
+  const _StageActions({required this.onCampaign, required this.onRetry, this.onNext});
+
+  final VoidCallback onCampaign;
+  final VoidCallback onRetry;
+
+  /// Null when there's no next stage to go to.
+  final VoidCallback? onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    const padding = EdgeInsets.symmetric(horizontal: 10);
+    Widget label(String text) => FittedBox(fit: BoxFit.scaleDown, child: Text(text, maxLines: 1, softWrap: false));
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+              style: OutlinedButton.styleFrom(padding: padding), onPressed: onCampaign, child: label('Campaign')),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: onNext != null
+              ? OutlinedButton(
+                  style: OutlinedButton.styleFrom(padding: padding), onPressed: onRetry, child: label('Retry'))
+              : FilledButton(
+                  style: FilledButton.styleFrom(padding: padding), onPressed: onRetry, child: label('Retry')),
+        ),
+        if (onNext != null) ...[
+          const SizedBox(width: 8),
+          Expanded(
+            child: FilledButton(
+                style: FilledButton.styleFrom(padding: padding), onPressed: onNext, child: label('Next stage')),
+          ),
+        ],
+      ],
     );
   }
 }

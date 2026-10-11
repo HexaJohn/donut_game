@@ -1,7 +1,9 @@
+import 'package:donut_game/ai/bot_brain.dart';
 import 'package:donut_game/data/model/game_card/game_card_stack.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/data/model/game/game.dart';
+import 'package:donut_game/progression/catalog.dart';
 import 'package:donut_game/ws_server.dart';
 import 'package:flutter/widgets.dart';
 
@@ -42,6 +44,22 @@ class GamePlayer {
   /// human, but gets its own avatar and Acrotron rations its replies to it.
   bool agent = false;
 
+  /// The deck this player's cards are drawn with, as catalog ids. Humans
+  /// bring their own; bots get one picked from their name.
+  late String cardBack = human ? 'pattern.classic' : botDeck(name).back;
+  late String cardFace = human ? 'face.classic' : botDeck(name).face;
+
+  /// How well this player plays when the game plays for them.
+  BotSkill skill = BotSkill.regular;
+  BotBrain get brain => _brain?.skill == skill ? _brain! : _brain = BotBrain(skill);
+  BotBrain? _brain;
+
+  /// This player's own chat lines, in place of the table bots' stock ones.
+  BotLines? lines;
+
+  /// A named campaign character rather than a stock table bot.
+  bool character = false;
+
   @override
   String toString() {
     return name;
@@ -54,38 +72,16 @@ class GamePlayer {
     return card;
   }
 
-  Future<GameCard> botPlay({bool? leading, Game? game}) async {
-    GameCard card;
-    if (leading ?? false) {
-      card = hand.cards.value.first;
-    } else {
-      card = logicalFirst(game!);
-    }
+  Future<GameCard> botPlay({required Game game}) async {
+    final card = brain.chooseCard(this, game);
     await Future.delayed(const Duration(milliseconds: 800));
-    final played = play(card);
-    return played;
-  }
-
-  GameCard logicalFirst(Game game) {
-    GameCard card;
-    try {
-      card = hand.cards.value.firstWhere((element) => element.suit == game.leadingCard!.suit);
-    } catch (e) {
-      try {
-        card = hand.cards.value.firstWhere((element) => element.suit == game.trumpSuit.value);
-      } catch (e) {
-        card = hand.cards.value.first;
-      }
-    }
-    return card;
+    return play(card);
   }
 
   void botSwap(Suit trump) {
-    for (var card in hand.cards.value) {
-      if (card.suit != trump && swaps.value > 0) {
-        card.state = CardState.swap;
-        swaps.value--;
-      }
+    for (final card in brain.chooseSwaps(hand.cards.value, trump, swaps.value)) {
+      card.state = CardState.swap;
+      swaps.value--;
     }
   }
 
@@ -103,4 +99,14 @@ class GamePlayer {
   static fromJson(Map<String, dynamic> data) {
     return GamePlayer(data['data'][0], 0, true);
   }
+}
+
+/// What a bot says when it takes a trick or eats a donut.
+class BotLines {
+  const BotLines({this.greet = const [], this.trick = const [], this.donut = const [], this.win = const []});
+
+  final List<String> greet;
+  final List<String> trick;
+  final List<String> donut;
+  final List<String> win;
 }
