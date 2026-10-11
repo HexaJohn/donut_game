@@ -5,7 +5,7 @@ import 'package:crypto/crypto.dart';
 
 import 'store.dart';
 
-/// Daily usage numbers for the admin dashboard (infra/game/dashboard.sh).
+/// Daily usage numbers for the admin dashboard (admin/ (Donut Admin)).
 ///
 /// Counts only. Who played is never kept: unique players are counted with
 /// a keyed one-way hash of each install's id, the key is replaced every
