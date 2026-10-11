@@ -27,6 +27,9 @@ const int cardsPerHand = 5;
 /// The score everyone starts a match on; first to zero wins.
 const int startingScore = 20;
 
+/// The starting points a table can choose from.
+const List<int> startingScoreChoices = [10, 15, 20, 25, 30];
+
 /// Cards a player may swap each hand.
 const int maxSwaps = 3;
 

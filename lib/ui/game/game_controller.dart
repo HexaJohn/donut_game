@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:donut_game/ai/bot_brain.dart' show BotSkill;
 import 'package:donut_game/data/model/bullet_hole.dart';
 import 'package:donut_game/data/model/chat_message.dart';
 import 'package:donut_game/data/model/game/game.dart';
@@ -90,6 +91,13 @@ abstract class GameController {
   /// quick, campaign, party, public, gamecenter or server.
   String get kind => 'quick';
 
+  /// The bots' skill at a party table (null where the table doesn't say).
+  BotSkill? get tableBotSkill => null;
+
+  /// Changes a party table's bots and starting points (its host, between
+  /// matches; see [canManageBots]).
+  Future<void> changeTable({BotSkill? skill, int? target}) async {}
+
   /// Players muted for this game only, by install id.
   final ValueNotifier<Set<String>> muted = ValueNotifier(const {});
 
@@ -160,12 +168,16 @@ class OfflineGameController extends GameController {
   /// Preset [opponents] replace the random [bots]; [target] is the score
   /// everyone starts on.
   OfflineGameController(
-      {required String nickname, required int bots, List<GamePlayer>? opponents, int target = startingScore})
+      {required String nickname,
+      required int bots,
+      List<GamePlayer>? opponents,
+      int target = startingScore,
+      BotSkill skill = BotSkill.regular})
       : _local = GamePlayer(nickname.isEmpty ? 'You' : nickname, 0, true)
           ..id = 'local'
           ..cardBack = PlayerProfile.instance.cardPattern
           ..cardFace = PlayerProfile.instance.cardFace {
-    game.setupOffline(_local, bots, opponents: opponents, target: target);
+    game.setupOffline(_local, bots, opponents: opponents, target: target, skill: skill);
   }
 
   final GamePlayer _local;

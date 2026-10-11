@@ -1,3 +1,4 @@
+import 'package:donut_game/ui/widget/table_options.dart';
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
@@ -6,7 +7,7 @@ import 'package:donut_game/ui/game/game_controller.dart';
 import 'package:donut_game/ui/widget/dialogs.dart';
 import 'package:flutter/material.dart';
 
-enum _MenuAction { rules, theme, sound, addBot, removeBot, restart, leave }
+enum _MenuAction { rules, theme, sound, tableSettings, addBot, removeBot, restart, leave }
 
 class ActionBar extends StatelessWidget {
   const ActionBar({
@@ -190,6 +191,9 @@ class ActionBar extends StatelessWidget {
               value: _MenuAction.sound, child: ListTile(leading: Icon(Icons.tune_rounded), title: Text('Settings'))),
           if (controller.canManageBots) ...[
             const PopupMenuItem(
+                value: _MenuAction.tableSettings,
+                child: ListTile(leading: Icon(Icons.tune_rounded), title: Text('Table settings'))),
+            const PopupMenuItem(
                 value: _MenuAction.addBot,
                 child: ListTile(leading: Icon(Icons.smart_toy_rounded), title: Text('Add a bot'))),
             if (game.players.any((player) => !player.human))
@@ -218,6 +222,8 @@ class ActionBar extends StatelessWidget {
         showThemePicker(context);
       case _MenuAction.sound:
         showSoundSettings(context);
+      case _MenuAction.tableSettings:
+        showTableSettings(context, controller);
       case _MenuAction.addBot:
         controller.addBot();
       case _MenuAction.removeBot:

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:donut_engine/donut_engine.dart' show BotSkill, startingScore, startingScoreChoices;
 import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,6 +24,11 @@ class Settings {
   String serverHost = '127.0.0.1';
   int serverPort = defaultPort;
   int bots = 3;
+
+  /// The bots' skill and everyone's starting points, for quick games and
+  /// parties this player hosts.
+  BotSkill botSkill = BotSkill.regular;
+  int startingPoints = startingScore;
 
   /// Send anonymous gameplay counts (see Usage). On unless turned off.
   final ValueNotifier<bool> shareUsage = ValueNotifier(true);
@@ -74,6 +80,9 @@ class Settings {
     serverHost = prefs.getString('serverHost') ?? serverHost;
     serverPort = prefs.getInt('serverPort') ?? serverPort;
     bots = prefs.getInt('bots') ?? bots;
+    botSkill = BotSkill.values.where((skill) => skill.name == prefs.getString('botSkill')).firstOrNull ?? botSkill;
+    final points = prefs.getInt('startingPoints');
+    if (startingScoreChoices.contains(points)) startingPoints = points!;
     musicVolume.value = prefs.getDouble('musicVolume') ?? musicVolume.value;
     musicMuted.value = prefs.getBool('musicMuted') ?? false;
     sfxVolume.value = prefs.getDouble('sfxVolume') ?? sfxVolume.value;
@@ -107,7 +116,9 @@ class Settings {
       ?..setString('nickname', nickname)
       ..setString('serverHost', serverHost)
       ..setInt('serverPort', serverPort)
-      ..setInt('bots', bots);
+      ..setInt('bots', bots)
+      ..setString('botSkill', botSkill.name)
+      ..setInt('startingPoints', startingPoints);
   }
 
   /// Bad Batch, Acrotron and their downloaded decks are gone from the game;

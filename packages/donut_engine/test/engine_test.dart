@@ -269,6 +269,40 @@ void main() {
       expect(table.phase, isNot(Phase.swap));
     });
 
+    test('the host sets bot difficulty and starting points between matches', () {
+      final engine = DonutEngine(random: Random(15));
+      final table = engine.create(
+          code: 'ABC234',
+          hostId: 'alice',
+          hostName: 'Alice',
+          secret: _aliceSecret,
+          botSkill: BotSkill.pro,
+          target: 15,
+          now: 0);
+      engine.join(table, id: 'bob', name: 'Bob', secret: _bobSecret, now: 0);
+      engine.act(table, 'alice', 'addBot', {}, now: 1);
+      expect(table.seats.last.skill, BotSkill.pro);
+      expect(table.seats.every((seat) => seat.score == 15), isTrue);
+
+      expect(() => engine.act(table, 'bob', 'settings', {'skill': 'shark'}, now: 2),
+          throwsA(isA<Refusal>().having((r) => r.status, 'status', 403)));
+      engine.act(table, 'alice', 'settings', {'skill': 'rookie', 'target': 25}, now: 3);
+      expect(table.botSkill, BotSkill.rookie);
+      expect(table.seats.where((seat) => !seat.human).every((seat) => seat.skill == BotSkill.rookie), isTrue);
+      expect(table.seats.every((seat) => seat.score == 25), isTrue);
+      expect(engine.view(table, 'bob', now: 4)['game'],
+          allOf(containsPair('target', 25), containsPair('botSkill', 'rookie')));
+      // Nonsense is ignored rather than applied
+      engine.act(table, 'alice', 'settings', {'skill': 'godlike', 'target': 7}, now: 5);
+      expect((table.botSkill, table.target), (BotSkill.rookie, 25));
+
+      engine.act(table, 'alice', 'vote', {'vote': 'true'}, now: 6);
+      engine.act(table, 'bob', 'vote', {'vote': 'true'}, now: 7);
+      expect(() => engine.act(table, 'alice', 'settings', {'target': 10}, now: 8),
+          throwsA(isA<Refusal>().having((r) => r.status, 'status', 409)),
+          reason: 'not mid-match');
+    });
+
     test('a disconnected player is played for, so the table carries on', () {
       final (engine, table) = _table(seed: 6);
       engine.act(table, 'alice', 'vote', {'vote': 'true'}, now: 1);
@@ -342,8 +376,18 @@ void main() {
       expect(cleanText('sh1t happens'), '**** happens');
       expect(cleanText('f u c k off'), '* * * * off');
       expect(cleanText('f.u.c.k'), '*******');
-      for (final fine in ['class', 'Scunthorpe', 'assist', 'cocktail', 'spicy', 'raccoon', 'Pakistan', 'Niger',
-          'GG well played', 'nice hand!']) {
+      for (final fine in [
+        'class',
+        'Scunthorpe',
+        'assist',
+        'cocktail',
+        'spicy',
+        'raccoon',
+        'Pakistan',
+        'Niger',
+        'GG well played',
+        'nice hand!'
+      ]) {
         expect(cleanText(fine), fine, reason: '"$fine" was masked');
       }
     });

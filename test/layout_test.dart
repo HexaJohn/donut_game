@@ -97,6 +97,11 @@ final screens = <Screen>[
   Screen('dialog_sound', () => _DialogHost(showSoundSettings)),
   Screen('dialog_rules', () => _DialogHost(showRulesDialog)),
   Screen('home', () => const HomeScreen()),
+  Screen('home_bots', () => const HomeScreen(), setUp: (tester) async {
+    // Down to the opponents, difficulty and starting points
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -700));
+    await tester.pump(const Duration(milliseconds: 600));
+  }),
   Screen('home_online', () => const HomeScreen(), setUp: (tester) async {
     await tester.tap(find.text('Online'));
     await tester.pump(const Duration(milliseconds: 600));

@@ -210,6 +210,9 @@ class TableState {
   /// The champion's name, kept so it still shows if they leave the table.
   String? championName;
   int target = startingScore;
+
+  /// How well the table's bots play.
+  BotSkill botSkill = BotSkill.regular;
   int? matchStartedAt;
   int? matchEndedAt;
 
@@ -266,6 +269,7 @@ class TableState {
         'champion': champion,
         'championName': championName,
         'target': target,
+        'botSkill': botSkill.index,
         'matchStartedAt': matchStartedAt,
         'matchEndedAt': matchEndedAt,
         'chat': chat,
@@ -309,6 +313,8 @@ class TableState {
       ..champion = json['champion'] as String?
       ..championName = json['championName'] as String?
       ..target = json['target'] as int
+      ..botSkill =
+          BotSkill.values[(json['botSkill'] as int? ?? BotSkill.regular.index).clamp(0, BotSkill.values.length - 1)]
       ..matchStartedAt = json['matchStartedAt'] as int?
       ..matchEndedAt = json['matchEndedAt'] as int?
       ..chat = maps(json['chat'])

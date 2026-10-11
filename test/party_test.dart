@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:donut_game/analytics/usage.dart';
+import 'package:donut_game/ai/bot_brain.dart';
 import 'package:donut_game/data/settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:donut_game/net/party_client.dart';
@@ -211,5 +212,27 @@ void main() {
     addTearDown(() => Settings.instance.setShareUsage(true));
     usage.count('match.quick.finished');
     expect(usage.pending, isEmpty);
+  });
+
+  test('a hosted party starts with the host\'s bot difficulty and points, and the host can change them', () async {
+    Settings.instance
+      ..botSkill = BotSkill.pro
+      ..startingPoints = 15;
+    addTearDown(() => Settings.instance
+      ..botSkill = BotSkill.regular
+      ..startingPoints = 20);
+    final host = PartyController(
+        nickname: 'Alice', url: gateway.url, playerId: 'alice-device', secret: 'alice-secret-0123456789');
+    host.start();
+    await until(() => host.localPlayer != null && host.tableBotSkill != null, reason: 'hosting');
+    expect(host.tableBotSkill, BotSkill.pro);
+    expect(host.game.targetScore, 15);
+    expect(host.localPlayer!.score.value, 15);
+    expect(host.canManageBots, isTrue);
+    await host.changeTable(skill: BotSkill.shark, target: 25);
+    await until(() => host.game.targetScore == 25, reason: 'the change arrived');
+    expect(host.tableBotSkill, BotSkill.shark);
+    expect(host.localPlayer!.score.value, 25);
+    host.dispose();
   });
 }

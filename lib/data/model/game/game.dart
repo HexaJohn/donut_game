@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_game/ai/bot_brain.dart' show BotSkill;
 import 'package:donut_game/data/model/game_card/game_card_deck.dart';
 import 'package:donut_game/data/model/game_card/game_card_stack.dart';
 import 'package:donut_game/res/resources.dart';
@@ -275,7 +276,8 @@ class Game {
   /// Sets up a local game against bots, cancelling anything in progress.
   /// Preset [opponents] take the place of random bots; [target] is the score
   /// everyone starts on.
-  void setupOffline(GamePlayer localPlayer, int bots, {List<GamePlayer>? opponents, int target = startingScore}) {
+  void setupOffline(GamePlayer localPlayer, int bots,
+      {List<GamePlayer>? opponents, int target = startingScore, BotSkill skill = BotSkill.regular}) {
     abort();
     playerDB.clear();
     chat.value = [];
@@ -289,7 +291,7 @@ class Game {
     } else {
       final names = List<String>.from(_botNames)..shuffle();
       for (var i = 0; i < bots; i++) {
-        final bot = GamePlayer(names[i % names.length], players.length, false);
+        final bot = GamePlayer(names[i % names.length], players.length, false)..skill = skill;
         playerDB[bot.hashCode.toString()] = bot;
       }
     }

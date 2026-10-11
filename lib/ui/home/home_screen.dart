@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_game/ui/widget/table_options.dart';
 import 'package:donut_game/analytics/usage.dart';
 import 'package:donut_game/audio/music_player.dart';
 import 'package:donut_game/audio/sfx.dart';
@@ -91,7 +92,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   Future<void> _playOffline() async {
     _save();
     Navigator.of(context).push(gameRoute(
-      GameScreen(controller: OfflineGameController(nickname: settings.nickname, bots: settings.bots)),
+      GameScreen(
+          controller: OfflineGameController(
+              nickname: settings.nickname,
+              bots: settings.bots,
+              skill: settings.botSkill,
+              target: settings.startingPoints)),
     ));
   }
 
@@ -352,6 +358,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           onChanged: (value) => setState(() => settings.bots = value.round()),
           onChangeEnd: (_) => _save(),
         ),
+        TableOptionsPicker(
+          skill: settings.botSkill,
+          target: settings.startingPoints,
+          onSkill: (skill) {
+            setState(() => settings.botSkill = skill);
+            _save();
+          },
+          onTarget: (points) {
+            setState(() => settings.startingPoints = points);
+            _save();
+          },
+        ),
+        const SizedBox(height: 4),
         const SizedBox(height: 8),
         FilledButton.icon(
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),

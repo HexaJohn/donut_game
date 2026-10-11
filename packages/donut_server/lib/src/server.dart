@@ -144,7 +144,7 @@ class PartyServer {
                     if (id is String && id.length <= 80) id
                 }
               : <String>{};
-          await _matchmake(connection, _who(message), blocked: blocked);
+          await _matchmake(connection, _who(message), blocked: blocked, options: _tableOptions(message));
         case 'report':
           await _report(connection, message);
         case 'usage':
@@ -186,11 +186,19 @@ class PartyServer {
     );
   }
 
-  Future<void> _create(String connection, Map<String, dynamic> message) => _host(connection, _who(message));
+  Future<void> _create(String connection, Map<String, dynamic> message) =>
+      _host(connection, _who(message), options: _tableOptions(message));
+
+  /// The bot difficulty and starting points a new table asks for.
+  static ({BotSkill? skill, int? target}) _tableOptions(Map<String, dynamic> message) => (
+        skill: BotSkill.values.where((skill) => skill.name == message['skill']).firstOrNull,
+        target: message['target'] is int ? message['target'] as int : null,
+      );
 
   /// Opens a new table with this player as host; [public] lists it for
   /// matchmaking.
-  Future<void> _host(String connection, Who who, {bool public = false}) async {
+  Future<void> _host(String connection, Who who,
+      {bool public = false, ({BotSkill? skill, int? target}) options = (skill: null, target: null)}) async {
     await _checkBan(who.player);
     final now = _clock();
     // A fresh code nobody holds: claiming it only succeeds if it's free
@@ -205,6 +213,8 @@ class PartyServer {
           face: who.face,
           emblem: who.emblem,
           public: public,
+          botSkill: options.skill,
+          target: options.target,
           now: now);
       try {
         await store.put(_stateKey(code), table.toJson(), ifAbsent: true);
@@ -227,7 +237,8 @@ class PartyServer {
 
   /// Sends the player to the oldest public table with room, or opens a new
   /// one for others to be sent to.
-  Future<void> _matchmake(String connection, Who who, {Set<String> blocked = const {}}) async {
+  Future<void> _matchmake(String connection, Who who,
+      {Set<String> blocked = const {}, ({BotSkill? skill, int? target}) options = (skill: null, target: null)}) async {
     await _checkBan(who.player);
     for (final key in await store.list('open/', limit: 20)) {
       final code = _codeOfOpenKey(key);
@@ -244,7 +255,7 @@ class PartyServer {
       }
     }
     stats.count('matchmakeOpened');
-    await _host(connection, who, public: true);
+    await _host(connection, who, public: true, options: options);
   }
 
   /// Seats the player at [code]. [matchmaking] only takes a table that's

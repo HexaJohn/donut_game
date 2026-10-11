@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:donut_engine/donut_engine.dart' show BotSkill;
 import 'package:donut_game/data/device_id.dart';
 import 'package:donut_game/data/settings.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
@@ -64,6 +65,15 @@ class PartyController extends RemoteTableController with WidgetsBindingObserver 
     }
     return null;
   }
+
+  BotSkill? _botSkill;
+
+  @override
+  BotSkill? get tableBotSkill => _botSkill;
+
+  @override
+  Future<void> changeTable({BotSkill? skill, int? target}) async =>
+      send('settings', {if (skill != null) 'skill': skill.name, if (target != null) 'target': target});
 
   @override
   bool get canReport => true;
@@ -140,6 +150,9 @@ class PartyController extends RemoteTableController with WidgetsBindingObserver 
         'face': profile.cardFace,
         'emblem': profile.emblem.toJson(),
         if (_code == null && matchmake) 'blocked': Settings.instance.blocked.value.keys.toList(),
+        // A table this player opens starts the way they like
+        if (_code == null) 'skill': Settings.instance.botSkill.name,
+        if (_code == null) 'target': Settings.instance.startingPoints,
       });
       // The API hangs up on connections quiet for ten minutes
       _keepAlive?.cancel();
@@ -182,6 +195,8 @@ class PartyController extends RemoteTableController with WidgetsBindingObserver 
         party.value = _code;
       case 'snap':
         _public = (message['game'] as Map?)?['public'] == true;
+        final skill = (message['game'] as Map?)?['botSkill'];
+        _botSkill = BotSkill.values.where((s) => s.name == skill).firstOrNull ?? _botSkill;
         _queue.add((message['delay'] as int? ?? 0, message));
         _drain();
       case 'ack':

@@ -81,9 +81,14 @@ class DonutEngine {
     String? face,
     Map<String, dynamic>? emblem,
     bool public = false,
+    BotSkill? botSkill,
+    int? target,
     required int now,
   }) {
-    final table = TableState(code: code, hostId: hostId, createdAt: now)..public = public;
+    final table = TableState(code: code, hostId: hostId, createdAt: now)
+      ..public = public
+      ..botSkill = botSkill ?? BotSkill.regular
+      ..target = startingScoreChoices.contains(target) ? target! : startingScore;
     table.deck = _freshDeck();
     join(table, id: hostId, name: hostName, secret: secret, back: back, face: face, emblem: emblem, now: now);
     return table;
@@ -260,6 +265,31 @@ class DonutEngine {
       case 'newMatch':
         if (id != table.hostId) throw const Refusal(403, 'Only the host can start a new match.');
         _newMatch(table, now);
+        _frame(table, frames, 0, now);
+        return frames;
+      case 'settings':
+        if (id != table.hostId) throw const Refusal(403, 'Only the host can change the table.');
+        if (!_canChangeSeats(table)) throw const Refusal(409, 'The table can change between matches.');
+        final skill = BotSkill.values.where((skill) => skill.name == body['skill']).firstOrNull;
+        final target = body['target'];
+        if (skill != null && skill != table.botSkill) {
+          table.botSkill = skill;
+          for (final seat in table.seats.where((seat) => !seat.human)) {
+            seat.skill = skill;
+          }
+          _say(table, '', 'Bots are now ${skill.label}.', now, system: true);
+        }
+        if (target is int && startingScoreChoices.contains(target) && target != table.target) {
+          table.target = target;
+          // Before the first hand everyone moves to it now; after a match,
+          // the next one starts there
+          if (table.phase == Phase.lobby) {
+            for (final seat in table.seats) {
+              seat.score = target;
+            }
+          }
+          _say(table, '', 'Everyone starts on $target.', now, system: true);
+        }
         _frame(table, frames, 0, now);
         return frames;
       case 'addBot':
@@ -729,7 +759,7 @@ class DonutEngine {
     for (var n = 0; table.seat(id) != null; n++) {
       id = 'bot:${table.seats.length}-$n';
     }
-    table.seats.add(Seat(id: id, name: name, human: false, score: table.target));
+    table.seats.add(Seat(id: id, name: name, human: false, skill: table.botSkill, score: table.target));
     _say(table, '', '$name joined the table.', now, system: true);
   }
 
@@ -857,6 +887,7 @@ class DonutEngine {
         'ink_rev': table.inkRevision,
         if (withInk) 'ink': table.ink,
         'target': table.target,
+        'botSkill': table.botSkill.name,
         'host': nameOf(table.hostId),
         'code': table.code,
         'public': table.public,
