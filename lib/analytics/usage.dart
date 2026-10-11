@@ -85,7 +85,7 @@ class Usage with WidgetsBindingObserver {
     final today = DateTime.now().toUtc().toIso8601String().substring(0, 10);
     if (_prefs?.getString(_dailyKey) != today) {
       _prefs?.setString(_dailyKey, today);
-      count('platform.${defaultTargetPlatform.name}');
+      count('platform.${kIsWeb ? 'web' : defaultTargetPlatform.name}');
       count('version.$appVersion');
     }
   }
