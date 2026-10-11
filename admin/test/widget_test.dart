@@ -138,11 +138,18 @@ void main() {
       QuarterStats(window, {'hands': 4, 'chats': 2}, 3),
       QuarterStats(window.subtract(const Duration(minutes: 15)), {'hands': 6}, 5),
     ]);
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: ActivityChart(model: model))));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ActivityChart(model: model)),
+      ),
+    );
     expect(find.text('Players per 15 minutes · peak 5'), findsOneWidget);
     await tester.tap(find.text('Hands'));
     await tester.pump();
     expect(find.text('Hands per 15 minutes · peak 6 · 10 in all'), findsOneWidget);
+    expect(find.text('2-hour average'), findsOneWidget, reason: 'the 24-hour view averages over two hours');
+    await tester.tap(find.text('2-hour average'));
+    await tester.pump();
   });
 }
 

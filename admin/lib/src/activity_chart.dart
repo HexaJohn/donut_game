@@ -27,6 +27,26 @@ class _ActivityChartState extends State<ActivityChart> {
     'Reports': (q) => q['reports'],
   };
   String _metric = 'Players';
+  bool _average = true;
+
+  /// How many windows the average line spans, by range: an hour over 6
+  /// hours, two over a day, a whole day over a week.
+  static int _span(Duration range) => range.inDays >= 7 ? 96 : (range.inHours > 6 ? 8 : 4);
+
+  static String _spanLabel(int windows) => '${windows * 15 ~/ 60}-hour';
+
+  /// Each point is the mean of it and the windows just before it (fewer at
+  /// the very start, where there aren't enough yet).
+  static List<double> _rolling(List<int> values, int span) {
+    final out = <double>[];
+    var sum = 0;
+    for (var i = 0; i < values.length; i++) {
+      sum += values[i];
+      if (i >= span) sum -= values[i - span];
+      out.add(sum / (i < span ? i + 1 : span));
+    }
+    return out;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +89,12 @@ class _ActivityChartState extends State<ActivityChart> {
                   selected: {range},
                   onSelectionChanged: (value) => model.showActivity(value.single),
                 ),
+                FilterChip(
+                  label: Text('${_spanLabel(_span(range))} average'),
+                  selected: _average,
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (on) => setState(() => _average = on),
+                ),
                 Wrap(
                   spacing: 6,
                   children: [
@@ -99,7 +125,13 @@ class _ActivityChartState extends State<ActivityChart> {
                     message: 'Bars are 15-minute windows, local time',
                     child: CustomPaint(
                       size: Size(constraints.maxWidth, 160),
-                      painter: _WindowBars(values, theme.colorScheme.primary, theme.colorScheme.outlineVariant),
+                      painter: _WindowBars(
+                        values,
+                        theme.colorScheme.primary.withValues(alpha: _average ? 0.55 : 1),
+                        theme.colorScheme.outlineVariant,
+                        average: _average ? _rolling(values, _span(range)) : null,
+                        averageColor: theme.colorScheme.tertiary,
+                      ),
                     ),
                   ),
                 ),
@@ -131,7 +163,11 @@ class _ActivityChartState extends State<ActivityChart> {
 }
 
 class _WindowBars extends CustomPainter {
-  _WindowBars(this.values, this.color, this.baseline);
+  _WindowBars(this.values, this.color, this.baseline, {this.average, required this.averageColor});
+
+  /// The rolling average, drawn as a line over the bars.
+  final List<double>? average;
+  final Color averageColor;
 
   final List<int> values;
   final Color color;
@@ -150,8 +186,26 @@ class _WindowBars extends CustomPainter {
       canvas.drawRect(Rect.fromLTWH(i * slot + (slot - width) / 2, size.height - height, width, height), paint);
     }
     canvas.drawLine(Offset(0, size.height), Offset(size.width, size.height), Paint()..color = baseline);
+    final line = average;
+    if (line != null) {
+      final path = Path();
+      for (var i = 0; i < line.length; i++) {
+        final point = Offset(i * slot + slot / 2, size.height - line[i] / peak * (size.height - 2));
+        i == 0 ? path.moveTo(point.dx, point.dy) : path.lineTo(point.dx, point.dy);
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = averageColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5
+          ..strokeJoin = StrokeJoin.round
+          ..strokeCap = StrokeCap.round,
+      );
+    }
   }
 
   @override
-  bool shouldRepaint(_WindowBars old) => old.values != values || old.color != color;
+  bool shouldRepaint(_WindowBars old) =>
+      old.values != values || old.color != color || old.average != average || old.averageColor != averageColor;
 }
