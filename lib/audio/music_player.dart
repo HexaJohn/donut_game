@@ -37,6 +37,11 @@ class MusicPlayer {
   List<String> _queue = [];
   bool _listening = false;
 
+  /// In a browser music plays through Web Audio, which phones don't list in
+  /// their media controls (see [WebAudio]).
+  static bool get _web => kIsWeb && WebAudio.instance.supported;
+  WebTrack? _webTrack;
+
   /// Bumped on every switch, so a slow fade from an earlier switch can tell
   /// it has been overtaken and stop.
   int _generation = 0;
@@ -60,6 +65,8 @@ class MusicPlayer {
   void unlockAudio() {
     if (_unlocked) return;
     _unlocked = true;
+    // Web Audio picks up where it is once the page is tapped
+    if (_web) return;
     final track = nowPlaying.value, current = mode.value;
     if (track == null || current == null || _backgrounded) return;
     _start(track, loop: current == MusicMode.menu, generation: ++_generation);
@@ -73,6 +80,10 @@ class MusicPlayer {
   void setBackgrounded(bool backgrounded) {
     if (backgrounded == _backgrounded || mode.value == null) return;
     _backgrounded = backgrounded;
+    if (_web) {
+      backgrounded ? WebAudio.instance.pauseMusic() : WebAudio.instance.resumeMusic();
+      return;
+    }
     _quietly(() => backgrounded ? _player.pause() : _player.resume());
   }
 
@@ -112,10 +123,26 @@ class MusicPlayer {
 
   Future<void> _start(String track, {required bool loop, required int generation}) async {
     nowPlaying.value = track;
-    if (kIsWeb) WebAudio.instance.nowPlaying(displayNames[track] ?? 'Donut');
     _gain = _trackGain[track] ?? 1;
     _fade = 0;
     _applyVolume();
+    if (_web) {
+      _webTrack?.stop();
+      _webTrack = null;
+      late final WebTrack? started;
+      started = await WebAudio.instance.track('music/$track.mp3', loop: loop, onEnded: () {
+        // The playlist moves on when a track finishes; the menu theme loops
+        if (mode.value == MusicMode.game && _webTrack == started) _playNextGameTrack(_generation);
+      });
+      if (generation != _generation) {
+        started?.stop();
+        return;
+      }
+      _webTrack = started;
+      _applyVolume();
+      await _fadeTo(1, Duration(milliseconds: loop ? 1500 : 3000));
+      return;
+    }
     await _quietly(() => _player.setReleaseMode(loop ? ReleaseMode.loop : ReleaseMode.stop));
     if (generation != _generation) return;
     await _quietly(() => _player.play(AssetSource('music/$track.mp3'), volume: 0));
@@ -129,6 +156,7 @@ class MusicPlayer {
     _settings.musicVolume.addListener(_applyVolume);
     _settings.musicMuted.addListener(_applyVolume);
     audioDuck.addListener(_applyVolume);
+    if (_web) return;
     // Only the playlist finishes; the menu theme loops
     _player.onPlayerComplete.listen((_) {
       if (mode.value == MusicMode.game) _playNextGameTrack(_generation);
@@ -136,7 +164,12 @@ class MusicPlayer {
   }
 
   void _applyVolume() {
-    _quietly(() => _player.setVolume(_settings.effectiveMusicVolume * _gain * _fade * audioDuck.value));
+    final volume = _settings.effectiveMusicVolume * _gain * _fade * audioDuck.value;
+    if (_web) {
+      _webTrack?.level = volume;
+      return;
+    }
+    _quietly(() => _player.setVolume(volume));
   }
 
   Future<void> _fadeTo(double target, Duration duration) {

@@ -13,7 +13,17 @@ class WebAudio {
 
   void unlock() {}
 
-  void nowPlaying(String title) {}
+  Future<WebTrack?> track(String asset, {required bool loop, void Function()? onEnded}) async => null;
+
+  void pauseMusic() {}
+
+  void resumeMusic() {}
+}
+
+/// A music track playing; its level can be changed as it plays.
+abstract class WebTrack {
+  set level(double value);
+  void stop();
 }
 
 /// A looping sound whose level can be changed while it plays.

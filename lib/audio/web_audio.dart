@@ -1,8 +1,9 @@
-/// Sound effects through the browser's Web Audio API, on the web only.
+/// Sound effects and music through the browser's Web Audio API, on the web
+/// only.
 ///
 /// Media elements (what the audio plugin plays through in a browser) are
-/// treated as media by phones: on iOS each sound effect took over Control
-/// Center's Now Playing. Web Audio isn't, starts sounds instantly, and
+/// treated as media by phones: on iOS every sound took over Control Center's
+/// Now Playing. Web Audio isn't listed there, starts sounds instantly, and
 /// overlaps them freely. Elsewhere this does nothing.
 library;
 
