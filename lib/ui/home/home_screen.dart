@@ -15,6 +15,7 @@ import 'package:donut_game/ui/widget/dialogs.dart';
 import 'package:donut_game/ui/widget/donut_logo.dart';
 import 'package:donut_game/ui/widget/suit_icon.dart';
 import 'package:donut_game/ui/widget/title_bar.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:donut_game/net/game_center_lobby.dart';
 
@@ -393,8 +394,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 maxLength: 6,
                 textCapitalization: TextCapitalization.characters,
                 autocorrect: false,
-                decoration: const InputDecoration(
-                    hintText: 'Party code', counterText: '', prefixIcon: Icon(Icons.tag_rounded)),
+                decoration:
+                    const InputDecoration(hintText: 'Party code', counterText: '', prefixIcon: Icon(Icons.tag_rounded)),
                 onSubmitted: (_) => _party(join: true),
               ),
             ),
@@ -426,60 +427,63 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
           ),
         ],
-        Text('Your own server', style: theme.textTheme.labelLarge),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _host,
-                decoration: const InputDecoration(hintText: 'Address', prefixIcon: Icon(Icons.dns_rounded)),
-                onSubmitted: (_) => _checkServer(),
+        // For local testing only; players use parties
+        if (kDebugMode) ...[
+          Text('Your own server', style: theme.textTheme.labelLarge),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _host,
+                  decoration: const InputDecoration(hintText: 'Address', prefixIcon: Icon(Icons.dns_rounded)),
+                  onSubmitted: (_) => _checkServer(),
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 96,
-              child: TextField(
-                controller: _port,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(hintText: 'Port'),
-                onSubmitted: (_) => _checkServer(),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 96,
+                child: TextField(
+                  controller: _port,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(hintText: 'Port'),
+                  onSubmitted: (_) => _checkServer(),
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Container(width: 8, height: 8, decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)),
-            const SizedBox(width: 8),
-            Text(statusText, style: theme.textTheme.bodySmall?.copyWith(color: statusColor)),
-            const Spacer(),
-            TextButton.icon(
-              onPressed: _checking ? null : _checkServer,
-              icon: _checking
-                  ? const SizedBox.square(dimension: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Check'),
-            ),
-          ],
-        ),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, bottom: 4),
-            child: Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+            ],
           ),
-        const SizedBox(height: 8),
-        FilledButton.icon(
-          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-          onPressed: _joining ? null : _joinOnline,
-          icon: _joining
-              ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.login_rounded),
-          label: Text(_joining ? 'Joining...' : 'Join game',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-        ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Container(width: 8, height: 8, decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)),
+              const SizedBox(width: 8),
+              Text(statusText, style: theme.textTheme.bodySmall?.copyWith(color: statusColor)),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: _checking ? null : _checkServer,
+                icon: _checking
+                    ? const SizedBox.square(dimension: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('Check'),
+              ),
+            ],
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 4),
+              child: Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+            ),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+            onPressed: _joining ? null : _joinOnline,
+            icon: _joining
+                ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.login_rounded),
+            label: Text(_joining ? 'Joining...' : 'Join game',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          ),
+        ],
       ],
     );
   }

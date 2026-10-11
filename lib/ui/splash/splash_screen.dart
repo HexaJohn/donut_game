@@ -8,6 +8,7 @@ import 'package:donut_game/ui/home/home_screen.dart';
 import 'package:donut_game/ui/splash/acro_logo.dart';
 import 'package:donut_game/ui/widget/donut_logo.dart';
 import 'package:donut_game/ui/widget/title_bar.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 enum _Stage { acro, donut, leaving }
@@ -105,7 +106,8 @@ class _SplashScreenState extends State<SplashScreen> {
       _progress = 0.2;
     });
     final internet = checkInternet();
-    final server = checkServer(settings.serverHost, settings.serverPort);
+    // Only debug builds offer your own server; players use parties
+    final server = kDebugMode ? checkServer(settings.serverHost, settings.serverPort) : Future.value(false);
     final hasInternet = await internet;
     _set(() {
       _step = hasInternet == false ? 'No internet, offline play only' : 'Looking for a game server';
