@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:donut_engine/donut_engine.dart';
 
 import 'aws.dart';
+import 'stats.dart';
 import 'store.dart';
 
 /// Who's asking to sit down: what create, join and matchmake carry.
@@ -68,6 +69,9 @@ class PartyServer {
   final DonutEngine engine;
   final int Function() _clock;
 
+  /// Usage numbers this event adds, saved once it's handled.
+  late final Stats stats = Stats(store, log: log);
+
   static String _stateKey(String code) => 'tables/$code/state.json';
   static String _playersKey(String code) => 'tables/$code/players.json';
   static String _connKey(String connection) => 'conns/$connection.json';
@@ -79,6 +83,14 @@ class PartyServer {
     final context = Map<String, dynamic>.from(event['requestContext'] as Map);
     final connection = context['connectionId'] as String;
     _log(connection, '${context['routeKey']}', event['body'] as String?);
+    try {
+      await _route(connection, context, event);
+    } finally {
+      await stats.flush(_clock());
+    }
+  }
+
+  Future<void> _route(String connection, Map<String, dynamic> context, Map<String, dynamic> event) async {
     switch (context['routeKey']) {
       case r'$connect':
         return;
@@ -186,6 +198,9 @@ class PartyServer {
         continue;
       }
       if (table.openToMatchmaking) await store.put(_openKey(table), {'code': code});
+      stats
+        ..count(public ? 'tablesPublic' : 'tablesParty')
+        ..sawPlayer(who.player);
       await store.put(_playersKey(code), {who.player: connection});
       await store.put(_connKey(connection), {'code': code, 'player': who.player});
       await sender.send(connection, {'k': 'joined', 'code': code, 'player': who.player});
@@ -210,13 +225,16 @@ class PartyServer {
         await store.delete(key);
       }
     }
+    stats.count('matchmakeOpened');
     await _host(connection, who, public: true);
   }
 
   /// Seats the player at [code]. [matchmaking] only takes a table that's
   /// still open to strangers.
   Future<void> _join(String connection, Who who, String code, {bool matchmaking = false}) async {
+    var returning = false;
     final frames = await _update(code, (table, now) {
+      returning = table.seat(who.player) != null;
       if (matchmaking && !table.openToMatchmaking && table.seat(who.player) == null) {
         throw const Refusal(409, 'That table filled up.');
       }
@@ -229,6 +247,8 @@ class PartyServer {
           emblem: who.emblem,
           now: now);
     });
+    stats.sawPlayer(who.player);
+    if (!returning) stats.count(matchmaking ? 'joinedByMatchmaking' : 'joinedByCode');
     await _setConnection(code, who.player, connection);
     await store.put(_connKey(connection), {'code': code, 'player': who.player});
     await sender.send(connection, {'k': 'joined', 'code': code, 'player': who.player});
@@ -251,6 +271,7 @@ class PartyServer {
       inkBefore = table.inkRevision;
       return engine.act(table, player, action, body, now: now);
     });
+    if (action == 'chat') stats.count('chats');
     await sender.send(connection, {'k': 'ack', 'n': message['n'], 'ok': true});
     await _broadcast(code, result.$2, inkChanged: result.$1.inkRevision != inkBefore);
   }
@@ -264,6 +285,7 @@ class PartyServer {
     // A newer connection may already have taken over the seat
     if (!await _clearConnection(code, player, connection)) return;
     final result = await _update(code, (table, now) => engine.disconnect(table, player, now: now));
+    stats.count(result.$1.seat(player) == null ? 'leftBetweenHands' : 'droppedMidHand');
     await _broadcast(code, result.$2, inkChanged: false);
   }
 
@@ -275,18 +297,39 @@ class PartyServer {
       if (stored == null) throw const Refusal(404, 'No party with that code. It may have ended.');
       final table = TableState.fromJson(stored.json);
       final wasOpen = table.openToMatchmaking;
+      final handBefore = table.handNumber;
+      final wasOver = table.phase == Phase.over;
       final frames = change(table, _clock());
       try {
         await store.put(_stateKey(code), table.toJson(), ifMatch: stored.etag);
         // Keep the matchmaking listing in step with the table
         if (table.openToMatchmaking && !wasOpen) await store.put(_openKey(table), {'code': code});
         if (!table.openToMatchmaking && wasOpen) await store.delete(_openKey(table));
+        _countProgress(table, handBefore: handBefore, wasOver: wasOver);
         return (table, frames);
       } on Conflict {
         continue;
       }
     }
     throw const Refusal(503, 'The table is busy. Try again.');
+  }
+
+  /// Hands dealt and matches started or finished by the change just saved.
+  void _countProgress(TableState table, {required int handBefore, required bool wasOver}) {
+    if (table.handNumber > handBefore) {
+      stats.count('hands', table.handNumber - handBefore);
+      if (handBefore == 0) {
+        final humans = table.seats.where((seat) => seat.human).length;
+        stats
+          ..count(table.public ? 'matchesStartedPublic' : 'matchesStartedParty')
+          ..count('matchesWith${humans}People');
+      }
+    }
+    if (table.phase == Phase.over && !wasOver) {
+      stats.count('matchesFinished');
+      final started = table.matchStartedAt, ended = table.matchEndedAt;
+      if (started != null && ended != null) stats.count('matchMinutes', ((ended - started) / 60000).round());
+    }
   }
 
   Future<Map<String, String>> _connections(String code) async {

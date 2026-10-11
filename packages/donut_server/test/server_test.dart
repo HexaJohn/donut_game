@@ -196,4 +196,29 @@ void main() {
       expect(await matchmake('ben'), isNot(code));
     });
   });
+
+  test('keeps daily counts and unique players, never who they were', () async {
+    final code = await host();
+    await server.handle(_event('\$default', 'c-bob', {'a': 'join', 'code': code, ..._hello('player-bob', 'Bob')}));
+    await server.handle(_event('\$default', 'c-bob', {'a': 'chat', 'b': {'text': 'hi'}, 'n': 1}));
+    for (final who in ['alice', 'bob']) {
+      await server.handle(_event('\$default', 'c-$who', {'a': 'vote', 'b': {'vote': 'true'}, 'n': 2}));
+    }
+    // Bob reconnects: not a new join, not a new player
+    await server.handle(_event('\$default', 'c-bob2', {'a': 'join', 'code': code, ..._hello('player-bob', 'Bob')}));
+
+    final day = (await store.get('stats/days/1970-01-01.json'))!.json;
+    expect(day, containsPair('tablesParty', 1));
+    expect(day, containsPair('joinedByCode', 1));
+    expect(day, containsPair('chats', 1));
+    expect(day, containsPair('hands', 1));
+    expect(day, containsPair('matchesStartedParty', 1));
+    expect(day, containsPair('matchesWith2People', 1));
+
+    final uniques = (await store.get('stats/uniques/1970-01-01.json'))!.json['players'] as List;
+    expect(uniques, hasLength(2));
+    final everything = jsonEncode([for (final key in store.keys.where((k) => k.startsWith('stats/'))) (await store.get(key))!.json]);
+    expect(everything, isNot(contains('player-')), reason: 'a raw install id was stored');
+    expect(everything, isNot(contains('Alice')), reason: 'a name was stored');
+  });
 }

@@ -16,7 +16,7 @@ Parameters:
 Resources:
   # Tables, who's connected and which connection is whose. Idle tables are
   # forgotten after a day: every move rewrites a table, so only abandoned
-  # ones get old.
+  # ones get old. Also the dashboard's daily counts (stats/).
   TablesBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -29,7 +29,30 @@ Resources:
         Rules:
           - Id: forget-idle-tables
             Status: Enabled
+            Prefix: tables/
             ExpirationInDays: 1
+          - Id: forget-connections
+            Status: Enabled
+            Prefix: conns/
+            ExpirationInDays: 1
+          - Id: forget-listings
+            Status: Enabled
+            Prefix: open/
+            ExpirationInDays: 1
+          # Hashed install ids, only for counting unique players
+          - Id: forget-player-hashes
+            Status: Enabled
+            Prefix: stats/uniques/
+            ExpirationInDays: 30
+          - Id: forget-hash-keys
+            Status: Enabled
+            Prefix: stats/salts/
+            ExpirationInDays: 62
+          # Daily counts, nothing about anyone
+          - Id: keep-counts-a-year
+            Status: Enabled
+            Prefix: stats/days/
+            ExpirationInDays: 400
       Tags: [{Key: app, Value: donut}]
 
   FunctionLogs:
@@ -85,8 +108,10 @@ Resources:
       Code: ./lambda
       MemorySize: 256
       Timeout: 20
-      # The guardrails' normal limit; the kill switch sets it to 0
-      ReservedConcurrentExecutions: 2
+      # Enough that players acting at once aren't dropped (a throttled
+      # WebSocket message is lost). Cost is capped by the API's rate limit,
+      # not this. The kill switch sets it to 0 and restores it after.
+      ReservedConcurrentExecutions: 10
       Role: !GetAtt FunctionRole.Arn
       Environment:
         Variables:

@@ -3,4 +3,5 @@ library;
 
 export 'src/aws.dart';
 export 'src/server.dart';
+export 'src/stats.dart';
 export 'src/store.dart';
