@@ -150,8 +150,10 @@ class _SlotMachineWidgetState extends State<SlotMachineWidget> with TickerProvid
           ],
         ),
         const SizedBox(height: 18),
-        SizedBox(
-          height: 64,
+        // Room for the payout, growing if its chips wrap, so the hint and the
+        // result take the same space without clipping either
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 76),
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             child: !_pulled

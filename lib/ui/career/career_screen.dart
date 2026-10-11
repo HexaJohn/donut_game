@@ -1,5 +1,3 @@
-import 'package:donut_game/audio/sfx.dart';
-import 'package:donut_game/progression/battle_pass.dart';
 import 'package:donut_game/progression/catalog.dart';
 import 'package:donut_game/progression/emblem.dart';
 import 'package:donut_game/progression/profile.dart';
@@ -11,7 +9,7 @@ import 'package:donut_game/ui/career/shop_tab.dart';
 import 'package:donut_game/ui/widget/title_bar.dart';
 import 'package:flutter/material.dart';
 
-/// Opens the career screen on [tab] (0 rank, 1 pass, 2 shop, 3 emblem).
+/// Opens the career screen on [tab] (0 rank, 1 shop, 2 emblem).
 Future<void> showCareer(BuildContext context, {int tab = 0}) {
   return Navigator.of(context).push(PageRouteBuilder(
     transitionDuration: const Duration(milliseconds: 350),
@@ -30,7 +28,7 @@ Future<void> showCareer(BuildContext context, {int tab = 0}) {
   ));
 }
 
-/// Rank, battle pass, shop and emblem, under one roof.
+/// Rank, shop and emblem, under one roof.
 class CareerScreen extends StatelessWidget {
   const CareerScreen({super.key, this.initialTab = 0});
 
@@ -41,7 +39,7 @@ class CareerScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final profile = PlayerProfile.instance;
     return DefaultTabController(
-      length: 4,
+      length: 3,
       initialIndex: initialTab,
       child: Scaffold(
         body: Column(
@@ -59,12 +57,23 @@ class CareerScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08))),
               ),
-              child: const TabBar(
+              // Short screens (a phone on its side) get slim, single-line tabs
+              child: TabBar(
                 tabs: [
-                  Tab(icon: Icon(Icons.military_tech_rounded), text: 'Rank'),
-                  Tab(icon: Icon(Icons.confirmation_num_rounded), text: 'Battle pass'),
-                  Tab(icon: Icon(Icons.storefront_rounded), text: 'Shop'),
-                  Tab(icon: Icon(Icons.brush_rounded), text: 'Emblem'),
+                  for (final (icon, label) in const [
+                    (Icons.military_tech_rounded, 'Rank'),
+                    (Icons.storefront_rounded, 'Shop'),
+                    (Icons.brush_rounded, 'Emblem'),
+                  ])
+                    _isShort(context)
+                        ? Tab(
+                            height: 44,
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(icon, size: 18),
+                              const SizedBox(width: 6),
+                              Text(label),
+                            ]))
+                        : Tab(icon: Icon(icon), text: label),
                 ],
               ),
             ),
@@ -72,7 +81,6 @@ class CareerScreen extends StatelessWidget {
               child: TabBarView(
                 children: [
                   _RankTab(),
-                  _PassTab(),
                   ShopTab(),
                   EmblemEditor(),
                 ],
@@ -85,7 +93,11 @@ class CareerScreen extends StatelessWidget {
   }
 }
 
-/// Emblem, rank and wallet across the top of every tab.
+/// Whether the screen is too short for the roomy header and tabs.
+bool _isShort(BuildContext context) => MediaQuery.sizeOf(context).height < 480;
+
+/// Emblem, rank and wallet across the top of every tab. Narrow screens put
+/// the wallet on its own row; short ones shrink everything.
 class _Header extends StatelessWidget {
   const _Header({required this.profile});
 
@@ -95,46 +107,63 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final next = profile.nextRank;
-    return Container(
-      color: theme.colorScheme.surface,
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-      child: Row(
-        children: [
-          EmblemWidget(emblem: profile.emblem, size: 56, shadow: true),
-          const SizedBox(width: 14),
-          RankInsignia(rank: profile.rank, size: 48),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(profile.rank.title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(value: profile.rankProgressValue, minHeight: 6, color: xpColor),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  next == null
-                      ? '${formatAmount(profile.xp)} XP. Top of the ladder.'
-                      : '${formatAmount(profile.xp)} / ${formatAmount(next.xp)} XP to ${next.title}',
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
+    final short = _isShort(context);
+    final narrow = MediaQuery.sizeOf(context).width < 560;
+    final wallet = Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children: [
+        AmountChip(amount: profile.crumbs, currency: Currency.crumbs, compact: short || narrow),
+        AmountChip(amount: profile.glaze, currency: Currency.glaze, compact: short || narrow),
+      ],
+    );
+    final identity = Row(
+      children: [
+        EmblemWidget(emblem: profile.emblem, size: short ? 36 : (narrow ? 44 : 56), shadow: true),
+        SizedBox(width: short ? 10 : 14),
+        RankInsignia(rank: profile.rank, size: short ? 32 : (narrow ? 40 : 48)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AmountChip(amount: profile.crumbs, currency: Currency.crumbs),
-              AmountChip(amount: profile.glaze, currency: Currency.glaze),
+              Text(profile.rank.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: (short ? theme.textTheme.titleMedium : theme.textTheme.titleLarge)
+                      ?.copyWith(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(value: profile.rankProgressValue, minHeight: 6, color: xpColor),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                next == null
+                    ? '${formatAmount(profile.xp)} XP. Top of the ladder.'
+                    : '${formatAmount(profile.xp)} / ${formatAmount(next.xp)} XP to ${next.title}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+              ),
             ],
           ),
-        ],
-      ),
+        ),
+        if (!narrow) ...[const SizedBox(width: 16), wallet],
+      ],
+    );
+    return Container(
+      color: theme.colorScheme.surface,
+      padding: short
+          ? const EdgeInsets.fromLTRB(16, 8, 16, 8)
+          : EdgeInsets.fromLTRB(narrow ? 16 : 24, 16, narrow ? 16 : 24, narrow ? 12 : 16),
+      child: narrow
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [identity, const SizedBox(height: 10), wallet],
+            )
+          : identity,
     );
   }
 }
@@ -162,8 +191,8 @@ class _RankTab extends StatelessWidget {
                   Text(profile.rank.title,
                       style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
                   Text('Rank ${profile.rank.index + 1} of ${ranks.length}',
-                      style:
-                          theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+                      style: theme.textTheme.bodyMedium
+                          ?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
                 ],
               ),
             ),
@@ -189,7 +218,7 @@ class _RankTab extends StatelessWidget {
             _section(theme, 'How to earn'),
             Text(
               'Every offline match pays XP and Crumbs: more for winning, taking tricks and dodging donuts. '
-              'Each match ends with a bonus spin. Ranking up pays Glaze, the rare stuff, and so does the battle pass.',
+              'Each match ends with a bonus spin. Every rank-up pays Crumbs and Glaze, the rare stuff, unlocks more of the shop, and some ranks hand over items the shop doesn\'t sell.',
               style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
             ),
             const SizedBox(height: 24),
@@ -278,6 +307,9 @@ class _LadderRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final dim = theme.colorScheme.onSurface.withValues(alpha: 0.5);
+    final reward = rankReward(rank);
+    final item = reward.item == null ? null : itemById(reward.item!);
+    final onSale = itemsUnlockedAt(rank).where((item) => !item.rankOnly).toList();
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -297,186 +329,38 @@ class _LadderRow extends StatelessWidget {
                   color: reached ? null : dim,
                 )),
           ),
-          Text('${formatAmount(rank.xp)} XP', style: theme.textTheme.bodySmall?.copyWith(color: dim)),
-        ],
-      ),
-    );
-  }
-}
-
-class _PassTab extends StatelessWidget {
-  const _PassTab();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final profile = PlayerProfile.instance;
-    return ListenableBuilder(
-      listenable: profile,
-      builder: (context, _) {
-        final tier = profile.passTier;
-        final ready = profile.unclaimedTiers.length;
-        return ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(passName, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Free for everyone. Every bit of XP you earn moves it along; claim each tier when it unlocks.',
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.65)),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Text('Tier $tier of $passTierCount',
-                              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(5),
-                              child: LinearProgressIndicator(
-                                  value: passProgress(profile.xp), minHeight: 8, color: theme.colorScheme.primary),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            tier >= passTierCount
-                                ? 'Complete'
-                                : '${formatAmount(passTiers[tier].xp - profile.xp)} XP to next',
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 20),
-                FilledButton.icon(
-                  onPressed: ready == 0
-                      ? null
-                      : () {
-                          profile.claimAll();
-                          SoundEffects.instance.play(Sfx.yourMove);
-                        },
-                  icon: const Icon(Icons.redeem_rounded),
-                  label: Text(ready == 0 ? 'Nothing to claim' : 'Claim $ready'),
-                ),
-              ],
+          if (onSale.isNotEmpty) ...[
+            Tooltip(
+              message: 'New in the shop: ${onSale.map((item) => item.name).join(', ')}',
+              child: Row(
+                children: [
+                  Icon(Icons.storefront_rounded, size: 16, color: dim),
+                  const SizedBox(width: 2),
+                  Text('${onSale.length}', style: theme.textTheme.bodySmall?.copyWith(color: dim)),
+                ],
+              ),
             ),
-            const SizedBox(height: 24),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [for (final t in passTiers) _TierCard(tier: t, profile: profile)],
-            ),
+            const SizedBox(width: 10),
           ],
-        );
-      },
-    );
-  }
-}
-
-class _TierCard extends StatelessWidget {
-  const _TierCard({required this.tier, required this.profile});
-
-  final PassTier tier;
-  final PlayerProfile profile;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final unlocked = tier.tier <= profile.passTier;
-    final claimed = profile.isClaimed(tier.tier);
-    final ready = unlocked && !claimed;
-    final item = tier.item == null ? null : itemById(tier.item!);
-    final milestone = item != null;
-
-    return Opacity(
-      opacity: unlocked ? 1 : 0.6,
-      child: Container(
-        width: milestone ? 196 : 132,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: ready
-                ? theme.colorScheme.primary
-                : claimed
-                    ? theme.colorScheme.onSurface.withValues(alpha: 0.08)
-                    : theme.colorScheme.onSurface.withValues(alpha: 0.15),
-            width: ready ? 2 : 1,
+          if (item != null) ...[
+            Tooltip(
+              message: item.name,
+              child: SizedBox(width: 56, height: 36, child: FittedBox(child: ItemPreview(item: item))),
+            ),
+            const SizedBox(width: 6),
+          ],
+          if (reward.crumbs > 0) AmountChip(amount: reward.crumbs, currency: Currency.crumbs, compact: true),
+          if (reward.glaze > 0) ...[
+            const SizedBox(width: 4),
+            AmountChip(amount: reward.glaze, currency: Currency.glaze, compact: true),
+          ],
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 80,
+            child: Text('${formatAmount(rank.xp)} XP',
+                textAlign: TextAlign.right, style: theme.textTheme.bodySmall?.copyWith(color: dim)),
           ),
-          boxShadow: [if (ready) BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.3), blurRadius: 14)],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Text('TIER ${tier.tier}',
-                    style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 1.2, fontWeight: FontWeight.w800)),
-                const Spacer(),
-                if (claimed)
-                  Icon(Icons.check_circle_rounded, size: 16, color: theme.colorScheme.primary)
-                else if (!unlocked)
-                  Icon(Icons.lock_rounded, size: 14, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: milestone ? 96 : 56,
-              child: Center(
-                child: item != null
-                    ? ItemPreview(item: item, scale: item.kind == ItemKind.environment ? 0.95 : 1)
-                    : tier.glaze > 0
-                        ? const Icon(Icons.water_drop_rounded, size: 40, color: glazeColor)
-                        : const Icon(Icons.grain_rounded, size: 40, color: crumbsColor),
-              ),
-            ),
-            const SizedBox(height: 8),
-            if (item != null)
-              Text(item.name,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800)),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 4,
-              runSpacing: 4,
-              children: [
-                if (tier.crumbs > 0) AmountChip(amount: tier.crumbs, currency: Currency.crumbs, compact: true),
-                if (tier.glaze > 0) AmountChip(amount: tier.glaze, currency: Currency.glaze, compact: true),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (ready)
-              FilledButton(
-                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(32), padding: EdgeInsets.zero),
-                onPressed: () {
-                  profile.claimTier(tier.tier);
-                  SoundEffects.instance.play(Sfx.place);
-                },
-                child: const Text('Claim'),
-              )
-            else
-              Text(
-                claimed ? 'Claimed' : '${formatAmount(tier.xp)} XP',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -494,7 +378,6 @@ class CareerStrip extends StatelessWidget {
     return ListenableBuilder(
       listenable: profile,
       builder: (context, _) {
-        final ready = profile.unclaimedTiers.length;
         return Material(
           color: theme.colorScheme.surface.withValues(alpha: 0.85),
           borderRadius: BorderRadius.circular(18),
@@ -507,55 +390,64 @@ class CareerStrip extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  EmblemWidget(emblem: profile.emblem, size: 44, shadow: true),
-                  const SizedBox(width: 10),
-                  RankInsignia(rank: profile.rank, size: 36),
-                  const SizedBox(width: 10),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 180),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(profile.rank.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
-                        const SizedBox(height: 4),
-                        SizedBox(
-                          width: 150,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(3),
-                            child: LinearProgressIndicator(value: profile.rankProgressValue, minHeight: 5, color: xpColor),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  AmountChip(amount: profile.crumbs, currency: Currency.crumbs, compact: true),
-                  const SizedBox(width: 6),
-                  AmountChip(amount: profile.glaze, currency: Currency.glaze, compact: true),
-                  if (ready > 0) ...[
-                    const SizedBox(width: 8),
-                    Tooltip(
-                      message: '$ready battle pass ${ready == 1 ? 'tier' : 'tiers'} to claim',
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(color: theme.colorScheme.primary, shape: BoxShape.circle),
-                        child: Text('$ready',
-                            style: TextStyle(
-                                color: theme.colorScheme.onPrimary, fontWeight: FontWeight.w900, fontSize: 11)),
+              child: LayoutBuilder(builder: (context, constraints) {
+                // Narrow: no emblem, the wallet stacked, the title gives way
+                final narrow = constraints.maxWidth < 460;
+                final title = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(profile.rank.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      width: narrow ? double.infinity : 150,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(value: profile.rankProgressValue, minHeight: 5, color: xpColor),
                       ),
                     ),
                   ],
-                  const SizedBox(width: 6),
-                  Icon(Icons.chevron_right_rounded, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
-                ],
-              ),
+                );
+                final crumbs = AmountChip(amount: profile.crumbs, currency: Currency.crumbs, compact: true);
+                final glaze = AmountChip(amount: profile.glaze, currency: Currency.glaze, compact: true);
+                final more =
+                    Icon(Icons.chevron_right_rounded, color: theme.colorScheme.onSurface.withValues(alpha: 0.5));
+                if (narrow) {
+                  return Row(
+                    children: [
+                      RankInsignia(rank: profile.rank, size: 34),
+                      const SizedBox(width: 10),
+                      Expanded(child: title),
+                      const SizedBox(width: 10),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [crumbs, const SizedBox(height: 4), glaze],
+                      ),
+                      more,
+                    ],
+                  );
+                }
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    EmblemWidget(emblem: profile.emblem, size: 44, shadow: true),
+                    const SizedBox(width: 10),
+                    RankInsignia(rank: profile.rank, size: 36),
+                    const SizedBox(width: 10),
+                    ConstrainedBox(constraints: const BoxConstraints(maxWidth: 180), child: title),
+                    const SizedBox(width: 14),
+                    crumbs,
+                    const SizedBox(width: 6),
+                    glaze,
+                    const SizedBox(width: 6),
+                    more,
+                  ],
+                );
+              }),
             ),
           ),
         );

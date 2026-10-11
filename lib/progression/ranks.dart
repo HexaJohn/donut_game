@@ -1,3 +1,5 @@
+import 'package:donut_game/progression/catalog.dart';
+
 /// Career ranks, Halo Reach style: a long ladder of named grades climbed with
 /// XP. Spending never costs rank; only XP counts.
 class Rank {
@@ -88,4 +90,36 @@ double rankProgress(int xp) {
   final next = nextRankFor(xp);
   if (next == null) return 1;
   return ((xp - held.xp) / (next.xp - held.xp)).clamp(0.0, 1.0);
+}
+
+/// What reaching a rank pays, banked automatically on rank-up.
+class RankReward {
+  const RankReward({this.crumbs = 0, this.glaze = 0, this.item});
+
+  final int crumbs;
+  final int glaze;
+
+  /// Catalog id, if the rank gives an item.
+  final String? item;
+}
+
+/// Catalog items unlocked by reaching [rank]: shop items go on sale,
+/// rank-only ones are handed over.
+List<ShopItem> itemsUnlockedAt(Rank rank) => catalog.where((item) => item.rank == rank.index).toList();
+
+/// The rank that unlocks [item].
+Rank unlockRank(ShopItem item) => ranks[item.rank];
+
+/// Crumbs on every rank, growing with the ladder; Glaze too, doubled when a
+/// new family starts, with a big payout at the very top.
+RankReward rankReward(Rank rank) {
+  if (rank.index == 0) return const RankReward();
+  final newFamily = rank.family != ranks[rank.index - 1].family;
+  final glaze = switch (rank) {
+    _ when rank == maxRank => 10,
+    _ when rank.index == ranks.length - 2 => 5,
+    _ => newFamily ? 2 : 1,
+  };
+  final item = itemsUnlockedAt(rank).where((item) => item.rankOnly).firstOrNull;
+  return RankReward(crumbs: 100 + 10 * rank.index, glaze: glaze, item: item?.id);
 }

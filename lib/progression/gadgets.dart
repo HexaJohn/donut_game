@@ -19,12 +19,15 @@ const List<Color> pastelMarkers = [
 
 const Color goldMarker = Color(0xFFE6B422);
 
-/// Every marker in [profile]'s tray: the standard five plus unlocked packs.
+/// Every marker in [profile]'s tray: the standard five plus unlocked packs,
+/// or none without the Marker Set.
 List<Color> markerColorsFor(PlayerProfile profile) => [
-      ...markerColors,
-      if (profile.owns('gadget.markers_neon')) ...neonMarkers,
-      if (profile.owns('gadget.markers_pastel')) ...pastelMarkers,
-      if (profile.owns('gadget.marker_gold')) goldMarker,
+      if (profile.owns('gadget.markers')) ...[
+        ...markerColors,
+        if (profile.owns('gadget.markers_neon')) ...neonMarkers,
+        if (profile.owns('gadget.markers_pastel')) ...pastelMarkers,
+        if (profile.owns('gadget.marker_gold')) goldMarker,
+      ],
     ];
 
 /// Rounds the revolver holds.

@@ -1,7 +1,6 @@
 import 'dart:math';
 
 import 'package:donut_game/audio/sfx.dart';
-import 'package:donut_game/progression/battle_pass.dart';
 import 'package:donut_game/progression/catalog.dart';
 import 'package:donut_game/progression/profile.dart';
 import 'package:donut_game/progression/ranks.dart';
@@ -20,27 +19,43 @@ class MatchOutcome {
     required this.rewards,
     required this.slot,
     required this.xpBefore,
-    required this.rankUpGlaze,
-    required this.passTierBefore,
+    required this.rankUps,
+    required this.slotRankUps,
   });
 
   final MatchRewards rewards;
   final SlotResult slot;
   final int xpBefore;
 
-  /// Glaze paid for rank-ups during the match rewards.
-  final int rankUpGlaze;
-  final int passTierBefore;
+  /// Ranks reached by the match rewards, and then by the bonus spin.
+  final List<Rank> rankUps;
+  final List<Rank> slotRankUps;
 
   int get xpAfter => xpBefore + rewards.xp;
   Rank get rankBefore => rankFor(xpBefore);
   Rank get rankAfter => rankFor(xpAfter);
   bool get rankedUp => rankAfter.index > rankBefore.index;
-  int get passTiersUnlocked => passTierFor(xpAfter + slot.xp) - passTierBefore;
+
+  /// Crumbs and Glaze paid for the rank-ups during the match rewards.
+  int get rankUpCrumbs => rankUps.fold(0, (sum, rank) => sum + rankReward(rank).crumbs);
+  int get rankUpGlaze => rankUps.fold(0, (sum, rank) => sum + rankReward(rank).glaze);
+
+  /// Items handed over by any rank reached, the bonus spin included.
+  List<ShopItem> get unlockedItems => [
+        for (final rank in [...rankUps, ...slotRankUps])
+          if (rankReward(rank).item case final id?) itemById(id)!,
+      ];
+
+  /// Shop items that went on sale with any rank reached.
+  List<ShopItem> get newInShop => [
+        for (final rank in [...rankUps, ...slotRankUps]) ...itemsUnlockedAt(rank).where((item) => !item.rankOnly),
+      ];
 
   /// Banks a finished offline Donut match and rolls the slots.
-  static MatchOutcome awardDonut(PlayerProfile profile, DonutMatchSummary match, {Random? random}) {
-    final rewards = donutMatchRewards(match);
+  /// [extra] lines, such as a campaign stage clear, are paid on top.
+  static MatchOutcome awardDonut(PlayerProfile profile, DonutMatchSummary match,
+      {Random? random, List<RewardLine> extra = const []}) {
+    final rewards = MatchRewards([...donutMatchRewards(match).lines, ...extra]);
     return _bank(profile, rewards, random, () => profile.recordDonutMatch(match, rewards));
   }
 
@@ -50,20 +65,17 @@ class MatchOutcome {
     return _bank(profile, rewards, random, () => profile.recordBadBatch(game, rewards));
   }
 
-  static MatchOutcome _bank(PlayerProfile profile, MatchRewards rewards, Random? random, void Function() record) {
+  static MatchOutcome _bank(PlayerProfile profile, MatchRewards rewards, Random? random, List<Rank> Function() record) {
     final xpBefore = profile.xp;
-    final glazeBefore = profile.glaze;
-    final passBefore = profile.passTier;
-    record();
-    final rankUpGlaze = profile.glaze - glazeBefore - rewards.glaze;
+    final rankUps = record();
     final slot = rollSlots(random ?? Random());
-    profile.recordSlots(slot);
+    final slotRankUps = profile.recordSlots(slot);
     return MatchOutcome._(
       rewards: rewards,
       slot: slot,
       xpBefore: xpBefore,
-      rankUpGlaze: rankUpGlaze,
-      passTierBefore: passBefore,
+      rankUps: rankUps,
+      slotRankUps: slotRankUps,
     );
   }
 }
@@ -270,21 +282,48 @@ class _RewardsTallyState extends State<_RewardsTally> with SingleTickerProviderS
               ),
             ),
           ),
+        if (o.rankUps.isNotEmpty)
+          AnimatedOpacity(
+            opacity: _rankUpShown ? 1 : 0,
+            duration: const Duration(milliseconds: 300),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text('Rank up: ${o.rankUps.last.title}',
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  ),
+                  if (o.rankUpCrumbs > 0) ...[
+                    AmountChip(amount: o.rankUpCrumbs, currency: Currency.crumbs, compact: true, prefix: '+'),
+                    const SizedBox(width: 6),
+                  ],
+                  if (o.rankUpGlaze > 0)
+                    AmountChip(amount: o.rankUpGlaze, currency: Currency.glaze, compact: true, prefix: '+'),
+                ],
+              ),
+            ),
+          ),
         const Divider(height: 24),
         Row(
           children: [
             Text('Total', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
-            const Spacer(),
-            AmountChip(amount: o.rewards.crumbs, currency: Currency.crumbs, prefix: '+'),
-            if (o.rankUpGlaze > 0) ...[
-              const SizedBox(width: 6),
-              Tooltip(
-                message: 'Rank-up bonus',
-                child: AmountChip(amount: o.rankUpGlaze, currency: Currency.glaze, prefix: '+'),
+            const SizedBox(width: 12),
+            // Everything banked, rank-ups included; wraps rather than overflowing
+            Expanded(
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  AmountChip(amount: o.rewards.crumbs + o.rankUpCrumbs, currency: Currency.crumbs, prefix: '+'),
+                  if (o.rewards.glaze + o.rankUpGlaze > 0)
+                    AmountChip(amount: o.rewards.glaze + o.rankUpGlaze, currency: Currency.glaze, prefix: '+'),
+                  AmountChip.xp(amount: o.rewards.xp, prefix: '+'),
+                ],
               ),
-            ],
-            const SizedBox(width: 6),
-            AmountChip.xp(amount: o.rewards.xp, prefix: '+'),
+            ),
           ],
         ),
         const SizedBox(height: 18),
@@ -347,17 +386,30 @@ class _RewardsTallyState extends State<_RewardsTally> with SingleTickerProviderS
             );
           },
         ),
-        if (o.passTiersUnlocked > 0) ...[
+        for (final item in o.unlockedItems) ...[
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(Icons.confirmation_num_rounded, size: 18, color: theme.colorScheme.primary),
+              Icon(Icons.lock_open_rounded, size: 18, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  o.passTiersUnlocked == 1
-                      ? 'Battle pass tier unlocked. Claim it from Career.'
-                      : '${o.passTiersUnlocked} battle pass tiers unlocked. Claim them from Career.',
+                  '${item.name} unlocked. ${item.kind == ItemKind.gadget ? 'It\'s on your tool tray.' : 'Equip it from the shop.'}',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary),
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (o.newInShop.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(Icons.storefront_rounded, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'New in the shop: ${o.newInShop.map((item) => item.name).join(', ')}.',
                   style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary),
                 ),
               ),

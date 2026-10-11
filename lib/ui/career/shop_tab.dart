@@ -1,12 +1,17 @@
+import 'package:donut_game/ui/widget/playing_card.dart';
+import 'package:donut_game/res/resources.dart';
+import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/audio/sfx.dart';
-import 'package:donut_game/progression/battle_pass.dart';
 import 'package:donut_game/progression/card_patterns.dart';
 import 'package:donut_game/progression/catalog.dart';
 import 'package:donut_game/progression/environments.dart';
 import 'package:donut_game/progression/gadgets.dart';
 import 'package:donut_game/progression/profile.dart';
+import 'package:donut_game/progression/ranks.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:donut_game/ui/career/currency.dart';
+import 'package:donut_game/ui/widget/revolver.dart';
+import 'package:donut_game/ui/widget/table_tools.dart';
 import 'package:flutter/material.dart';
 
 /// Card patterns, environments and gadgets for sale.
@@ -25,19 +30,24 @@ class ShopTab extends StatelessWidget {
           for (final kind in ItemKind.values) ...[
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
+              // Wraps so the blurb drops under the heading on narrow screens
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 2,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(kind.label.toUpperCase(),
                       style: theme.textTheme.labelMedium?.copyWith(
                           color: theme.colorScheme.primary, letterSpacing: 1.2, fontWeight: FontWeight.w700)),
-                  const SizedBox(width: 10),
                   Text(
                     switch (kind) {
-                      ItemKind.cardPattern => 'The back of every card in play.',
+                      ItemKind.cardPattern => 'The back of your cards. Everyone at the table sees it.',
+                      ItemKind.cardFace => 'The front of your cards, as everyone sees them in play.',
                       ItemKind.environment => 'What the table is made of.',
                       ItemKind.gadget => 'More toys for the tool tray. Always on once you own them.',
                     },
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
+                    style:
+                        theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
                   ),
                 ],
               ),
@@ -45,7 +55,10 @@ class ShopTab extends StatelessWidget {
             Wrap(
               spacing: 12,
               runSpacing: 12,
-              children: [for (final item in itemsOfKind(kind)) ShopCard(item: item, profile: profile)],
+              children: [
+                for (final item in itemsOfKind(kind)..sort((a, b) => a.rank.compareTo(b.rank)))
+                  ShopCard(item: item, profile: profile),
+              ],
             ),
             const SizedBox(height: 28),
           ],
@@ -79,7 +92,7 @@ class ShopCard extends StatelessWidget {
     final owned = profile.owns(item.id);
     final equipped = profile.isEquipped(item.id);
     final affordable = profile.canAfford(item);
-    final passTier = item.passOnly ? passTiers.where((t) => t.item == item.id).firstOrNull?.tier : null;
+    final unlocked = profile.hasUnlocked(item);
 
     Widget action;
     if (equipped) {
@@ -95,8 +108,10 @@ class ShopCard extends StatelessWidget {
         style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(36)),
         child: const Text('Equip'),
       );
-    } else if (item.passOnly) {
-      action = _Status(icon: Icons.confirmation_num_rounded, text: 'Pass tier $passTier');
+    } else if (!unlocked || item.rankOnly) {
+      action = _Status(icon: Icons.lock_rounded, text: 'Reach ${unlockRank(item).title}');
+    } else if (!profile.hasRequirement(item)) {
+      action = _Status(icon: Icons.link_rounded, text: 'Needs ${itemById(item.requires!)?.name}');
     } else {
       action = FilledButton.tonal(
         onPressed: affordable ? () => _buy(context) : null,
@@ -115,7 +130,7 @@ class ShopCard extends StatelessWidget {
       );
     }
 
-    return Container(
+    final card = Container(
       width: 196,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -166,6 +181,7 @@ class ShopCard extends StatelessWidget {
         ],
       ),
     );
+    return owned || unlocked ? card : Opacity(opacity: 0.6, child: card);
   }
 }
 
@@ -224,6 +240,31 @@ class ItemPreview extends StatelessWidget {
             painter: CardBackPainter(id: item.id, pattern: colors.cardBackPattern, back: colors.cardBack),
           ),
         );
+      case ItemKind.cardFace:
+        // A court card and a pip card, fanned, to show off both layouts
+        return SizedBox(
+          width: 96 * scale,
+          height: 88 * scale,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              for (final (i, card) in [GameCard(Suit.clubs, Value.seven), GameCard(Suit.diamonds, Value.queen)].indexed)
+                Transform.translate(
+                  offset: Offset((i * 2 - 1) * 14 * scale, 0),
+                  child: Transform.rotate(
+                    angle: (i * 2 - 1) * 0.12,
+                    child: SizedBox(
+                      width: 60 * scale,
+                      height: 84 * scale,
+                      child: FittedBox(
+                        child: SizedBox.fromSize(size: cardDesignSize, child: CardFace(card: card, style: item.id)),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
       case ItemKind.environment:
         return EnvironmentSwatch(id: item.id, width: 150 * scale, height: 84 * scale);
       case ItemKind.gadget:
@@ -279,7 +320,22 @@ class _GadgetPreview extends StatelessWidget {
     final theme = Theme.of(context);
     List<Color>? markers;
     IconData? icon;
+    // The tools themselves, drawn as they sit in the tray
+    final tool = switch (id) {
+      'gadget.revolver' => const Revolver(),
+      'gadget.flashbang' => const FlashbangGrenade(),
+      _ => null,
+    };
+    if (tool != null) {
+      return SizedBox(
+        width: 110 * scale,
+        height: 72 * scale,
+        child: Transform.rotate(angle: id == 'gadget.revolver' ? -0.2 : 0.3, child: FittedBox(child: tool)),
+      );
+    }
     switch (id) {
+      case 'gadget.markers':
+        markers = markerColors;
       case 'gadget.markers_neon':
         markers = neonMarkers;
       case 'gadget.markers_pastel':

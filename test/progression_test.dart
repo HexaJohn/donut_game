@@ -1,16 +1,21 @@
 import 'dart:math';
 
-import 'package:donut_game/progression/battle_pass.dart';
+import 'package:donut_game/data/model/game_card/game_card.dart';
+import 'package:donut_game/data/model/game_player.dart/game_player.dart';
+import 'package:donut_game/progression/card_faces.dart';
 import 'package:donut_game/progression/catalog.dart';
 import 'package:donut_game/progression/emblem.dart';
 import 'package:donut_game/progression/environments.dart';
+import 'package:donut_game/progression/gadgets.dart';
 import 'package:donut_game/progression/profile.dart';
 import 'package:donut_game/progression/ranks.dart';
 import 'package:donut_game/progression/rewards.dart';
 import 'package:donut_game/progression/slot_machine.dart';
+import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:donut_game/ui/career/career_screen.dart';
 import 'package:donut_game/ui/career/match_rewards.dart';
+import 'package:donut_game/ui/widget/playing_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -111,20 +116,29 @@ void main() {
     });
   });
 
-  group('battle pass', () {
-    test('tiers unlock with xp', () {
-      expect(passTierFor(0), 0);
-      expect(passTierFor(passTiers.first.xp), 1);
-      expect(passTierFor(passTiers.last.xp), passTierCount);
-      expect(passProgress(passTiers.last.xp), 1);
+  group('rank rewards', () {
+    test('every rank past the first pays crumbs and glaze', () {
+      expect(rankReward(ranks.first).crumbs, 0);
+      for (final rank in ranks.skip(1)) {
+        expect(rankReward(rank).crumbs, greaterThan(0), reason: rank.title);
+        expect(rankReward(rank).glaze, greaterThan(0), reason: rank.title);
+      }
     });
 
-    test('pass-only items each sit on a tier', () {
-      for (final item in catalog.where((i) => i.passOnly)) {
-        expect(passTiers.any((t) => t.item == item.id), isTrue, reason: '${item.id} has no tier');
+    test('every item unlocks at a real rank, starters at the first', () {
+      for (final item in catalog) {
+        expect(item.rank, inInclusiveRange(0, ranks.length - 1), reason: item.id);
+        if (starterItems.contains(item.id)) expect(item.rank, 0, reason: item.id);
+        if (!starterItems.contains(item.id)) expect(item.rank, greaterThan(0), reason: item.id);
       }
-      for (final tier in passTiers.where((t) => t.item != null)) {
-        expect(itemById(tier.item!), isNotNull, reason: 'tier ${tier.tier} gives unknown ${tier.item}');
+    });
+
+    test('rank-only items are each handed over by their rank', () {
+      for (final item in catalog.where((i) => i.rankOnly)) {
+        expect(rankReward(unlockRank(item)).item, item.id, reason: item.id);
+      }
+      for (final rank in ranks) {
+        expect(itemsUnlockedAt(rank).where((i) => i.rankOnly).length, lessThanOrEqualTo(1), reason: rank.title);
       }
     });
   });
@@ -143,54 +157,103 @@ void main() {
     test('grants xp and pays glaze on rank-up', () {
       final profile = PlayerProfile();
       expect(profile.rank, ranks.first);
-      final bonus = profile.grant(xp: ranks[1].xp);
+      final reached = profile.grant(xp: ranks[1].xp);
       expect(profile.rank, ranks[1]);
-      expect(bonus, greaterThan(0));
-      expect(profile.glaze, bonus);
+      expect(reached, [ranks[1]]);
+      expect(profile.glaze, rankReward(ranks[1]).glaze);
+      expect(profile.crumbs, rankReward(ranks[1]).crumbs);
     });
 
     test('buys and equips, refuses what it cannot afford', () {
       final profile = PlayerProfile();
       final dots = itemById('pattern.dots')!;
+      profile.grant(xp: unlockRank(dots).xp);
+      expect(profile.crumbs, lessThan(dots.price));
       expect(profile.buy(dots), isFalse);
-      profile.grant(crumbs: dots.price);
+      profile.grant(crumbs: dots.price - profile.crumbs);
       expect(profile.buy(dots), isTrue);
       expect(profile.crumbs, 0);
-      expect(profile.cardPattern, 'pattern.dots');
       expect(profile.buy(dots), isFalse);
+    });
+
+    test('shop items stay locked until their rank', () {
+      final profile = PlayerProfile();
+      final dots = itemById('pattern.dots')!;
+      profile.grant(crumbs: 1 << 20);
+      expect(profile.hasUnlocked(dots), isFalse);
+      expect(profile.buy(dots), isFalse);
+      profile.grant(xp: unlockRank(dots).xp);
+      expect(profile.hasUnlocked(dots), isTrue);
+      expect(profile.buy(dots), isTrue);
+    });
+
+    test('equips what it owns', () {
+      final profile = PlayerProfile();
+      final dots = itemById('pattern.dots')!;
+      profile.grant(xp: unlockRank(dots).xp, crumbs: 1 << 20);
+      expect(profile.buy(dots), isTrue);
+      expect(profile.cardPattern, 'pattern.dots');
       expect(profile.equip('pattern.classic'), isTrue);
       expect(profile.cardPattern, 'pattern.classic');
       expect(profile.equip('pattern.waves'), isFalse);
     });
 
-    test('pass-only items cannot be bought but can be claimed', () {
+    test('rank-only items cannot be bought but unlock on rank-up', () {
       final profile = PlayerProfile();
       final seal = itemById('pattern.bakers_seal')!;
+      final sealRank = unlockRank(seal);
       profile.grant(crumbs: 1 << 20);
       expect(profile.buy(seal), isFalse);
-      expect(profile.claimTier(10), isFalse);
-      profile.grant(xp: passTiers[9].xp);
-      expect(profile.unclaimedTiers.length, 10);
-      expect(profile.claimTier(10), isTrue);
+      profile.grant(xp: sealRank.xp - 1);
+      expect(profile.owns(seal.id), isFalse);
+      final crumbs = profile.crumbs;
+      expect(profile.grant(xp: 1), [sealRank]);
       expect(profile.owns(seal.id), isTrue);
-      expect(profile.claimTier(10), isFalse);
-      expect(profile.claimAll(), 9);
-      expect(profile.unclaimedTiers, isEmpty);
+      expect(profile.crumbs, crumbs + rankReward(sealRank).crumbs);
+    });
+
+    test('table tools are bought, and upgrades need what they upgrade', () {
+      final profile = PlayerProfile();
+      expect(markerColorsFor(profile), isEmpty);
+      expect(profile.owns('gadget.revolver'), isFalse);
+      expect(profile.owns('gadget.flashbang'), isFalse);
+      profile.grant(xp: ranks[30].xp, crumbs: 1 << 20, glaze: 1 << 10);
+      final speedloader = itemById('gadget.speedloader')!;
+      expect(profile.hasRequirement(speedloader), isFalse);
+      expect(profile.buy(speedloader), isFalse);
+      expect(profile.buy(itemById('gadget.revolver')!), isTrue);
+      expect(profile.buy(speedloader), isTrue);
+      expect(chambersFor(profile), 12);
+      expect(profile.buy(itemById('gadget.markers_neon')!), isFalse);
+      expect(profile.buy(itemById('gadget.markers')!), isTrue);
+      expect(profile.buy(itemById('gadget.markers_neon')!), isTrue);
+      // Pastel markers came free with the rank, and show now there's a set
+      expect(markerColorsFor(profile).length, 5 + 4 + 4);
+      for (final item in catalog.where((i) => i.requires != null)) {
+        expect(itemById(item.requires!), isNotNull, reason: item.id);
+        expect(itemById(item.requires!)!.rank, lessThanOrEqualTo(item.rank), reason: item.id);
+      }
+    });
+
+    test('old saves get the items of ranks already held', () {
+      final profile = PlayerProfile()..restore({'xp': ranks[12].xp, 'claimed': [1, 2]});
+      expect(profile.owns('pattern.bakers_seal'), isTrue);
+      expect(profile.owns('gadget.markers_pastel'), isTrue);
+      expect(profile.owns('env.bakery'), isFalse);
     });
 
     test('round-trips through json', () {
       final profile = PlayerProfile();
       profile.grant(xp: 1234, crumbs: 500, glaze: 3);
-      profile.buy(itemById('env.blue')!);
+      profile.grant(xp: ranks[1].xp);
+      expect(profile.buy(itemById('env.blue')!), isTrue);
       profile.setEmblem(const Emblem(shape: EmblemShape.star, icon: 'bolt', background: Color(0xFF123456)));
-      profile.claimTier(1);
       final copy = PlayerProfile()..restore(profile.toJson());
       expect(copy.xp, profile.xp);
       expect(copy.crumbs, profile.crumbs);
       expect(copy.glaze, profile.glaze);
       expect(copy.environment, 'env.blue');
       expect(copy.emblem, profile.emblem);
-      expect(copy.isClaimed(1), isTrue);
     });
 
     test('match outcome banks rewards and slots once', () {
@@ -203,11 +266,70 @@ void main() {
       );
       expect(outcome.xpBefore, 0);
       expect(profile.xp, outcome.rewards.xp + outcome.slot.xp);
-      expect(profile.crumbs, outcome.rewards.crumbs + outcome.slot.crumbs);
+      final rankUpCrumbs =
+          [...outcome.rankUps, ...outcome.slotRankUps].fold(0, (sum, rank) => sum + rankReward(rank).crumbs);
+      expect(outcome.rankUps, isNotEmpty);
+      expect(profile.crumbs, outcome.rewards.crumbs + outcome.slot.crumbs + rankUpCrumbs);
       expect(profile.stats.matches, 1);
       expect(profile.stats.wins, 1);
       expect(profile.stats.slotPulls, 1);
       expect(profile.firstWinTodayAvailable, isFalse);
+    });
+  });
+
+  group('decks', () {
+    test('every face style in the catalog has its own look', () {
+      expect(identical(cardFaceStyle('face.classic'), const CardFaceStyle()), isTrue);
+      for (final item in itemsOfKind(ItemKind.cardFace).where((i) => i.id != 'face.classic')) {
+        expect(identical(cardFaceStyle(item.id), const CardFaceStyle()), isFalse, reason: item.id);
+      }
+    });
+
+    test('bots get a stable deck of real, purchasable items', () {
+      for (final name in ['Sprinkles', 'Cruller', 'Bot 42', '']) {
+        final deck = botDeck(name);
+        expect(botDeck(name), deck);
+        expect(itemById(deck.back)?.kind, ItemKind.cardPattern);
+        expect(itemById(deck.face)?.kind, ItemKind.cardFace);
+      }
+      final bot = GamePlayer('Sprinkles', 1, false);
+      expect(bot.cardBack, botDeck('Sprinkles').back);
+      final human = GamePlayer('Sam', 0, true);
+      expect(human.cardBack, 'pattern.classic');
+      expect(human.cardFace, 'face.classic');
+    });
+
+    test('equips a face and keeps it through a save', () {
+      final profile = PlayerProfile();
+      expect(profile.cardFace, 'face.classic');
+      final four = itemById('face.four_colour')!;
+      profile.grant(xp: unlockRank(four).xp, crumbs: four.price);
+      expect(profile.buy(four), isTrue);
+      expect(profile.cardFace, four.id);
+      expect(profile.isEquipped(four.id), isTrue);
+      final copy = PlayerProfile()..restore(profile.toJson());
+      expect(copy.cardFace, four.id);
+      // A face that isn't owned falls back to the standard one
+      expect((PlayerProfile()..restore({'cardFace': 'face.neon'})).cardFace, 'face.classic');
+    });
+
+    testWidgets('every face style draws every kind of card cleanly', (tester) async {
+      final cards = [
+        GameCard(Suit.spades, Value.ace),
+        GameCard(Suit.hearts, Value.ten),
+        GameCard(Suit.clubs, Value.king),
+        GameCard(Suit.diamonds, Value.two),
+      ];
+      await tester.pumpWidget(MaterialApp(
+        theme: buildTheme(ThemePreset.donutLight),
+        home: Wrap(children: [
+          for (final item in itemsOfKind(ItemKind.cardFace))
+            for (final card in cards)
+              SizedBox(width: 50, height: 70, child: PlayingCardWidget(card: card, face: item.id, trump: true)),
+        ]),
+      ));
+      expect(tester.takeException(), isNull);
+      expect(find.byType(CardFace), findsNWidgets(itemsOfKind(ItemKind.cardFace).length * cards.length));
     });
   });
 
@@ -218,14 +340,57 @@ void main() {
       view.devicePixelRatio = 1;
     });
 
+    testWidgets('rewards panel fits a rank-up with every currency', (tester) async {
+      final profile = PlayerProfile();
+      final outcome = MatchOutcome.awardDonut(
+        profile,
+        const DonutMatchSummary(
+            placement: 2, players: 4, tricks: 12, donuts: 0, hands: 8, suddenDeath: false, duration: Duration(minutes: 9)),
+        random: Random(4),
+        extra: const [RewardLine('Boss defeated: The Head Baker', xp: 300, crumbs: 230, glaze: 3)],
+      );
+      expect(outcome.rankUps, isNotEmpty);
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(MaterialApp(
+        theme: buildTheme(ThemePreset.donutDark),
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: SizedBox(
+              width: 364,
+              child: MatchOverFlow(header: const SizedBox(), standings: const SizedBox(), actions: const SizedBox(), outcome: outcome),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('Collect rewards'));
+      for (var i = 0; i < 80; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(tester.takeException(), isNull);
+      expect(find.text('Rank up: ${outcome.rankUps.last.title}'), findsOneWidget);
+      // Total Glaze counts the match's own Glaze as well as the rank-ups'
+      expect(find.text('+${3 + outcome.rankUpGlaze} GL'), findsOneWidget);
+
+      // Then the bonus spin, through to the payout
+      await tester.tap(find.text('Bonus spin'));
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await tester.tap(find.byTooltip('Pull'));
+      for (var i = 0; i < 100; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(tester.takeException(), isNull);
+      expect(find.text(outcome.slot.label), findsOneWidget);
+    });
+
     testWidgets('shows every tab', (tester) async {
       PlayerProfile.instance.reset();
       await tester.pumpWidget(MaterialApp(theme: buildTheme(ThemePreset.donutLight), home: const CareerScreen()));
       await tester.pumpAndSettle();
       expect(find.text('Crumb'), findsWidgets);
-      await tester.tap(find.text('Battle pass'));
-      await tester.pumpAndSettle();
-      expect(find.text(passName), findsOneWidget);
       await tester.tap(find.text('Shop'));
       await tester.pumpAndSettle();
       expect(find.text('Polka'), findsOneWidget);
