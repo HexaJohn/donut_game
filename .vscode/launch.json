@@ -22,6 +22,18 @@
       "flutterMode": "release"
     },
     {
+      "name": "donut_game (Galaxy S8)",
+      "request": "launch",
+      "type": "dart",
+      "toolArgs": ["--dart-define=DEVICE=galaxy_s8"]
+    },
+    {
+      "name": "donut_game (Galaxy S8 landscape)",
+      "request": "launch",
+      "type": "dart",
+      "toolArgs": ["--dart-define=DEVICE=galaxy_s8_landscape"]
+    },
+    {
       "name": "donut_server",
       "request": "launch",
       "type": "dart",
