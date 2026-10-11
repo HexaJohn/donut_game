@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'src/aws.dart';
 import 'src/live_screen.dart';
 import 'src/model.dart';
+import 'src/reports_screen.dart';
 import 'src/stats_screen.dart';
 import 'src/tables_screen.dart';
 import 'src/widgets.dart';
@@ -75,19 +76,30 @@ class _AdminHomeState extends State<AdminHome> {
     return Scaffold(
       body: Row(
         children: [
-          NavigationRail(
-            selectedIndex: _tab,
-            labelType: NavigationRailLabelType.all,
-            onDestinationSelected: (tab) => setState(() => _tab = tab),
-            leading: const Padding(
-              padding: EdgeInsets.only(top: 8, bottom: 16),
-              child: Icon(Icons.donut_large_rounded, size: 32, color: Color(0xFFE9B949)),
+          ListenableBuilder(
+            listenable: model,
+            builder: (context, _) => NavigationRail(
+              selectedIndex: _tab,
+              labelType: NavigationRailLabelType.all,
+              onDestinationSelected: (tab) => setState(() => _tab = tab),
+              leading: const Padding(
+                padding: EdgeInsets.only(top: 8, bottom: 16),
+                child: Icon(Icons.donut_large_rounded, size: 32, color: Color(0xFFE9B949)),
+              ),
+              destinations: [
+                const NavigationRailDestination(icon: Icon(Icons.sensors_rounded), label: Text('Live')),
+                const NavigationRailDestination(icon: Icon(Icons.table_restaurant_rounded), label: Text('Tables')),
+                const NavigationRailDestination(icon: Icon(Icons.insights_rounded), label: Text('Stats')),
+                NavigationRailDestination(
+                  icon: Badge(
+                    isLabelVisible: model.reports.isNotEmpty,
+                    label: Text('${model.reports.length}'),
+                    child: const Icon(Icons.flag_rounded),
+                  ),
+                  label: const Text('Reports'),
+                ),
+              ],
             ),
-            destinations: const [
-              NavigationRailDestination(icon: Icon(Icons.sensors_rounded), label: Text('Live')),
-              NavigationRailDestination(icon: Icon(Icons.table_restaurant_rounded), label: Text('Tables')),
-              NavigationRailDestination(icon: Icon(Icons.insights_rounded), label: Text('Stats')),
-            ],
           ),
           const VerticalDivider(width: 1),
           Expanded(
@@ -95,7 +107,7 @@ class _AdminHomeState extends State<AdminHome> {
               listenable: model,
               builder: (context, _) => Column(
                 children: [
-                  StatusBar(model: model, title: const ['Who\'s online', 'Server browser', 'Usage'][_tab]),
+                  StatusBar(model: model, title: const ['Who\'s online', 'Server browser', 'Usage', 'Reports'][_tab]),
                   Expanded(
                     child: switch (_tab) {
                       0 => LiveScreen(model: model, onOpenTable: _openTable),
@@ -104,7 +116,8 @@ class _AdminHomeState extends State<AdminHome> {
                         selected: _selected,
                         onSelect: (code) => setState(() => _selected = code),
                       ),
-                      _ => StatsScreen(model: model),
+                      2 => StatsScreen(model: model),
+                      _ => ReportsScreen(model: model),
                     },
                   ),
                 ],

@@ -1,6 +1,8 @@
 import 'dart:math';
 
 import 'package:donut_admin/src/model.dart';
+import 'package:donut_admin/src/reports_screen.dart';
+import 'package:donut_admin/src/aws.dart';
 import 'package:donut_admin/src/tables_screen.dart';
 import 'package:donut_admin/src/widgets.dart';
 import 'package:donut_engine/donut_engine.dart';
@@ -46,4 +48,37 @@ void main() {
     expect(LiveTable(state, DateTime.now()).active, isFalse);
     expect(statusOf(state), 'In the lobby');
   });
+
+  testWidgets('a report shows its reason, note and the chat, with the reported player picked out', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final model = AdminModel(_NoAws())
+      ..reports = [
+        Report('reports/1-ABC234-1.json', {
+          'time': DateTime.now().millisecondsSinceEpoch,
+          'code': 'ABC234',
+          'reason': 'harassment',
+          'note': 'kept insulting me',
+          'reporter': {'id': 'a', 'name': 'Alice'},
+          'reported': {'id': 'b', 'name': 'Bob'},
+          'chat': [
+            {'author': 'Bob', 'text': 'you are terrible'},
+          ],
+        }),
+      ];
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: ReportsScreen(model: model))));
+    expect(find.text('Open reports (1)'), findsOneWidget);
+    await tester.tap(find.text('Bob · Harassment'));
+    await tester.pump();
+    expect(find.text('"kept insulting me"'), findsOneWidget);
+    expect(find.textContaining('you are terrible', findRichText: true), findsOneWidget);
+    expect(find.text('Ban 7 days'), findsOneWidget);
+  });
+}
+
+/// An AWS that's never called.
+class _NoAws implements AdminAws {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }

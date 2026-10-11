@@ -16,6 +16,7 @@ import 'package:donut_game/res/resources.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:donut_game/data/device_id.dart';
+import 'package:donut_game/data/settings.dart';
 
 /// Everything the game screen can ask for, whether the game runs locally or
 /// on a server.
@@ -84,6 +85,33 @@ abstract class GameController {
   /// Whether this player may restart the match: offline always, online only
   /// the table's host.
   bool get canRestart => true;
+
+  /// Players muted for this game only, by install id.
+  final ValueNotifier<Set<String>> muted = ValueNotifier(const {});
+
+  /// Whether the local player can mute, block or report [player]: another
+  /// person at an online table.
+  bool canModerate(GamePlayer player) =>
+      online && player.human && player != localPlayer && player.id.isNotEmpty && player.id != 'local';
+
+  /// Whether reports reach someone (the party server reviews them).
+  bool get canReport => false;
+
+  /// Reports [player] for [reason]. Returns null once it's sent, or why not.
+  Future<String?> report(GamePlayer player, String reason, {String note = ''}) async =>
+      'Reporting isn\'t available here.';
+
+  /// Whether [player]'s chat is hidden: muted this game or blocked.
+  bool chatHidden(GamePlayer player) =>
+      muted.value.contains(player.id) || Settings.instance.blocked.value.containsKey(player.id);
+
+  void setMuted(GamePlayer player, bool mute) {
+    muted.value = mute ? {...muted.value, player.id} : ({...muted.value}..remove(player.id));
+    refilterChat();
+  }
+
+  /// Re-applies muting and blocking to the chat already shown.
+  void refilterChat() {}
 
   /// The code friends type in to join this table, for party games.
   final ValueNotifier<String?> party = ValueNotifier(null);
@@ -202,6 +230,16 @@ class OfflineGameController extends GameController {
 abstract class RemoteTableController extends GameController {
   Map<String, ChatMessage> _chatSeen = {};
   String? _hostName;
+
+  @override
+  void refilterChat() {
+    final hidden = {
+      for (final player in game.players)
+        if (player.human && chatHidden(player)) player.name,
+    };
+    final shown = _chatSeen.values.where((message) => message.system || !hidden.contains(message.author)).toList();
+    if (shown.length != game.chat.value.length) game.chat.value = shown;
+  }
 
   @override
   bool get canRestart => _hostName != null && _hostName == localPlayer?.name;
@@ -351,6 +389,7 @@ abstract class RemoteTableController extends GameController {
     if (changed || seen.length != _chatSeen.length) {
       _chatSeen = seen;
       game.chat.value = seen.values.toList();
+      refilterChat();
     }
   }
 

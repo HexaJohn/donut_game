@@ -5,4 +5,5 @@ library;
 export 'src/brain.dart';
 export 'src/cards.dart';
 export 'src/engine.dart';
+export 'src/filter.dart';
 export 'src/table.dart';

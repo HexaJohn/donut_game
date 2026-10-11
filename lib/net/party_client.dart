@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:donut_game/data/device_id.dart';
+import 'package:donut_game/data/settings.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
 import 'package:donut_game/progression/profile.dart';
 import 'package:donut_game/net/party_socket_io.dart'
@@ -59,6 +60,15 @@ class PartyController extends RemoteTableController with WidgetsBindingObserver 
       if (player.id == _playerId) return player;
     }
     return null;
+  }
+
+  @override
+  bool get canReport => true;
+
+  @override
+  Future<String?> report(GamePlayer player, String reason, {String note = ''}) async {
+    final sent = await send('report', {'player': player.id, 'reason': reason, if (note.isNotEmpty) 'note': note});
+    return sent ? null : (error.value ?? 'The report didn\'t go through. Try again.');
   }
 
   @override
@@ -126,6 +136,7 @@ class PartyController extends RemoteTableController with WidgetsBindingObserver 
         'back': profile.cardPattern,
         'face': profile.cardFace,
         'emblem': profile.emblem.toJson(),
+        if (_code == null && matchmake) 'blocked': Settings.instance.blocked.value.keys.toList(),
       });
       // The API hangs up on connections quiet for ten minutes
       _keepAlive?.cancel();

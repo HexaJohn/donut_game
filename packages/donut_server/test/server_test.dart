@@ -221,4 +221,54 @@ void main() {
     expect(everything, isNot(contains('player-')), reason: 'a raw install id was stored');
     expect(everything, isNot(contains('Alice')), reason: 'a name was stored');
   });
+
+  group('safety', () {
+    test('a report is filed with the table\'s chat and acknowledged', () async {
+      final code = await host();
+      await server.handle(_event('\$default', 'c-bob', {'a': 'join', 'code': code, ..._hello('player-bob', 'Bob')}));
+      await server.handle(_event('\$default', 'c-bob', {'a': 'chat', 'b': {'text': 'go away loser'}, 'n': 1}));
+      await server.handle(_event('\$default', 'c-alice', {
+        'a': 'report',
+        'b': {'player': 'player-bob', 'reason': 'harassment', 'note': 'rude'},
+        'n': 9
+      }));
+      expect(sender.of('c-alice', 'ack').last, containsPair('ok', true));
+      final key = store.keys.singleWhere((key) => key.startsWith('reports/'));
+      final report = (await store.get(key))!.json;
+      expect(report['reason'], 'harassment');
+      expect(report['reported'], {'id': 'player-bob', 'name': 'Bob'});
+      expect((report['chat'] as List).single['text'], 'go away loser');
+      expect(jsonEncode(report), isNot(contains('secret')));
+    });
+
+    test('a banned player can\'t host, join or matchmake until the ban ends', () async {
+      final code = await host();
+      await store.put('bans/player-bob.json', {'until': now + 100000, 'reason': 'harassment'});
+      for (final message in [
+        {'a': 'create'},
+        {'a': 'join', 'code': code},
+        {'a': 'matchmake'},
+      ]) {
+        await server.handle(_event('\$default', 'c-bob', {...message, ..._hello('player-bob', 'Bob')}));
+      }
+      expect(sender.of('c-bob', 'joined'), isEmpty);
+      expect(sender.of('c-bob', 'error').last['message'], contains('can\'t play online until'));
+      now += 200000;
+      await server.handle(_event('\$default', 'c-bob', {'a': 'join', 'code': code, ..._hello('player-bob', 'Bob')}));
+      expect(sender.of('c-bob', 'joined'), hasLength(1), reason: 'the ban ran out');
+    });
+
+    test('matchmaking keeps players away from people they blocked, without delisting the table', () async {
+      await server.handle(_event('\$default', 'c-ann', {'a': 'matchmake', ..._hello('player-ann', 'Ann')}));
+      final annTable = sender.of('c-ann', 'joined').single['code'];
+      await server.handle(_event('\$default', 'c-ben', {
+        'a': 'matchmake',
+        'blocked': ['player-ann'],
+        ..._hello('player-ben', 'Ben')
+      }));
+      expect(sender.of('c-ben', 'joined').single['code'], isNot(annTable));
+      await server.handle(_event('\$default', 'c-cat', {'a': 'matchmake', ..._hello('player-cat', 'Cat')}));
+      expect(sender.of('c-cat', 'joined').single['code'], annTable, reason: 'Ann\'s table was still listed');
+    });
+  });
 }

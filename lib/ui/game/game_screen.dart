@@ -20,6 +20,7 @@ import 'package:donut_game/ui/game/announcer.dart';
 import 'package:donut_game/ui/game/board.dart';
 import 'package:donut_game/ui/game/chat_panel.dart';
 import 'package:donut_game/ui/game/game_controller.dart';
+import 'package:donut_game/ui/game/player_sheet.dart';
 import 'package:donut_game/ui/home/routes.dart';
 import 'package:donut_game/ui/widget/donut_logo.dart';
 import 'package:donut_game/ui/widget/game_clock.dart';
@@ -483,6 +484,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               panel: (width) => ChatPanel(
                 chat: game.chat,
                 localName: controller.localPlayer?.name,
+                onAuthorTap: (name) {
+                  final player = game.players.where((player) => player.name == name).firstOrNull;
+                  if (player != null && controller.canModerate(player)) showPlayerOptions(context, controller, player);
+                },
                 onSend: controller.sendChat,
                 open: _chatOpen,
                 onClose: () => setState(() => _chatOpen = false),

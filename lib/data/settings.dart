@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,6 +23,20 @@ class Settings {
   String serverHost = '127.0.0.1';
   int serverPort = defaultPort;
   int bots = 3;
+
+  /// Players this player blocked, by install id, with the name they had:
+  /// their chat is hidden and matchmaking keeps them apart.
+  final ValueNotifier<Map<String, String>> blocked = ValueNotifier(const {});
+
+  void block(String id, String name) {
+    blocked.value = {...blocked.value, id: name};
+    _prefs?.setString('blockedPlayers', jsonEncode(blocked.value));
+  }
+
+  void unblock(String id) {
+    blocked.value = Map.of(blocked.value)..remove(id);
+    _prefs?.setString('blockedPlayers', jsonEncode(blocked.value));
+  }
 
   /// Volumes run 0.0 to 1.0. Muting keeps the level for when it's unmuted.
   final ValueNotifier<double> musicVolume = ValueNotifier(0.4);
@@ -54,6 +70,9 @@ class Settings {
     musicMuted.value = prefs.getBool('musicMuted') ?? false;
     sfxVolume.value = prefs.getDouble('sfxVolume') ?? sfxVolume.value;
     sfxMuted.value = prefs.getBool('sfxMuted') ?? false;
+    try {
+      blocked.value = Map<String, String>.from(jsonDecode(prefs.getString('blockedPlayers') ?? '{}') as Map);
+    } catch (_) {}
   }
 
   void saveAudio() {

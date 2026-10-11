@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:donut_engine/donut_engine.dart';
+import 'package:donut_server/donut_server.dart' show SigV4;
 import 'package:flutter/foundation.dart';
 
 import 'aws.dart';
@@ -35,8 +36,42 @@ class DayStats {
   int get matches => this['matchesStartedParty'] + this['matchesStartedPublic'];
 }
 
-/// Everything the admin app shows, refreshed while it's open. Read-only:
-/// nothing is changed on the server and nothing is saved on this Mac.
+/// A player's report, as the server filed it.
+class Report {
+  const Report(this.key, this.json);
+
+  final String key;
+  final Map<String, dynamic> json;
+
+  DateTime get time => DateTime.fromMillisecondsSinceEpoch(json['time'] as int? ?? 0);
+  String get reason => '${json['reason'] ?? 'other'}';
+  String get code => '${json['code'] ?? ''}';
+  bool get public => json['public'] == true;
+  String? get note => json['note'] as String?;
+  String get reportedId => '${(json['reported'] as Map?)?['id'] ?? ''}';
+  String get reportedName => '${(json['reported'] as Map?)?['name'] ?? '?'}';
+  String get reporterName => '${(json['reporter'] as Map?)?['name'] ?? '?'}';
+  List<Map<String, dynamic>> get chat => [
+    for (final line in json['chat'] as List? ?? []) Map<String, dynamic>.from(line as Map),
+  ];
+}
+
+/// A player kept out of online play.
+class Ban {
+  const Ban(this.key, this.json);
+
+  final String key;
+  final Map<String, dynamic> json;
+
+  String get name => '${json['name'] ?? '?'}';
+  String get reason => '${json['reason'] ?? ''}';
+  DateTime? get until => json['until'] == null ? null : DateTime.fromMillisecondsSinceEpoch(json['until'] as int);
+  bool get active => until == null || until!.isAfter(DateTime.now());
+}
+
+/// Everything the admin app shows, refreshed while it's open. Nothing is
+/// saved on this Mac; the only changes it makes on the server are
+/// moderating reports (dismissing them, banning and unbanning players).
 class AdminModel extends ChangeNotifier {
   AdminModel(this.aws);
 
@@ -50,6 +85,8 @@ class AdminModel extends ChangeNotifier {
   Map<String, LiveTable> _tables = {};
   List<DayStats> days = [];
   int openConnections = 0;
+  List<Report> reports = [];
+  List<Ban> bans = [];
   String? error;
   DateTime? updated;
   bool loading = false;
@@ -116,6 +153,48 @@ class AdminModel extends ChangeNotifier {
     }
     _tables = next;
     openConnections = (await aws.list('conns/')).length;
+    await _refreshModeration();
+  }
+
+  Future<void> _refreshModeration() async {
+    final reportObjects = await aws.list('reports/');
+    final known = {for (final report in reports) report.key: report};
+    final nextReports = <Report>[];
+    for (final object in reportObjects) {
+      final report = known[object.key] ?? Report(object.key, await aws.getJson(object.key) ?? {});
+      nextReports.add(report);
+    }
+    reports = nextReports..sort((a, b) => b.time.compareTo(a.time));
+    final banObjects = await aws.list('bans/');
+    bans = [for (final object in banObjects) Ban(object.key, await aws.getJson(object.key) ?? {})];
+  }
+
+  /// Closes [report] without action.
+  Future<void> dismiss(Report report) async {
+    await aws.delete(report.key);
+    reports = reports.where((other) => other.key != report.key).toList();
+    notifyListeners();
+  }
+
+  /// Keeps the reported player out of online play for [length] (null: for
+  /// good), and closes the report.
+  Future<void> ban(Report report, Duration? length) async {
+    final until = length == null ? null : DateTime.now().add(length).millisecondsSinceEpoch;
+    await aws.putJson('bans/${SigV4.encode(report.reportedId)}.json', {
+      'name': report.reportedName,
+      'reason': report.reason,
+      'until': until,
+      'at': DateTime.now().millisecondsSinceEpoch,
+    });
+    await dismiss(report);
+    await _refreshModeration();
+    notifyListeners();
+  }
+
+  Future<void> unban(Ban ban) async {
+    await aws.delete(ban.key);
+    bans = bans.where((other) => other.key != ban.key).toList();
+    notifyListeners();
   }
 
   Future<void> _refreshStats() async {

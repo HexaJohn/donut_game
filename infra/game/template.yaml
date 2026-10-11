@@ -39,6 +39,11 @@ Resources:
             Status: Enabled
             Prefix: open/
             ExpirationInDays: 1
+          # Players' reports, with the chat they're about
+          - Id: forget-reports
+            Status: Enabled
+            Prefix: reports/
+            ExpirationInDays: 30
           # Hashed install ids, only for counting unique players
           - Id: forget-player-hashes
             Status: Enabled

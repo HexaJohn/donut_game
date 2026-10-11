@@ -132,6 +132,33 @@ class AdminAws {
     return Map<String, dynamic>.from(jsonDecode(response.text) as Map);
   }
 
+  /// Writes [json] at [key].
+  Future<void> putJson(String key, Map<String, dynamic> json) async {
+    final response = await awsRequest(
+      _s3,
+      method: 'PUT',
+      host: await _host(),
+      path: '/${key.split('/').map(SigV4.encode).join('/')}',
+      body: utf8.encode(jsonEncode(json)),
+      headers: {'content-type': 'application/json'},
+      signPayloadHeader: true,
+    );
+    if (response.status != 200) throw StateError('Writing $key failed (${response.status}).');
+  }
+
+  Future<void> delete(String key) async {
+    final response = await awsRequest(
+      _s3,
+      method: 'DELETE',
+      host: await _host(),
+      path: '/${key.split('/').map(SigV4.encode).join('/')}',
+      signPayloadHeader: true,
+    );
+    if (response.status != 204 && response.status != 200) {
+      throw StateError('Deleting $key failed (${response.status}).');
+    }
+  }
+
   static String _unescape(String xml) => xml
       .replaceAll('&lt;', '<')
       .replaceAll('&gt;', '>')

@@ -334,4 +334,41 @@ void main() {
       _expectAllCards(saved);
     });
   });
+
+  group('keeping chat civil', () {
+    test('masks swearing and slurs, however they\'re disguised, and leaves ordinary words alone', () {
+      expect(cleanText('what the fuck'), 'what the ****');
+      expect(cleanText('fuuuuck'), '*******');
+      expect(cleanText('sh1t happens'), '**** happens');
+      expect(cleanText('f u c k off'), '* * * * off');
+      expect(cleanText('f.u.c.k'), '*******');
+      for (final fine in ['class', 'Scunthorpe', 'assist', 'cocktail', 'spicy', 'raccoon', 'Pakistan', 'Niger',
+          'GG well played', 'nice hand!']) {
+        expect(cleanText(fine), fine, reason: '"$fine" was masked');
+      }
+    });
+
+    test('chat is cleaned and offensive names are replaced before anyone sees them', () {
+      final (engine, table) = _table(seed: 13);
+      engine.act(table, 'bob', 'chat', {'text': 'you shit'}, now: 1);
+      expect(table.chat.last['text'], 'you ****');
+      engine.join(table, id: 'eve', name: 'b1tch', secret: 'eve-secret-0123456789ab', now: 2);
+      expect(table.seat('eve')!.name, 'Player');
+    });
+
+    test('reports carry the recent chat, are limited, and only cover people at the table', () {
+      final (engine, table) = _table(seed: 14);
+      engine.act(table, 'bob', 'chat', {'text': 'hello there'}, now: 1);
+      final context = engine.report(table, 'alice', 'bob', now: 2);
+      expect(context.single, containsPair('text', 'hello there'));
+      expect(() => engine.report(table, 'alice', 'alice', now: 3), throwsA(isA<Refusal>()));
+      expect(() => engine.report(table, 'alice', 'nobody', now: 3), throwsA(isA<Refusal>()));
+      engine.report(table, 'alice', 'bob', now: 4);
+      engine.report(table, 'alice', 'bob', now: 5);
+      expect(() => engine.report(table, 'alice', 'bob', now: 6),
+          throwsA(isA<Refusal>().having((r) => r.status, 'status', 429)));
+      // Ten minutes on, Alice can report again
+      engine.report(table, 'alice', 'bob', now: 600010);
+    });
+  });
 }

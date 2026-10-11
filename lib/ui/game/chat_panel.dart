@@ -16,6 +16,7 @@ class ChatPanel extends StatefulWidget {
     required this.open,
     required this.onClose,
     this.width = 320,
+    this.onAuthorTap,
   });
 
   /// Width when open.
@@ -23,6 +24,9 @@ class ChatPanel extends StatefulWidget {
 
   /// The table's messages; shared by every game mode.
   final ValueListenable<List<ChatMessage>> chat;
+
+  /// Tapping a sender's name (to mute, block or report them).
+  final void Function(String author)? onAuthorTap;
 
   /// Your name, so your own messages sit on the right.
   final String? localName;
@@ -94,6 +98,7 @@ class _ChatPanelState extends State<ChatPanel> {
                     return _MessageTile(
                       message: message,
                       mine: !message.system && message.author == widget.localName,
+                      onAuthorTap: widget.onAuthorTap,
                     );
                   },
                 ),
@@ -141,10 +146,11 @@ class _ChatPanelState extends State<ChatPanel> {
 }
 
 class _MessageTile extends StatelessWidget {
-  const _MessageTile({required this.message, required this.mine});
+  const _MessageTile({required this.message, required this.mine, this.onAuthorTap});
 
   final ChatMessage message;
   final bool mine;
+  final void Function(String author)? onAuthorTap;
 
   @override
   Widget build(BuildContext context) {
@@ -173,10 +179,13 @@ class _MessageTile extends StatelessWidget {
         crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           if (!mine)
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 2),
-              child: Text(message.author,
-                  style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: colors.accent)),
+            GestureDetector(
+              onTap: onAuthorTap == null ? null : () => onAuthorTap!(message.author),
+              child: Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 2),
+                child: Text(message.author,
+                    style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700, color: colors.accent)),
+              ),
             ),
           Container(
             constraints: const BoxConstraints(maxWidth: 240),

@@ -10,6 +10,7 @@ import 'package:donut_game/ui/campaign/campaign_screen.dart';
 import 'package:donut_game/ui/career/career_screen.dart';
 import 'package:donut_game/ui/game/game_controller.dart';
 import 'package:donut_game/ui/game/game_screen.dart';
+import 'package:donut_game/ui/game/player_sheet.dart';
 import 'package:donut_game/ui/home/routes.dart';
 import 'package:donut_game/ui/widget/dialogs.dart';
 import 'package:donut_game/ui/widget/donut_logo.dart';
@@ -107,8 +108,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       return;
     }
     setState(() => _partyError = null);
-    Navigator.of(context)
-        .push(partyRoute(code: join ? code : null, matchmake: matchmake, nickname: settings.nickname));
+    Navigator.of(context).push(partyRoute(code: join ? code : null, matchmake: matchmake, nickname: settings.nickname));
   }
 
   Future<void> _joinOnline() async {
@@ -422,6 +422,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             padding: const EdgeInsets.only(top: 6),
             child: Text(_partyError!, style: TextStyle(color: theme.colorScheme.error)),
           ),
+        ValueListenableBuilder(
+          valueListenable: settings.blocked,
+          builder: (context, Map<String, String> blocked, _) => blocked.isEmpty
+              ? const SizedBox.shrink()
+              : Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => showBlockedPlayers(context),
+                    icon: const Icon(Icons.block_rounded, size: 18),
+                    label: Text('Blocked players (${blocked.length})'),
+                  ),
+                ),
+        ),
         const SizedBox(height: 20),
         if (GameCenterLobby.instance.supported) ...[
           // No server needed: friends join through Game Center

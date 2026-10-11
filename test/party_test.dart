@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:donut_game/data/settings.dart';
 import 'package:donut_game/net/party_client.dart';
 import 'package:donut_game/progression/emblem.dart';
 import 'package:flutter/painting.dart';
@@ -152,5 +153,38 @@ void main() {
     expect(stranger.messages.first['code'], first.partyCode);
     first.dispose();
     await stranger.socket.close();
+  });
+
+  test('mute and block hide a player\'s chat; a report reaches the server', () async {
+    final host = PartyController(
+        nickname: 'Alice', url: gateway.url, playerId: 'alice-device', secret: 'alice-secret-0123456789');
+    host.start();
+    await until(() => host.partyCode != null && host.localPlayer != null, reason: 'hosting');
+    final friend = await RawPlayer.connect(gateway.url);
+    friend.send({'a': 'join', 'code': host.partyCode, 'name': 'Bob', 'player': 'bob-device', 'secret': 'bob-secret-0123456789ab'});
+    await until(() => host.game.players.length == 2, reason: 'Bob joined');
+    friend.send({'a': 'chat', 'b': {'text': 'hello'}, 'n': 1});
+    bool bobVisible() => host.game.chat.value.any((m) => m.author == 'Bob');
+    await until(bobVisible, reason: 'Bob\'s chat arrived');
+
+    final bob = host.game.players.firstWhere((p) => p.name == 'Bob');
+    expect(host.canModerate(bob), isTrue);
+    expect(host.canModerate(host.localPlayer!), isFalse);
+    host.setMuted(bob, true);
+    expect(bobVisible(), isFalse);
+    host.setMuted(bob, false);
+    expect(bobVisible(), isTrue);
+    Settings.instance.block(bob.id, bob.name);
+    host.refilterChat();
+    expect(bobVisible(), isFalse);
+    Settings.instance.unblock(bob.id);
+    host.refilterChat();
+    expect(bobVisible(), isTrue);
+
+    expect(await host.report(bob, 'harassment', note: 'test'), isNull);
+    final reports = gateway.server.store as MemoryStore;
+    expect(reports.keys.where((key) => key.startsWith('reports/')), hasLength(1));
+    host.dispose();
+    await friend.socket.close();
   });
 }

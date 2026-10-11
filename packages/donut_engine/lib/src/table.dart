@@ -107,6 +107,7 @@ class Seat {
   /// When this player last chatted, for slowing floods.
   List<int> recentChat = [];
   List<int> recentShots = [];
+  List<int> recentReports = [];
 
   /// Whether a bot makes this seat's moves right now.
   bool get autoplay => !human || !connected;
@@ -135,6 +136,7 @@ class Seat {
         'winner': winner,
         'recentChat': recentChat,
         'recentShots': recentShots,
+        'recentReports': recentReports,
       };
 
   static Seat fromJson(Map<String, dynamic> json) => Seat(
@@ -161,7 +163,8 @@ class Seat {
         ..voteToDeal = json['voteToDeal'] as bool
         ..winner = json['winner'] as bool? ?? false
         ..recentChat = List<int>.from(json['recentChat'] as List? ?? [])
-        ..recentShots = List<int>.from(json['recentShots'] as List? ?? []);
+        ..recentShots = List<int>.from(json['recentShots'] as List? ?? [])
+        ..recentReports = List<int>.from(json['recentReports'] as List? ?? []);
 }
 
 /// Where a table is in a match.

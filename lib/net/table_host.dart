@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:donut_engine/donut_engine.dart' show cleanText, isOffensiveName;
 import 'package:donut_game/progression/emblem.dart';
 import 'package:donut_game/ai/bot_brain.dart';
 import 'package:donut_game/data/model/game/game.dart';
@@ -78,6 +79,7 @@ class TableHost {
     var trimmed = name.trim();
     if (trimmed.isEmpty) return const ActionResult.refused(400, 'Pick a name');
     if (trimmed.length > maxNameLength) trimmed = trimmed.substring(0, maxNameLength);
+    if (isOffensiveName(trimmed)) trimmed = 'Player';
     if (game.players.any((player) => player.name.toLowerCase() == trimmed.toLowerCase())) {
       return const ActionResult.refused(409, 'Someone at the table already has that name.');
     }
@@ -126,7 +128,7 @@ class TableHost {
       case 'chat':
         final text = '${body['text'] ?? ''}'.trim();
         if (text.isEmpty) return const ActionResult.refused(400);
-        game.say(player.name, text.length > 280 ? text.substring(0, 280) : text);
+        game.say(player.name, cleanText(text.length > 280 ? text.substring(0, 280) : text));
         return const ActionResult.ok();
       case 'shoot':
         if (body['seat'] is String) {

@@ -17,6 +17,7 @@ import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:donut_game/ui/game/announcer.dart';
 import 'package:donut_game/ui/game/game_controller.dart';
+import 'package:donut_game/ui/game/player_sheet.dart';
 import 'package:donut_game/ui/widget/playing_card.dart';
 import 'package:donut_game/ui/widget/rasterized_paint.dart';
 import 'package:donut_game/ui/widget/revolver.dart';
@@ -422,7 +423,9 @@ class _GameBoardState extends State<GameBoard> {
                   // Painted to an image once, not shape by shape every frame
                   if (texture != null)
                     RasterizedPaint(
-                        key: ValueKey(environment.id), painter: texture(feltColor), cacheKey: (environment.id, feltColor)),
+                        key: ValueKey(environment.id),
+                        painter: texture(feltColor),
+                        cacheKey: (environment.id, feltColor)),
                 ],
               ),
             ),
@@ -775,12 +778,20 @@ class _GameBoardState extends State<GameBoard> {
           duration: const Duration(milliseconds: 1100),
           curve: Curves.easeOutBack,
           child: RepaintBoundary(
-            child: SeatPanel(
-              player: player,
-              game: game,
-              active: _isActive(player),
-              dealer: game.players.isNotEmpty && game.dealer.value == player,
-              compact: compactSeats,
+            // Tapping another person (online, hands free) offers mute, block
+            // and report
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _held == null && controller.canModerate(player)
+                  ? () => showPlayerOptions(context, controller, player)
+                  : null,
+              child: SeatPanel(
+                player: player,
+                game: game,
+                active: _isActive(player),
+                dealer: game.players.isNotEmpty && game.dealer.value == player,
+                compact: compactSeats,
+              ),
             ),
           ),
         ),

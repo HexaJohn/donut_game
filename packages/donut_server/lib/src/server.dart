@@ -52,6 +52,8 @@ class ApiGatewaySender implements Sender {
 ///   conns/<connection id>.json  {code, player}
 ///   open/<created>-<CODE>.json  a public table matchmaking can fill,
 ///                               oldest first
+///   reports/<time>-<CODE>-<n>.json  a player's report, with recent chat
+///   bans/<player id>.json       {until, reason}: kept out of online play
 ///
 /// Client messages are {"a": action, ...}: "create", "join" (with "code")
 /// and "matchmake" carry name, back, face, emblem, player (a device id) and
@@ -75,6 +77,7 @@ class PartyServer {
   static String _stateKey(String code) => 'tables/$code/state.json';
   static String _playersKey(String code) => 'tables/$code/players.json';
   static String _connKey(String connection) => 'conns/$connection.json';
+  static String _banKey(String player) => 'bans/${SigV4.encode(player)}.json';
   static String _openKey(TableState table) => 'open/${'${table.createdAt}'.padLeft(15, '0')}-${table.code}.json';
   static String? _codeOfOpenKey(String key) => RegExp(r'-([A-Z0-9]{6})\.json$').firstMatch(key)?.group(1);
 
@@ -135,7 +138,15 @@ class PartyServer {
             throw const Refusal(400, 'Party codes are six letters and numbers.');
           await _join(connection, _who(message), code);
         case 'matchmake':
-          await _matchmake(connection, _who(message));
+          final blocked = message['blocked'] is List
+              ? {
+                  for (final id in (message['blocked'] as List).take(100))
+                    if (id is String && id.length <= 80) id
+                }
+              : <String>{};
+          await _matchmake(connection, _who(message), blocked: blocked);
+        case 'report':
+          await _report(connection, message);
         case 'ping':
           return;
         default:
@@ -178,6 +189,7 @@ class PartyServer {
   /// Opens a new table with this player as host; [public] lists it for
   /// matchmaking.
   Future<void> _host(String connection, Who who, {bool public = false}) async {
+    await _checkBan(who.player);
     final now = _clock();
     // A fresh code nobody holds: claiming it only succeeds if it's free
     for (var attempt = 0; attempt < 8; attempt++) {
@@ -213,13 +225,17 @@ class PartyServer {
 
   /// Sends the player to the oldest public table with room, or opens a new
   /// one for others to be sent to.
-  Future<void> _matchmake(String connection, Who who) async {
-    for (final key in await store.list('open/', limit: 10)) {
+  Future<void> _matchmake(String connection, Who who, {Set<String> blocked = const {}}) async {
+    await _checkBan(who.player);
+    for (final key in await store.list('open/', limit: 20)) {
       final code = _codeOfOpenKey(key);
       if (code == null) continue;
       try {
-        await _join(connection, who, code, matchmaking: true);
+        await _join(connection, who, code, matchmaking: true, blocked: blocked);
         return;
+      } on _Blocked {
+        // Someone this player blocked is there; the table's fine for others
+        continue;
       } on Refusal {
         // Started, full or abandoned since it was listed
         await store.delete(key);
@@ -231,12 +247,15 @@ class PartyServer {
 
   /// Seats the player at [code]. [matchmaking] only takes a table that's
   /// still open to strangers.
-  Future<void> _join(String connection, Who who, String code, {bool matchmaking = false}) async {
+  Future<void> _join(String connection, Who who, String code,
+      {bool matchmaking = false, Set<String> blocked = const {}}) async {
+    if (!matchmaking) await _checkBan(who.player);
     var returning = false;
     final frames = await _update(code, (table, now) {
       returning = table.seat(who.player) != null;
-      if (matchmaking && !table.openToMatchmaking && table.seat(who.player) == null) {
-        throw const Refusal(409, 'That table filled up.');
+      if (matchmaking && !returning) {
+        if (!table.openToMatchmaking) throw const Refusal(409, 'That table filled up.');
+        if (table.seats.any((seat) => blocked.contains(seat.id))) throw const _Blocked();
       }
       return engine.join(table,
           id: who.player,
@@ -258,6 +277,54 @@ class PartyServer {
     await sender
         .send(connection, {'k': 'snap', 'delay': 0, ...engine.view(latest, who.player, now: _clock(), withInk: true)});
     await _broadcast(code, frames.$2, except: who.player, inkChanged: false);
+  }
+
+  /// Refuses a player banned from online play, saying until when.
+  Future<void> _checkBan(String player) async {
+    final ban = await store.get(_banKey(player));
+    if (ban == null) return;
+    final until = ban.json['until'] as int?;
+    if (until != null && until <= _clock()) return;
+    final when = until == null
+        ? ''
+        : ' until ${DateTime.fromMillisecondsSinceEpoch(until, isUtc: true).toIso8601String().substring(0, 10)}';
+    throw Refusal(403, 'You can\'t play online$when because of reports about your behaviour.');
+  }
+
+  static const reportReasons = {'harassment', 'hate', 'sexual', 'cheating', 'name', 'spam', 'other'};
+
+  /// Files a report about another player at the reporter's table, with the
+  /// table's recent chat, for review in Donut Admin.
+  Future<void> _report(String connection, Map<String, dynamic> message) async {
+    final link = await store.get(_connKey(connection));
+    if (link == null) throw const Refusal(403, 'Join a party first.');
+    final code = link.json['code'] as String;
+    final reporter = link.json['player'] as String;
+    final body = message['b'] is Map ? Map<String, dynamic>.from(message['b'] as Map) : <String, dynamic>{};
+    final target = '${body['player'] ?? ''}';
+    final reason = reportReasons.contains(body['reason']) ? body['reason'] as String : 'other';
+    final note = '${body['note'] ?? ''}'.trim();
+    late List<Map<String, dynamic>> chat;
+    late TableState table;
+    await _update(code, (state, now) {
+      chat = engine.report(state, reporter, target, now: now);
+      table = state;
+      return const [];
+    });
+    final now = _clock();
+    final key = 'reports/${'$now'.padLeft(15, '0')}-$code-${now % 9973}.json';
+    await store.put(key, {
+      'time': now,
+      'code': code,
+      'public': table.public,
+      'reason': reason,
+      if (note.isNotEmpty) 'note': note.length > 300 ? note.substring(0, 300) : note,
+      'reporter': {'id': reporter, 'name': table.seat(reporter)?.name},
+      'reported': {'id': target, 'name': table.seat(target)?.name},
+      'chat': chat,
+    });
+    stats.count('reports');
+    await sender.send(connection, {'k': 'ack', 'n': message['n'], 'ok': true});
   }
 
   Future<void> _move(String connection, String action, Map<String, dynamic> message) async {
@@ -393,4 +460,9 @@ class PartyServer {
       await _disconnect(connection);
     }
   }
+}
+
+/// Matchmaking skipped a table because someone the player blocked is there.
+class _Blocked implements Exception {
+  const _Blocked();
 }

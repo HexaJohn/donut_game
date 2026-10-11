@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'brain.dart';
 import 'cards.dart';
+import 'filter.dart';
 import 'table.dart';
 
 /// The table as it stood at one moment while a move played out, and how
@@ -121,6 +122,8 @@ class DonutEngine {
     var trimmed = name.trim();
     if (trimmed.isEmpty) throw const Refusal(400, 'Pick a name first.');
     if (trimmed.length > maxNameLength) trimmed = trimmed.substring(0, maxNameLength);
+    // Strangers see this name, so an offensive one is replaced
+    if (isOffensiveName(trimmed)) trimmed = 'Player';
     final base = trimmed;
     for (var n = 2; table.seats.any((seat) => seat.name.toLowerCase() == trimmed.toLowerCase()); n++) {
       trimmed = '$base $n';
@@ -228,7 +231,7 @@ class DonutEngine {
         final text = '${body['text'] ?? ''}'.trim();
         if (text.isEmpty) throw const Refusal(400, 'Nothing to say.');
         if (!_allow(seat.recentChat, now, count: 5, perMs: 10000)) throw const Refusal(429, 'Slow down.');
-        _say(table, seat.name, text.length > 280 ? text.substring(0, 280) : text, now);
+        _say(table, seat.name, cleanText(text.length > 280 ? text.substring(0, 280) : text), now);
         _frame(table, frames, 0, now);
         return frames;
       case 'shoot':
@@ -294,6 +297,24 @@ class DonutEngine {
       !seat.skip &&
       !seat.autoplay &&
       table.trick.length < _inHand(table);
+
+  /// [reporterId] reports [targetId] at this table. Returns the table's
+  /// recent chat for whoever reviews it. A few reports per player every ten
+  /// minutes, so reporting can't be used to flood.
+  List<Map<String, dynamic>> report(TableState table, String reporterId, String targetId, {required int now}) {
+    final reporter = table.seat(reporterId);
+    final target = table.seat(targetId);
+    if (reporter == null) throw const Refusal(403, 'Not at this table.');
+    if (target == null || !target.human) throw const Refusal(404, 'That player isn\'t at this table.');
+    if (target == reporter) throw const Refusal(400, 'You can\'t report yourself.');
+    if (!_allow(reporter.recentReports, now, count: 3, perMs: 600000)) {
+      throw const Refusal(429, 'You\'ve sent a few reports already. Thanks, they\'re being looked at.');
+    }
+    return [
+      for (final line in table.chat.skip(table.chat.length > 30 ? table.chat.length - 30 : 0))
+        if (line['system'] != true) {'author': line['author'], 'text': line['text'], 'time': line['time']},
+    ];
+  }
 
   static bool _allow(List<int> recent, int now, {required int count, required int perMs}) {
     recent.removeWhere((at) => now - at > perMs);
