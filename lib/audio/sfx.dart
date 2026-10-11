@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 
 import 'package:audioplayers/audioplayers.dart';
@@ -38,10 +39,11 @@ enum Sfx {
   flashBang,
 }
 
-/// One sound file, with the level and start trim that make it sit with the
-/// others. Files are assets/sounds/<name>.mp3.
+/// One sound file, with the level that makes it sit with the others. Files
+/// are assets/sounds/<name>.<ext>; each starts on its first sound, since
+/// low-latency playback can't skip ahead.
 class _Clip {
-  const _Clip(this.name, {this.gain = 1, this.start = Duration.zero, this.voices = 3});
+  const _Clip(this.name, {this.gain = 1, this.voices = 3, this.ext = 'mp3'});
 
   final String name;
 
@@ -49,8 +51,9 @@ class _Clip {
   /// trimmed to match the quietest.
   final double gain;
 
-  /// Skips silence at the head of the file.
-  final Duration start;
+  /// The few clips that had silence cut from the head are WAV, which trims to
+  /// the sample; re-encoding to MP3 would pad the start again.
+  final String ext;
 
   /// How many copies can overlap.
   final int voices;
@@ -61,18 +64,20 @@ class _Clip {
 // placed-1 0.012, placed-2 0.062, placed-3 0.024, coughs 0.16-0.19,
 // alerts ~0.045, clicks 0.028-0.083, revolver shots 0.092-0.212,
 // revolver loaded 0.036.
-// Start trims skip the silence before each sound begins.
+// The silence before each sound began was cut from the files: card-slide-3
+// 140 ms, card-placed-1 60 ms, card-placed-2 85 ms, card-placed-3 15 ms,
+// revolver-loaded-1 180 ms.
 const Map<Sfx, List<_Clip>> _bank = {
   Sfx.shuffle: [_Clip('card-shuffle-1', voices: 2)],
   Sfx.slide: [
     _Clip('card-slide-1', gain: 0.67, voices: 4),
     _Clip('card-slide-2', gain: 1.0, voices: 4),
-    _Clip('card-slide-3', gain: 0.23, start: Duration(milliseconds: 140), voices: 4),
+    _Clip('card-slide-3', gain: 0.23, voices: 4, ext: 'wav'),
   ],
   Sfx.place: [
-    _Clip('card-placed-1', gain: 1.0, start: Duration(milliseconds: 60), voices: 4),
-    _Clip('card-placed-2', gain: 0.39, start: Duration(milliseconds: 85), voices: 4),
-    _Clip('card-placed-3', gain: 1.0, start: Duration(milliseconds: 15), voices: 4),
+    _Clip('card-placed-1', gain: 1.0, voices: 4, ext: 'wav'),
+    _Clip('card-placed-2', gain: 0.39, voices: 4, ext: 'wav'),
+    _Clip('card-placed-3', gain: 1.0, voices: 4, ext: 'wav'),
   ],
   Sfx.cough: [
     _Clip('cough-1', gain: 0.5, voices: 2),
@@ -89,7 +94,7 @@ const Map<Sfx, List<_Clip>> _bank = {
     _Clip('revolver-fired-3', gain: 0.92, voices: 2),
     _Clip('revolver-fired-4', gain: 1.0, voices: 2),
   ],
-  Sfx.revolverLoaded: [_Clip('revolver-loaded-1', start: Duration(milliseconds: 180), voices: 1)],
+  Sfx.revolverLoaded: [_Clip('revolver-loaded-1', voices: 1, ext: 'wav')],
   Sfx.flashBang: [_Clip('flash-bang', voices: 1)],
   // Five different ticks, levelled to the quietest (click-3)
   Sfx.click: [
@@ -120,14 +125,27 @@ class SoundEffects {
     if (audioAvailable) await (_loading ??= _preload());
   }
 
+  /// Android plays through SoundPool, which holds clips decoded in memory and
+  /// starts them at once; the default MediaPlayer is built for music and can
+  /// lag a sound by a few hundred milliseconds.
+  static bool get _lowLatency => !kIsWeb && Platform.isAndroid;
+
+  /// Effects play over the music instead of asking for audio focus, which
+  /// takes time on every sound and would pause the music.
+  static final AudioContext _mixed = AudioContextConfig(focus: AudioContextConfigFocus.mixWithOthers).build();
+
   Future<void> _preload() async {
     for (final clip in _bank.values.expand((clips) => clips)) {
       final players = <AudioPlayer>[];
       for (var i = 0; i < clip.voices; i++) {
-        final player = AudioPlayer();
+        final player = newAudioPlayer();
         try {
+          if (_lowLatency) {
+            await player.setPlayerMode(PlayerMode.lowLatency);
+            await player.setAudioContext(_mixed);
+          }
           await player.setReleaseMode(ReleaseMode.stop);
-          await player.setSource(AssetSource('sounds/${clip.name}.mp3'));
+          await player.setSource(AssetSource('sounds/${clip.name}.${clip.ext}'));
           players.add(player);
         } catch (e) {
           debugPrint('Sfx: ${clip.name}: $e');
@@ -160,13 +178,14 @@ class SoundEffects {
     _start(players[voice], clip, level);
   }
 
-  Future<void> _start(AudioPlayer player, _Clip clip, double level) async {
-    try {
-      await player.setVolume((clip.gain * level).clamp(0.0, 1.0));
-      await player.seek(clip.start);
-      await player.resume();
-    } catch (e) {
-      // A missed sound effect isn't worth interrupting the game for
-    }
+  /// Stops the voice (rewinding it, and on Android letting it play again),
+  /// sets its level and plays it. The calls reach the platform in order, so
+  /// none waits on the last one's reply: a busy frame can't hold a sound back.
+  void _start(AudioPlayer player, _Clip clip, double level) {
+    // A missed sound effect isn't worth interrupting the game for
+    void quietly(Future<void> call) => call.catchError((_) {});
+    quietly(player.stop());
+    quietly(player.setVolume((clip.gain * level).clamp(0.0, 1.0)));
+    quietly(player.resume());
   }
 }

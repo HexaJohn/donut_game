@@ -28,7 +28,7 @@ class MusicPlayer {
   static const displayNames = {'menu-1': 'Menu theme'};
 
   // Created on first use, so merely touching [instance] never starts the plugin
-  late final AudioPlayer _player = AudioPlayer(playerId: 'music');
+  late final AudioPlayer _player = newAudioPlayer(playerId: 'music');
   final ValueNotifier<String?> nowPlaying = ValueNotifier(null);
   final ValueNotifier<MusicMode?> mode = ValueNotifier(null);
   final Settings _settings = Settings.instance;
@@ -51,6 +51,17 @@ class MusicPlayer {
 
   /// Starts the in-game playlist. Does nothing if it's already playing.
   Future<void> playGame() => _switchTo(MusicMode.game);
+
+  /// Whether the app is in the background, where it stays quiet.
+  bool _backgrounded = false;
+
+  /// Pauses while the app is out of sight (phone locked, home screen) and
+  /// picks up where it left off when it's back.
+  void setBackgrounded(bool backgrounded) {
+    if (backgrounded == _backgrounded || mode.value == null) return;
+    _backgrounded = backgrounded;
+    _quietly(() => backgrounded ? _player.pause() : _player.resume());
+  }
 
   /// In a game, fades to the next track. The menu theme has nowhere to skip to.
   Future<void> skip() async {

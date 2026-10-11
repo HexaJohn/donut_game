@@ -24,7 +24,7 @@ class FlashbangAudio {
   static const _recoverStart = 2.0;
   static const _recoverEnd = 5.0;
 
-  late final AudioPlayer _ring = AudioPlayer(playerId: 'ringing');
+  late final AudioPlayer _ring = newAudioPlayer(playerId: 'ringing');
   bool _loaded = false;
   Timer? _envelope;
 
