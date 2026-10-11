@@ -29,3 +29,6 @@ doc/api/
 dist/
 # Python tooling
 __pycache__/
+
+# macOS Finder files
+.DS_Store
