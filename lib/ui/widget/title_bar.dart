@@ -13,7 +13,8 @@ bool get isDesktop =>
 const double titleBarHeight = 40;
 
 /// Custom window chrome: drag area, title, an optional trailing widget and
-/// the window buttons. On web and mobile it is just a slim header.
+/// the window buttons. Desktop only: phones and browsers have their own
+/// chrome, so there it takes no space at all.
 class DonutTitleBar extends StatefulWidget {
   const DonutTitleBar(
       {super.key, this.title, this.trailing, this.transparent = false, this.solid = true, this.foreground});
@@ -60,6 +61,7 @@ class _DonutTitleBarState extends State<DonutTitleBar> with WindowListener {
 
   @override
   Widget build(BuildContext context) {
+    if (!isDesktop) return const SizedBox.shrink();
     final theme = Theme.of(context);
     final colors = DonutColors.of(context);
     final foreground = widget.foreground ?? theme.colorScheme.onSurface;

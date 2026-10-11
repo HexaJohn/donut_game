@@ -33,13 +33,15 @@ output() {
 BUCKET=$(output BucketName)
 DISTRIBUTION=$(output DistributionId)
 
-# Self-hosted engine files: nothing is fetched from Google's CDN
-(cd ../.. && flutter build web --release --no-web-resources-cdn >/dev/null)
+# WebAssembly, with JavaScript for browsers without it. Self-hosted engine
+# files: nothing is fetched from Google's CDN
+(cd ../.. && flutter build web --release --wasm --no-web-resources-cdn >/dev/null)
 WEB=../../build/web
 
 # Sounds, images and the engine change rarely: cache for an hour. The page
 # and the game code are checked on every visit, so updates show at once.
-ENTRY=(index.html flutter_bootstrap.js flutter.js main.dart.js flutter_service_worker.js version.json manifest.json)
+ENTRY=(index.html flutter_bootstrap.js flutter.js main.dart.js main.dart.mjs main.dart.wasm flutter_service_worker.js
+  version.json manifest.json)
 EXCLUDES=()
 for file in "${ENTRY[@]}"; do EXCLUDES+=(--exclude "$file"); done
 aws s3 sync "$WEB" "s3://$BUCKET" --delete --only-show-errors "${EXCLUDES[@]}" \
@@ -49,8 +51,14 @@ aws s3 sync "$WEB" "s3://$BUCKET" --only-show-errors --exclude '*' --include '*.
 aws s3 sync "$WEB" "s3://$BUCKET" --only-show-errors --exclude '*' --include '*.mjs' \
   --content-type text/javascript --cache-control 'public, max-age=3600'
 for file in "${ENTRY[@]}"; do
-  [[ -f "$WEB/$file" ]] && aws s3 cp "$WEB/$file" "s3://$BUCKET/$file" --only-show-errors \
-    --cache-control 'no-cache'
+  [[ -f "$WEB/$file" ]] || continue
+  case "$file" in
+    *.wasm) type=application/wasm ;;
+    *.mjs | *.js) type=text/javascript ;;
+    *.json) type=application/json ;;
+    *) type=text/html ;;
+  esac
+  aws s3 cp "$WEB/$file" "s3://$BUCKET/$file" --only-show-errors --cache-control 'no-cache' --content-type "$type"
 done
 aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" --paths '/*' >/dev/null
 

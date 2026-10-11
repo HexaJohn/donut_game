@@ -40,11 +40,12 @@ class _DonutPainter extends CustomPainter {
     final r = size.shortestSide / 2 * 0.92;
     final hole = r * 0.3;
 
-    Path ring(double outer, double inner, [Offset offset = Offset.zero]) => Path.combine(
-          PathOperation.difference,
-          Path()..addOval(Rect.fromCircle(center: c + offset, radius: outer)),
-          Path()..addOval(Rect.fromCircle(center: c + offset, radius: inner)),
-        );
+    // Holes are cut with even-odd fills rather than path operations, which
+    // the web renderer doesn't always manage
+    Path ring(double outer, double inner, [Offset offset = Offset.zero]) => Path()
+      ..fillType = PathFillType.evenOdd
+      ..addOval(Rect.fromCircle(center: c + offset, radius: outer))
+      ..addOval(Rect.fromCircle(center: c + offset, radius: inner));
 
     if (shadow) {
       canvas.drawPath(
@@ -75,11 +76,9 @@ class _DonutPainter extends CustomPainter {
       i == 0 ? outer.moveTo(p.dx, p.dy) : outer.lineTo(p.dx, p.dy);
     }
     outer.close();
-    final frostingPath = Path.combine(
-      PathOperation.difference,
-      outer,
-      Path()..addOval(Rect.fromCircle(center: c, radius: hole * 1.25)),
-    );
+    final frostingPath = outer
+      ..fillType = PathFillType.evenOdd
+      ..addOval(Rect.fromCircle(center: c, radius: hole * 1.25));
     canvas.drawPath(frostingPath, Paint()..color = frosting);
 
     // Shine

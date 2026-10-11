@@ -163,7 +163,8 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
           ),
-          const SizedBox(height: titleBarHeight),
+          // Balances the title bar, so the mark sits in the middle
+          if (isDesktop) const SizedBox(height: titleBarHeight),
         ],
       ),
     );
