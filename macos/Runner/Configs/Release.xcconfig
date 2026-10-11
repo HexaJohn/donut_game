@@ -1,2 +1,6 @@
 #include "../../Flutter/Flutter-Release.xcconfig"
 #include "Warnings.xcconfig"
+
+// Apple Silicon only for now: Xcode 27's lipo breaks Flutter's universal
+// (Intel + Apple Silicon) builds
+ARCHS = arm64
