@@ -1,0 +1,22 @@
+name: game_center
+description: Game Center sign-in and real-time matches for Donut, on iOS and macOS.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      ios:
+        pluginClass: GameCenterPlugin
+        sharedDarwinSource: true
+      macos:
+        pluginClass: GameCenterPlugin
+        sharedDarwinSource: true

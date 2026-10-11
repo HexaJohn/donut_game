@@ -35,7 +35,6 @@ dependencies:
   cupertino_icons: ^1.0.5
   shelf_router: ^1.1.3
   http: ^1.2.1
-  platform_device_id: ^1.0.1
   websocket_universal: ^1.2.5
   shelf: any
   shelf_static: any
@@ -45,6 +44,9 @@ dependencies:
   shared_preferences: ^2.5.5
   flutter_svg: ^2.3.0
   audioplayers: ^6.7.1
+  # Game Center sign-in and matches (iOS, macOS)
+  game_center:
+    path: packages/game_center
 
 dev_dependencies:
   integration_test:

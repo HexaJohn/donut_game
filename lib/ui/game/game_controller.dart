@@ -8,6 +8,7 @@ import 'package:donut_game/data/model/chat_message.dart';
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/data/model/ink_stroke.dart';
 import 'package:donut_game/data/settings.dart';
+import 'package:donut_game/progression/profile.dart';
 import 'package:donut_game/modes/game_mode.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/data/model/game_card/game_card_stack.dart';
@@ -15,7 +16,7 @@ import 'package:donut_game/data/model/game_player.dart/game_player.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:platform_device_id/platform_device_id.dart';
+import 'package:donut_game/data/device_id.dart';
 
 /// Everything the game screen can ask for, whether the game runs locally or
 /// on a server.
@@ -33,6 +34,12 @@ abstract class GameController {
 
   void start() {}
   void dispose() {}
+
+  /// Scene painted behind the table, or null for the plain theme.
+  String? get backdrop => null;
+
+  /// Table environment for this game; null uses the one the player equipped.
+  String? get environment => null;
 
   bool get isLocalTurn => localPlayer != null && game.players.isNotEmpty && game.activePlayerLazy == localPlayer;
 
@@ -105,9 +112,16 @@ abstract class GameController {
 }
 
 class OfflineGameController extends GameController {
-  OfflineGameController({required String nickname, required int bots})
-      : _local = GamePlayer(nickname.isEmpty ? 'You' : nickname, 0, true)..id = 'local' {
-    game.setupOffline(_local, bots, acrotron: Settings.instance.seatAcrotronOffline);
+  /// Preset [opponents] replace the random [bots]; [target] is the score
+  /// everyone starts on.
+  OfflineGameController(
+      {required String nickname, required int bots, List<GamePlayer>? opponents, int target = startingScore})
+      : _local = GamePlayer(nickname.isEmpty ? 'You' : nickname, 0, true)
+          ..id = 'local'
+          ..cardBack = PlayerProfile.instance.cardPattern
+          ..cardFace = PlayerProfile.instance.cardFace {
+    game.setupOffline(_local, bots,
+        acrotron: opponents == null && Settings.instance.seatAcrotronOffline, opponents: opponents, target: target);
   }
 
   final GamePlayer _local;
@@ -124,8 +138,12 @@ class OfflineGameController extends GameController {
   @override
   String get label => 'Offline vs bots';
 
+  /// Leaves the game alone if another offline game has already taken over
+  /// the table, as when the next campaign stage opens over this one.
   @override
-  void dispose() => game.abort();
+  void dispose() {
+    if (game.players.contains(_local)) game.abort();
+  }
 
   @override
   Future<void> deal() async {
@@ -166,87 +184,37 @@ class OfflineGameController extends GameController {
   Future<void> newMatch() async => game.newMatch();
 }
 
-class OnlineGameController extends GameController {
-  OnlineGameController({required this.host, required this.port, required this.username});
-
-  final String host;
-  final int port;
-  final String username;
-  String _deviceId = '';
-  bool _running = false;
-  int _failures = 0;
+/// Mirrors a table that runs somewhere else (a server, or another player's
+/// device in a Game Center match): applies its descriptions of the table and
+/// sends this player's moves to it.
+abstract class RemoteTableController extends GameController {
   Map<String, ChatMessage> _chatSeen = {};
   int _inkRevision = -1;
+
+  /// The drawing this copy of the table has, so the host can skip resending it.
+  int get inkRevision => _inkRevision;
 
   @override
   final Game game = Game();
 
   @override
-  GamePlayer? get localPlayer {
-    for (final player in game.players) {
-      if (player.name == username) return player;
-    }
-    return null;
-  }
-
-  @override
   bool get online => true;
 
-  @override
-  String get label => 'Online at $host:$port';
+  /// Sends a move to whoever runs the table. Returns whether it was accepted.
+  Future<bool> send(String action, Map<String, dynamic> body);
 
-  String get _id => '$_deviceId$username';
-
-  /// Registers with the server. Throws a readable message on failure.
-  static Future<void> join(String host, int port, String username) async {
-    final deviceId = await PlatformDeviceId.getDeviceId ?? 'unknown';
-    final http.Response response;
-    try {
-      response = await http
-          .post(Uri(scheme: 'http', host: host, port: port, path: '/connect'),
-              body: jsonEncode({'username': username, 'id': deviceId}))
-          .timeout(const Duration(seconds: 5));
-    } on TimeoutException {
-      throw 'The server at $host:$port did not answer.';
-    } catch (e) {
-      throw 'Could not reach $host:$port.';
-    }
-    if (response.statusCode != 200) throw 'The server refused to let you in (${response.statusCode}).';
-  }
-
-  @override
-  void start() {
+  /// Clears the shared game for a table that's about to start syncing in.
+  void resetTable() {
     game.abort();
     game.playerDB.clear();
     game.chat.value = [];
-    _running = true;
-    _loop();
+    _chatSeen = {};
+    _inkRevision = -1;
   }
 
-  @override
-  void dispose() => _running = false;
-
-  Future<void> _loop() async {
-    _deviceId = await PlatformDeviceId.getDeviceId ?? 'unknown';
-    while (_running) {
-      try {
-        final response = await http
-            .get(Uri(
-                scheme: 'http', host: host, port: port, path: '/update', queryParameters: {'ink_rev': '$_inkRevision'}))
-            .timeout(const Duration(seconds: 3));
-        if (!_running) break;
-        _apply(jsonDecode(response.body)[0]);
-        _failures = 0;
-        error.value = null;
-      } catch (e) {
-        _failures++;
-        if (_failures > 2) error.value = 'Connection lost. Reconnecting...';
-      }
-      await Future.delayed(const Duration(milliseconds: 250));
-    }
-  }
-
-  void _apply(Map<String, dynamic> json) {
+  /// Brings the local copy of the table up to date with a description from
+  /// whoever runs it.
+  void applySnapshot(Map<String, dynamic> json) {
     final mode = GameModeInfo.fromName(json['mode']);
     if (mode != GameMode.donut) {
       switchedTo.value = mode;
@@ -277,12 +245,16 @@ class OnlineGameController extends GameController {
       if (awaiting && !player.awaitingCard) player.cardToPlay = null;
       player.awaitingCard = awaiting;
       player.agent = element['agent'] == true;
+      if (element['pid'] is String) player.id = element['pid'];
+      player.cardBack = element['back'] ?? player.cardBack;
+      player.cardFace = element['face'] ?? player.cardFace;
       // Keep the same stack so listeners survive; only replace its contents
       player.hand.cards.value = cards.cards.value;
     }
     game.playerDB.removeWhere((key, value) => !activeKeys.contains(key));
 
     final g = json['game'];
+    game.targetScore = g['target'] ?? game.targetScore;
     game.state.value = stringToGameState[g['state']] ?? game.state.value;
     if (game.players.isNotEmpty) {
       game.protectedActive = g['active'];
@@ -370,19 +342,6 @@ class OnlineGameController extends GameController {
     }
   }
 
-  /// Returns whether the server accepted it.
-  Future<bool> _post(String path, Map<String, dynamic> body) async {
-    try {
-      final response = await http
-          .post(Uri(scheme: 'http', host: host, port: port, path: path), body: jsonEncode({'id': _id, ...body}))
-          .timeout(const Duration(seconds: 3));
-      return response.statusCode == 200;
-    } catch (e) {
-      error.value = 'Could not reach the server.';
-      return false;
-    }
-  }
-
   int _indexOf(GameCard card) => localPlayer?.hand.cards.value.indexOf(card) ?? -1;
 
   @override
@@ -390,27 +349,27 @@ class OnlineGameController extends GameController {
     final player = localPlayer;
     if (player == null) return;
     player.voteToDeal = !player.voteToDeal;
-    await _post('/vote', {'vote': '${player.voteToDeal}'});
+    await send('vote', {'vote': '${player.voteToDeal}'});
   }
 
   @override
   Future<void> toggleSwap(GameCard card) async {
     final index = _indexOf(card);
     if (index < 0 || !_markSwap(card)) return;
-    await _post('/swap', {'swap': index});
+    await send('swap', {'swap': index});
   }
 
   @override
   Future<void> confirmSwap() async {
     localPlayer?.notReady = false;
-    await _post('/swapvote', {});
+    await send('swapvote', {});
   }
 
   @override
   Future<void> fold() async {
     final player = localPlayer;
     if (player == null || !game.fold(player)) return;
-    await _post('/fold', {});
+    await send('fold', {});
   }
 
   @override
@@ -420,20 +379,20 @@ class OnlineGameController extends GameController {
     final local = localPlayer!;
     local.cardToPlay = card;
     // If the server says no (or can't be reached), let the player try again
-    final accepted = await _post('/play', {'card': index});
+    final accepted = await send('play', {'card': index});
     if (!accepted && local.cardToPlay == card) local.cardToPlay = null;
   }
 
   @override
-  Future<void> sendChat(String text) async => await _post('/chat', {'text': text});
+  Future<void> sendChat(String text) async => await send('chat', {'text': text});
 
   @override
   Future<void> shootTable(double x, double y) async {
     // Show it straight away; the server's copy uses the same seed, so the hole
     // looks identical when the next sync replaces it
     final seed = Random().nextInt(1 << 30);
-    game.shootTable(username, x, y, seed: seed);
-    await _post('/shoot', {'x': x, 'y': y, 'seed': seed});
+    game.shootTable(localPlayer?.name ?? '', x, y, seed: seed);
+    await send('shoot', {'x': x, 'y': y, 'seed': seed});
   }
 
   /// Stroke points waiting to go to the server, sent in small batches so
@@ -449,7 +408,7 @@ class OnlineGameController extends GameController {
   void draw(String strokeId,
       {required Color color, required double width, required bool erase, required List<Offset> points}) {
     _activeStroke = strokeId;
-    game.draw(username, strokeId, color: color.toARGB32(), width: width, erase: erase, points: points);
+    game.draw(localPlayer?.name ?? '', strokeId, color: color.toARGB32(), width: width, erase: erase, points: points);
     final meta = {'stroke': strokeId, 'color': color.toARGB32(), 'width': width, 'erase': erase};
     _pendingInk.putIfAbsent(strokeId, () => (meta, <Offset>[])).$2.addAll(points);
     _inkFlush ??= Timer(const Duration(milliseconds: 80), _flushInk);
@@ -460,7 +419,7 @@ class OnlineGameController extends GameController {
     final batches = Map.of(_pendingInk);
     _pendingInk.clear();
     for (final (meta, points) in batches.values) {
-      await _post('/draw', {
+      await send('draw', {
         ...meta,
         'points': [
           for (final p in points) ...[p.dx, p.dy]
@@ -478,14 +437,109 @@ class OnlineGameController extends GameController {
   Future<void> throwFlashbang(double x, double y) async {
     // The server decides (cooldown); the bang arrives with the next sync
     _serverFlashReady = false;
-    await _post('/flashbang', {'x': x, 'y': y});
+    await send('flashbang', {'x': x, 'y': y});
   }
 
   @override
   Future<void> shootSeat(String name) async {
     game.spins.value = {...game.spins.value, name: (game.spins.value[name] ?? 0) + 1};
-    await _post('/shoot', {'seat': name});
+    await send('shoot', {'seat': name});
   }
+
+  @override
+  Future<void> newMatch() async => send('newMatch', {});
+}
+
+class OnlineGameController extends RemoteTableController {
+  OnlineGameController({required this.host, required this.port, required this.username});
+
+  final String host;
+  final int port;
+  final String username;
+  String _deviceId = '';
+  bool _running = false;
+  int _failures = 0;
+
+  @override
+  GamePlayer? get localPlayer {
+    for (final player in game.players) {
+      if (player.name == username) return player;
+    }
+    return null;
+  }
+
+  @override
+  String get label => 'Online at $host:$port';
+
+  String get _id => '$_deviceId$username';
+
+  /// Registers with the server. Throws a readable message on failure.
+  static Future<void> join(String host, int port, String username) async {
+    final id = await deviceId();
+    final http.Response response;
+    try {
+      response = await http
+          .post(Uri(scheme: 'http', host: host, port: port, path: '/connect'),
+              body: jsonEncode({
+                'username': username,
+                'id': id,
+                'back': PlayerProfile.instance.cardPattern,
+                'face': PlayerProfile.instance.cardFace,
+              }))
+          .timeout(const Duration(seconds: 5));
+    } on TimeoutException {
+      throw 'The server at $host:$port did not answer.';
+    } catch (e) {
+      throw 'Could not reach $host:$port.';
+    }
+    if (response.statusCode != 200) throw 'The server refused to let you in (${response.statusCode}).';
+  }
+
+  @override
+  void start() {
+    resetTable();
+    _running = true;
+    _loop();
+  }
+
+  @override
+  void dispose() => _running = false;
+
+  Future<void> _loop() async {
+    _deviceId = await deviceId();
+    while (_running) {
+      try {
+        final response = await http
+            .get(Uri(
+                scheme: 'http', host: host, port: port, path: '/update', queryParameters: {'ink_rev': '$inkRevision'}))
+            .timeout(const Duration(seconds: 3));
+        if (!_running) break;
+        applySnapshot(jsonDecode(response.body)[0]);
+        _failures = 0;
+        error.value = null;
+      } catch (e) {
+        _failures++;
+        if (_failures > 2) error.value = 'Connection lost. Reconnecting...';
+      }
+      await Future.delayed(const Duration(milliseconds: 250));
+    }
+  }
+
+  /// Returns whether the server accepted it.
+  Future<bool> _post(String path, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(Uri(scheme: 'http', host: host, port: port, path: path), body: jsonEncode({'id': _id, ...body}))
+          .timeout(const Duration(seconds: 3));
+      return response.statusCode == 200;
+    } catch (e) {
+      error.value = 'Could not reach the server.';
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> send(String action, Map<String, dynamic> body) => _post('/$action', body);
 
   @override
   Future<void> newMatch() async {

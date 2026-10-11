@@ -1,13 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:donut_game/ai/acrotron.dart';
 import 'package:donut_game/data/settings.dart';
 import 'package:donut_game/modes/bad_batch/bb_game.dart';
 import 'package:donut_game/modes/bad_batch/deck_library.dart';
 import 'package:donut_game/modes/game_mode.dart';
+import 'package:donut_game/net/table_host.dart';
 import 'package:donut_game/res/resources.dart';
-import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
 import 'package:donut_game/ui/server_home/server_home.dart';
@@ -20,6 +19,9 @@ import 'package:shelf_static/shelf_static.dart' as shelf_static;
 import 'package:window_manager/window_manager.dart';
 
 Game serverGame = Game();
+
+/// Seats players and applies their moves; shared with Game Center matches.
+final TableHost tableHost = TableHost(onAllReady: _allReady);
 
 /// What the table is playing. Switched from the server window between games.
 GameMode serverMode = GameMode.donut;
@@ -146,15 +148,15 @@ final _router = shelf_router.Router()
   ..get('/helloworld', _helloWorldHandler)
   ..post('/connect', _newConnectionHandler)
   ..get('/update', _activeConnection)
-  ..post('/vote', _voteResponse)
-  ..post('/swap', _executeSwap)
-  ..post('/play', _executePlay)
-  ..post('/swapvote', _finalizeSwap)
-  ..post('/fold', _executeFold)
-  ..post('/chat', _executeChat)
-  ..post('/shoot', _executeShoot)
-  ..post('/draw', _executeDraw)
-  ..post('/flashbang', _executeFlashbang)
+  ..post('/vote', (Request request) => _act(request, 'vote'))
+  ..post('/swap', (Request request) => _act(request, 'swap'))
+  ..post('/play', (Request request) => _act(request, 'play'))
+  ..post('/swapvote', (Request request) => _act(request, 'swapvote'))
+  ..post('/fold', (Request request) => _act(request, 'fold'))
+  ..post('/chat', (Request request) => _act(request, 'chat'))
+  ..post('/shoot', (Request request) => _act(request, 'shoot'))
+  ..post('/draw', (Request request) => _act(request, 'draw'))
+  ..post('/flashbang', (Request request) => _act(request, 'flashbang'))
   ..post('/bb/submit', _bbSubmit)
   ..post('/bb/judge', _bbJudge)
   ..get('/reset', _executeReset)
@@ -167,64 +169,31 @@ final _router = shelf_router.Router()
 Response _helloWorldHandler(Request request) => Response.ok('Hello, World!');
 
 Future<Response> _newConnectionHandler(Request request) async {
-  String playerData = await request.readAsString();
-  final playerJson = jsonDecode(playerData);
-  if ('${playerJson['username']}'.trim().toLowerCase() == acrotronName.toLowerCase()) {
-    return Response(409, body: 'That name belongs to the house AI. Pick another.');
-  }
-  final player = GamePlayer('${playerJson['username']}', 0, true);
-  player.id = playerJson['id'] + playerJson['username'];
-  player.agent = playerJson['agent'] == true;
-  // Reconnecting keeps the existing seat
-  final rejoining = serverGame.playerDB.containsKey(player.id);
-  if (!rejoining) {
-    serverGame.addLocalPlayer(player);
-    badBatch.rosterChanged();
-    serverGame.say('', '${player.name} joined the game.', system: true);
-  }
-  if (serverGame.playerDB.length == 2) {
-    serverGame.protectedActive = 1;
-    serverGame.protectedDealer = 0;
-    serverGame.state.value = GameState.waitingToDeal;
-  }
-
-  return Response.ok('{"topic": "generic", "error": "", "data": "Welcome, ${player.name}"}');
+  final playerJson = jsonDecode(await request.readAsString());
+  final id = '${playerJson['id']}${playerJson['username']}';
+  final rejoining = serverGame.playerDB.containsKey(id);
+  final result = tableHost.join(id, '${playerJson['username']}',
+      back: playerJson['back'] is String ? playerJson['back'] : null,
+      face: playerJson['face'] is String ? playerJson['face'] : null,
+      agent: playerJson['agent'] == true);
+  if (!result.ok) return _respond(result);
+  if (!rejoining) badBatch.rosterChanged();
+  return Response.ok('{"topic": "generic", "error": "", "data": "Welcome, ${playerJson['username']}"}');
 }
 
-/// [inkRevision] is the drawing the client already has; the strokes are only
-/// sent when the table has changed since.
-Map<String, dynamic> _gameToJson({int? inkRevision}) {
-  return {
-    'state': gameStateToString[serverGame.state.value]!,
-    'table': GameCard.jsonArray(serverGame.table.cards.value),
-    'discard': GameCard.jsonArray(serverGame.discard.cards.value),
-    'deck': GameCard.jsonArray(serverGame.deck.contents),
-    'active': serverGame.protectedActive,
-    'dealer': serverGame.protectedDealer,
-    'trump': suitToString[serverGame.trumpSuit.value],
-    'leading_card': serverGame.leadingCard?.toJson(),
-    'sudden_death': serverGame.suddenDeath.map((e) => e.name).toList(),
-    'champion': serverGame.champion.value?.name,
-    'elapsed_ms': serverGame.matchElapsed.inMilliseconds,
-    'clock_running': serverGame.matchStarted != null && serverGame.matchEnded == null,
-    'hand': serverGame.handNumber,
-    'trick_serial': serverGame.trickSerial,
-    'trick_winner': serverGame.lastTrickWinner?.name,
-    'chat': serverGame.chat.value.map((e) => e.toJson()).toList(),
-    'holes': serverGame.holes.value.map((e) => e.toJson()).toList(),
-    'spins': serverGame.spins.value,
-    'ink_rev': serverGame.inkRevision,
-    'flash': {
-      'serial': serverGame.flashSerial,
-      'x': serverGame.flashAt.dx,
-      'y': serverGame.flashAt.dy,
-      'by': serverGame.flashBy,
-      'ready': serverGame.flashReady,
-    },
-    if (inkRevision != serverGame.inkRevision) 'ink': serverGame.ink.value.map((e) => e.toJson()).toList(),
-    'now_ms': DateTime.now().millisecondsSinceEpoch,
-  };
+Response _respond(ActionResult result) => result.ok ? Response.ok('') : Response(result.status, body: result.message);
+
+/// Applies one player's move from a request body {"id", ...}.
+Future<Response> _act(Request request, String action) async {
+  try {
+    final body = Map<String, dynamic>.from(jsonDecode(await request.readAsString()));
+    return _respond(tableHost.act('${body['id']}', action, body));
+  } catch (e) {
+    return Response.badRequest();
+  }
 }
+
+Map<String, dynamic> _gameToJson({int? inkRevision}) => tableHost.gameJson(inkRevision: inkRevision);
 
 Future<Response> _activeConnection(Request request) async {
   if (serverGame.playerDB.length > 2 && serverGame.state.value == GameState.waitingForPlayers) {
@@ -245,87 +214,10 @@ Future<Response> _activeConnection(Request request) async {
   return Response.ok(jsonText);
 }
 
-Future<Response> _voteResponse(Request request) async {
-  try {
-    String playerData = await request.readAsString();
-    final playerJson = jsonDecode(playerData);
-    final player = serverGame.playerDB[playerJson['id']]!;
-    // "vote": "false" takes a ready back
-    player.voteToDeal = playerJson['vote'] != 'false';
-    evaluateDeal();
-    return Response.ok('');
-  } catch (e) {
-    return Response.badRequest();
-  }
-}
-
-List<Map<String, dynamic>> _playersToJson() {
-  List<Map<String, dynamic>> compound = [];
-  for (var player in serverGame.players) {
-    if (!player.human) {
-      player.voteToDeal = true;
-    }
-    compound.add({
-      'username': player.name,
-      'id': player.id + player.name,
-      'human': player.human.toString(),
-      'voteDeal': player.voteToDeal.toString(),
-      'cards': player.hand.toJsonArray(),
-      'swaps': player.swaps.value,
-      'notReady': player.notReady.toString(),
-      'score': player.score.value,
-      'donuts': player.donuts.value,
-      'winner': player.winner.value,
-      'folds': player.folds,
-      'tricks': player.tricks,
-      'skip': player.skip.toString(),
-      'awaitingCard': player.awaitingCard.toString(),
-      'agent': player.agent
-    });
-  }
-  return compound;
-}
-
-Future<Response> _executeSwap(Request request) async {
-  String swapData = await request.readAsString();
-  final swapJson = jsonDecode(swapData);
-  String player = swapJson['id'];
-  int cardIndex = swapJson['swap'];
-  var target = serverGame.playerDB[player]!.hand.cards.value[cardIndex].state;
-  if (target == CardState.held && serverGame.playerDB[player]!.swaps.value > 0) {
-    serverGame.playerDB[player]!.hand.cards.value[cardIndex].state = CardState.swap;
-    serverGame.playerDB[player]!.swaps.value--;
-
-    return Response.ok('');
-  }
-
-  if (target == CardState.swap) {
-    serverGame.playerDB[player]!.hand.cards.value[cardIndex].state = CardState.held;
-    serverGame.playerDB[player]!.swaps.value++;
-
-    return Response.ok('');
-  }
-  return Response.badRequest();
-}
+List<Map<String, dynamic>> _playersToJson() => tableHost.playersJson();
 
 Future<Response> _executeReset(Request request) async {
   Game.reset();
-  return Response.ok('');
-}
-
-/// Only accepted while the game is waiting for this player's card. Anything
-/// earlier (say, during the pause after winning a trick) would be wiped when
-/// the turn really starts, so it's refused and the client un-marks the card.
-Future<Response> _executePlay(Request request) async {
-  final playJson = jsonDecode(await request.readAsString());
-  final player = serverGame.playerDB[playJson['id']];
-  final cardIndex = playJson['card'];
-  if (player == null || cardIndex is! int) return Response.badRequest();
-  final hand = player.hand.cards.value;
-  if (!player.awaitingCard || cardIndex < 0 || cardIndex >= hand.length) {
-    return Response(409, body: 'Not your turn to play');
-  }
-  player.cardToPlay = hand[cardIndex];
   return Response.ok('');
 }
 
@@ -352,94 +244,8 @@ Future<Response> _bbJudge(Request request) async {
   return problem == null ? Response.ok('') : Response(409, body: problem);
 }
 
-/// {"id", "x", "y"}: throws a flashbang onto the table. 429 while the last
-/// one is still cooling down.
-Future<Response> _executeFlashbang(Request request) async {
-  final body = jsonDecode(await request.readAsString());
-  final player = serverGame.playerDB[body['id']];
-  if (player == null || body['x'] is! num || body['y'] is! num) return Response.badRequest();
-  final thrown = serverGame.throwFlashbang(player.name, (body['x'] as num).toDouble(), (body['y'] as num).toDouble());
-  return thrown ? Response.ok('') : Response(429, body: 'Flashbang cooling down');
-}
-
-/// Markers and eraser: {"id", "stroke", "color", "width", "erase", "points"}
-/// with points flattened as [x1, y1, x2, y2...], all 0..1 across the felt.
-/// Repeated calls with the same stroke id extend it.
-Future<Response> _executeDraw(Request request) async {
-  final body = jsonDecode(await request.readAsString());
-  final player = serverGame.playerDB[body['id']];
-  final flat = body['points'];
-  if (player == null || body['stroke'] is! String || flat is! List) return Response.badRequest();
-  final points = <Offset>[];
-  for (var i = 0; i + 1 < flat.length && points.length < 500; i += 2) {
-    if (flat[i] is num && flat[i + 1] is num)
-      points.add(Offset((flat[i] as num).toDouble(), (flat[i + 1] as num).toDouble()));
-  }
-  serverGame.draw(
-    player.name,
-    body['stroke'],
-    color: body['color'] is int ? body['color'] : 0xFF000000,
-    width: ((body['width'] as num?) ?? 0.004).toDouble().clamp(0.001, 0.06),
-    erase: body['erase'] == true,
-    points: points,
-  );
-  return Response.ok('');
-}
-
-/// The revolver: {"id", "x", "y"} puts a hole in the table, {"id", "seat"}
-/// spins that player's placard.
-Future<Response> _executeShoot(Request request) async {
-  final shot = jsonDecode(await request.readAsString());
-  final player = serverGame.playerDB[shot['id']];
-  if (player == null) return Response.badRequest();
-  if (shot['seat'] is String) {
-    serverGame.shootSeat(player.name, shot['seat']);
-  } else if (shot['x'] is num && shot['y'] is num) {
-    serverGame.shootTable(player.name, (shot['x'] as num).toDouble(), (shot['y'] as num).toDouble(),
-        seed: shot['seed'] is int ? shot['seed'] : null);
-  } else {
-    return Response.badRequest();
-  }
-  return Response.ok('');
-}
-
-Future<Response> _executeChat(Request request) async {
-  final chatJson = jsonDecode(await request.readAsString());
-  final player = serverGame.playerDB[chatJson['id']];
-  final String text = (chatJson['text'] ?? '').toString().trim();
-  if (player == null || text.isEmpty) return Response.badRequest();
-  serverGame.say(player.name, text.length > 280 ? text.substring(0, 280) : text);
-  return Response.ok('');
-}
-
-Future<Response> _executeFold(Request request) async {
-  final foldJson = jsonDecode(await request.readAsString());
-  final player = serverGame.playerDB[foldJson['id']];
-  if (player == null ||
-      serverGame.state.value != GameState.waitingForPlayerToSwap ||
-      serverGame.activePlayerLazy != player ||
-      !serverGame.fold(player)) {
-    return Response.badRequest();
-  }
-  return Response.ok('');
-}
-
-Future<Response> _finalizeSwap(Request request) async {
-  String swapData = await request.readAsString();
-  final swapJson = jsonDecode(swapData);
-  String player = swapJson['id'];
-  serverGame.playerDB[player]!.notReady = !serverGame.playerDB[player]!.notReady;
-
-  return Response.ok('');
-// return Response.badRequest();
-}
-
-void evaluateDeal() {
-  // Bots are always ready
-  for (final player in serverGame.players) {
-    if (!player.human) player.voteToDeal = true;
-  }
-  if (serverGame.playerDB.values.where((element) => element.voteToDeal == false).isNotEmpty) return;
+/// Everyone's ready: deal Donut, or start a game of Bad Batch.
+void _allReady() {
   if (serverMode == GameMode.donut) {
     serverGame.deal(shuffle: true);
     return;
