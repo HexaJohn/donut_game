@@ -1,0 +1,15 @@
+name: donut_server
+description: The Donut party server, run as an AWS Lambda function behind a WebSocket API.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  donut_engine:
+    path: ../donut_engine
+  crypto: ^3.0.3
+
+dev_dependencies:
+  test: ^1.25.0

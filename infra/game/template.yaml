@@ -1,0 +1,168 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Donut party backend: a WebSocket API whose every message runs one Lambda
+  function (the Dart engine), with tables kept in S3. Named and tagged so the
+  guardrails stack watches it and can switch it off. Deploy with deploy.sh.
+
+Parameters:
+  GameShutoffTopicArn:
+    Type: String
+    Description: The guardrails stack's game shutoff topic; alarms here post to it.
+  ConnectionFlood:
+    Type: Number
+    Default: 100
+    Description: New connections in 5 minutes that switch the game off. A party of four makes a handful.
+
+Resources:
+  # Tables, who's connected and which connection is whose. Idle tables are
+  # forgotten after a day: every move rewrites a table, so only abandoned
+  # ones get old.
+  TablesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: forget-idle-tables
+            Status: Enabled
+            ExpirationInDays: 1
+      Tags: [{Key: app, Value: donut}]
+
+  FunctionLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/donut-game-api
+      RetentionInDays: 14
+
+  FunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: donut-game-api
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: run-tables
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: Logs
+                Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !GetAtt FunctionLogs.Arn
+              - Sid: Tables
+                Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:DeleteObject]
+                Resource: !Sub ${TablesBucket.Arn}/*
+              - Sid: TalkToPlayers
+                Effect: Allow
+                Action: execute-api:ManageConnections
+                Resource: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${Api}/*
+      Tags: [{Key: app, Value: donut}]
+
+  Function:
+    Type: AWS::Lambda::Function
+    DependsOn: FunctionLogs
+    Properties:
+      FunctionName: donut-game-api
+      Description: The Donut party server (Dart), one event per WebSocket message.
+      Runtime: provided.al2023
+      Architectures: [arm64]
+      Handler: bootstrap
+      Code: ./lambda
+      MemorySize: 256
+      Timeout: 20
+      # The guardrails' normal limit; the kill switch sets it to 0
+      ReservedConcurrentExecutions: 2
+      Role: !GetAtt FunctionRole.Arn
+      Environment:
+        Variables:
+          TABLES_BUCKET: !Ref TablesBucket
+      Tags: [{Key: app, Value: donut}]
+
+  Api:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: donut-game-ws
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: $request.body.a
+      Tags: {app: donut}
+
+  Integration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref Api
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Function.Arn}/invocations
+
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: $connect
+      Target: !Sub integrations/${Integration}
+
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: $disconnect
+      Target: !Sub integrations/${Integration}
+
+  DefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref Api
+      RouteKey: $default
+      Target: !Sub integrations/${Integration}
+
+  Stage:
+    Type: AWS::ApiGatewayV2::Stage
+    DependsOn: [ConnectRoute, DisconnectRoute, DefaultRoute]
+    Properties:
+      ApiId: !Ref Api
+      StageName: live
+      AutoDeploy: true
+      # The guardrails' normal limits; the kill switch sets these to 0
+      DefaultRouteSettings:
+        ThrottlingRateLimit: 10
+        ThrottlingBurstLimit: 20
+      Tags: {app: donut}
+
+  InvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref Function
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${Api}/*
+
+  # Open connections cost by the minute and don't run the function, so the
+  # guardrails' Lambda alarms can't see a flood of them
+  ConnectionFloodAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: guardrails-game-connections
+      AlarmDescription: !Sub Donut game - more than ${ConnectionFlood} new connections in 5 minutes.
+      Namespace: AWS/ApiGateway
+      MetricName: ConnectCount
+      Dimensions: [{Name: ApiId, Value: !Ref Api}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: !Ref ConnectionFlood
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref GameShutoffTopicArn]
+
+Outputs:
+  WebSocketUrl:
+    Value: !Sub wss://${Api}.execute-api.${AWS::Region}.amazonaws.com/live
+    Description: What the app connects to.
