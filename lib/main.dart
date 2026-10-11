@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:donut_game/audio/web_audio.dart';
 import 'package:donut_game/analytics/usage.dart';
 import 'package:donut_game/audio/music_player.dart';
 import 'package:donut_game/data/settings.dart';
@@ -101,7 +102,13 @@ class DonutApp extends StatelessWidget {
           final app = isMobile ? SafeArea(child: child!) : child!;
           if (!kIsWeb) return app;
           // The first click or tap lets the browser play sound
-          return Listener(onPointerDown: (_) => MusicPlayer.instance.unlockAudio(), child: app);
+          return Listener(
+            onPointerDown: (_) {
+              WebAudio.instance.unlock();
+              MusicPlayer.instance.unlockAudio();
+            },
+            child: app,
+          );
         },
         home: const SplashScreen(),
       ),

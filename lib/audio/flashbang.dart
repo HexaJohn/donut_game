@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:donut_game/audio/web_audio.dart';
 import 'package:donut_game/audio/audio_available.dart';
 import 'package:donut_game/audio/sfx.dart';
 import 'package:donut_game/data/settings.dart';
@@ -28,11 +29,21 @@ class FlashbangAudio {
   bool _loaded = false;
   Timer? _envelope;
 
+  /// In a browser the ringing goes through Web Audio, like the effects.
+  static const _ringAsset = 'sounds/ringing.mp3';
+  static bool get _webAudio => kIsWeb && WebAudio.instance.supported;
+  WebLoop? _webRing;
+
   /// Total time until audio is back to normal.
   static const Duration length = Duration(milliseconds: 5000);
 
   Future<void> preload() async {
     if (!audioAvailable || _loaded) return;
+    if (_webAudio) {
+      await WebAudio.instance.load(_ringAsset);
+      _loaded = true;
+      return;
+    }
     try {
       await _ring.setReleaseMode(ReleaseMode.loop);
       await _ring.setSource(AssetSource('sounds/ringing.mp3'));
@@ -67,7 +78,11 @@ class FlashbangAudio {
               : t < _recoverStart
                   ? 1.0
                   : max(0.0, 1 - (t - _recoverStart) / (_recoverEnd - _recoverStart));
-      if (t >= _ringStart && !ringing && _loaded) {
+      if (t >= _ringStart && !ringing && _loaded && _webAudio) {
+        ringing = true;
+        _webRing?.stop();
+        _webRing = WebAudio.instance.loop(_ringAsset);
+      } else if (t >= _ringStart && !ringing && _loaded) {
         ringing = true;
         _quietly(() async {
           await _ring.setVolume(0);
@@ -75,12 +90,18 @@ class FlashbangAudio {
           await _ring.resume();
         });
       }
-      if (ringing) _quietly(() => _ring.setVolume(ring * Settings.instance.effectiveSfxVolume));
+      if (ringing && _webAudio) {
+        _webRing?.level = ring * Settings.instance.effectiveSfxVolume;
+      } else if (ringing) {
+        _quietly(() => _ring.setVolume(ring * Settings.instance.effectiveSfxVolume));
+      }
 
       if (t >= _recoverEnd) {
         timer.cancel();
         audioDuck.value = 1;
-        _quietly(_ring.stop);
+        _webRing?.stop();
+        _webRing = null;
+        if (!_webAudio) _quietly(_ring.stop);
       }
     });
   }

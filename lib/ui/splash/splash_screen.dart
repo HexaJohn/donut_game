@@ -79,15 +79,18 @@ class _SplashScreenState extends State<SplashScreen> {
     // and the sound is ready to start on the same frame
     await Future.wait([
       precacheAcroLogo().catchError((_) {}),
-      _quietly(() async {
-        await _sound.setReleaseMode(ReleaseMode.stop);
-        await _sound.setSource(AssetSource('sounds/acro-braam.mp3'));
-        await _sound.setVolume(0.4);
-      }).timeout(const Duration(seconds: 2), onTimeout: () {}),
+      // Browsers block sound before the first tap, and a media element
+      // would show in the phone's Now Playing: the web stays quiet here
+      if (!kIsWeb)
+        _quietly(() async {
+          await _sound.setReleaseMode(ReleaseMode.stop);
+          await _sound.setSource(AssetSource('sounds/acro-braam.mp3'));
+          await _sound.setVolume(0.4);
+        }).timeout(const Duration(seconds: 2), onTimeout: () {}),
       _wait(250),
     ]);
     _set(() => _visible = true);
-    _quietly(_sound.resume);
+    if (!kIsWeb) _quietly(_sound.resume);
     await _wait(acroLogoDuration.inMilliseconds + 700);
     _set(() => _visible = false);
     _fadeOutSound(const Duration(milliseconds: 1400));

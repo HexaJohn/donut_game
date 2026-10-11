@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:donut_game/audio/web_audio.dart';
 import 'package:donut_game/audio/audio_available.dart';
 import 'package:donut_game/audio/flashbang.dart';
 import 'package:donut_game/data/settings.dart';
@@ -111,6 +112,7 @@ class MusicPlayer {
 
   Future<void> _start(String track, {required bool loop, required int generation}) async {
     nowPlaying.value = track;
+    if (kIsWeb) WebAudio.instance.nowPlaying(displayNames[track] ?? 'Donut');
     _gain = _trackGain[track] ?? 1;
     _fade = 0;
     _applyVolume();

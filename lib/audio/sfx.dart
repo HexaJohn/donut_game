@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:donut_game/audio/web_audio.dart';
 import 'package:donut_game/audio/audio_available.dart';
 import 'package:donut_game/audio/flashbang.dart';
 import 'package:donut_game/data/settings.dart';
@@ -134,7 +135,17 @@ class SoundEffects {
   /// takes time on every sound and would pause the music.
   static final AudioContext _mixed = AudioContextConfig(focus: AudioContextConfigFocus.mixWithOthers).build();
 
+  /// In a browser, effects go through Web Audio (see [WebAudio]).
+  static bool get _webAudio => kIsWeb && WebAudio.instance.supported;
+
+  static String _asset(_Clip clip) => 'sounds/${clip.name}.${clip.ext}';
+
   Future<void> _preload() async {
+    if (_webAudio) {
+      await Future.wait(
+          [for (final clip in _bank.values.expand((clips) => clips)) WebAudio.instance.load(_asset(clip))]);
+      return;
+    }
     for (final clip in _bank.values.expand((clips) => clips)) {
       final players = <AudioPlayer>[];
       for (var i = 0; i < clip.voices; i++) {
@@ -171,6 +182,10 @@ class SoundEffects {
     if (clips.length > 1 && index == _last[sfx]) index = (index + 1) % clips.length;
     _last[sfx] = index;
     final clip = clips[index];
+    if (_webAudio) {
+      WebAudio.instance.play(_asset(clip), (clip.gain * level).clamp(0.0, 1.0));
+      return;
+    }
     final players = _voices[clip];
     if (players == null || players.isEmpty) return;
     final voice = _next[clip] ?? 0;
