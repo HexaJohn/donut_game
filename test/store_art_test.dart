@@ -75,8 +75,8 @@ void main() {
   final art = <String, (Size, Widget)>{
     'store_header_capsule': (const Size(920, 430), const KeyArt(layout: ArtLayout.wide)),
     'store_small_capsule': (const Size(462, 174), const KeyArt(layout: ArtLayout.small)),
-    'store_main_capsule': (const Size(1232, 706), const KeyArt(layout: ArtLayout.wide, tagline: true)),
-    'store_vertical_capsule': (const Size(748, 896), const KeyArt(layout: ArtLayout.tall, tagline: true)),
+    'store_main_capsule': (const Size(1232, 706), const KeyArt(layout: ArtLayout.wide)),
+    'store_vertical_capsule': (const Size(748, 896), const KeyArt(layout: ArtLayout.tall)),
     'store_page_background': (const Size(1438, 810), const KeyArt(layout: ArtLayout.scene, dim: 0.55)),
     'library_capsule': (const Size(600, 900), const KeyArt(layout: ArtLayout.tall)),
     'library_header': (const Size(920, 430), const KeyArt(layout: ArtLayout.wide)),
@@ -206,10 +206,9 @@ enum ArtLayout { wide, small, tall, scene, logoOnly, icon }
 
 /// The key art: a venue, its table, a fanned hand and the Donut mark.
 class KeyArt extends StatelessWidget {
-  const KeyArt({super.key, required this.layout, this.tagline = false, this.dim = 0});
+  const KeyArt({super.key, required this.layout, this.dim = 0});
 
   final ArtLayout layout;
-  final bool tagline;
 
   /// Darkens everything, for art that sits behind the store page.
   final double dim;
@@ -277,7 +276,6 @@ class KeyArt extends StatelessWidget {
               child: _mark(
                 tall ? w * 0.42 : h * (small ? 0.62 : 0.42),
                 row: !tall,
-                tagline: tagline && !small,
               ),
             ),
           ),
@@ -336,7 +334,7 @@ class KeyArt extends StatelessWidget {
   }
 
   /// The donut and the name, side by side or stacked.
-  Widget _mark(double size, {required bool row, bool tagline = false}) {
+  Widget _mark(double size, {required bool row}) {
     final title = Text(
       'Donut',
       style: TextStyle(
@@ -346,30 +344,12 @@ class KeyArt extends StatelessWidget {
         height: 1,
         color: const Color(0xFFFFF4E6),
         letterSpacing: -size * 0.01,
-        shadows: [Shadow(color: Colors.black.withValues(alpha: 0.6), blurRadius: size * 0.08, offset: Offset(0, size * 0.03))],
+        shadows: [
+          Shadow(color: Colors.black.withValues(alpha: 0.6), blurRadius: size * 0.08, offset: Offset(0, size * 0.03))
+        ],
       ),
     );
-    final words = Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: row ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-      children: [
-        title,
-        if (tagline)
-          Padding(
-            padding: EdgeInsets.only(top: size * 0.06),
-            child: Text(
-              'Get to zero. Avoid the donut.',
-              style: TextStyle(
-                fontFamily: 'Roboto',
-                fontWeight: FontWeight.w600,
-                fontSize: size * (row ? 0.11 : 0.085),
-                color: const Color(0xFFE9B949),
-                shadows: const [Shadow(color: Colors.black, blurRadius: 8)],
-              ),
-            ),
-          ),
-      ],
-    );
+    final words = title;
     final logo = DonutLogo(size: size * (row ? 0.82 : 0.7), frosting: const Color(0xFFF06292));
     return FittedBox(
       child: row
