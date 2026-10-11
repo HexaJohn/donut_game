@@ -1,6 +1,8 @@
 import 'dart:math';
 
 import 'package:donut_game/data/model/game_card/game_card.dart';
+import 'package:donut_game/progression/card_patterns.dart';
+import 'package:donut_game/progression/profile.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:donut_game/ui/widget/suit_icon.dart';
@@ -145,8 +147,13 @@ class _CardFace extends StatelessWidget {
   }
 }
 
+/// The back of a card, in the pattern the player has equipped (or [pattern]
+/// if given), drawn in the theme's card-back colours.
 class CardBack extends StatelessWidget {
-  const CardBack({super.key});
+  const CardBack({super.key, this.pattern});
+
+  /// A catalog pattern id; null uses the equipped one.
+  final String? pattern;
 
   @override
   Widget build(BuildContext context) {
@@ -155,48 +162,13 @@ class CardBack extends StatelessWidget {
       decoration: _cardDecoration(colors, colors.cardBack),
       padding: const EdgeInsets.all(6),
       child: CustomPaint(
-        painter: _BackPatternPainter(colors.cardBackPattern),
+        painter: CardBackPainter(
+          id: pattern ?? PlayerProfile.instance.cardPattern,
+          pattern: colors.cardBackPattern,
+          back: colors.cardBack,
+        ),
         child: const SizedBox.expand(),
       ),
     );
   }
-}
-
-class _BackPatternPainter extends CustomPainter {
-  _BackPatternPainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    canvas.clipRect(rect);
-    canvas.drawRect(
-      rect,
-      Paint()
-        ..color = color.withValues(alpha: 0.6)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
-    );
-    final lines = Paint()
-      ..color = color.withValues(alpha: 0.28)
-      ..strokeWidth = 1;
-    const step = 9.0;
-    for (var x = -size.height; x < size.width; x += step) {
-      canvas.drawLine(Offset(x, 0), Offset(x + size.height, size.height), lines);
-      canvas.drawLine(Offset(x + size.height, 0), Offset(x, size.height), lines);
-    }
-    // Little donut in the middle
-    final c = size.center(Offset.zero);
-    canvas.drawCircle(
-        c,
-        11.5,
-        Paint()
-          ..color = color.withValues(alpha: 0.9)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 11);
-  }
-
-  @override
-  bool shouldRepaint(_BackPatternPainter oldDelegate) => oldDelegate.color != color;
 }

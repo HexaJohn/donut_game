@@ -19,6 +19,9 @@ class GamePlayer {
 
   /// Tricks taken in the current hand.
   int tricks = 0;
+
+  /// Tricks taken over the whole match, for the career tally.
+  int matchTricks = 0;
   ValueNotifier<int> score = ValueNotifier(startingScore);
   ValueNotifier<int> donuts = ValueNotifier(0);
   ValueNotifier<bool> winner = ValueNotifier(false);

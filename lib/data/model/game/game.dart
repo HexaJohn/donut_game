@@ -243,6 +243,7 @@ class Game {
       player.score.value = startingScore;
       player.donuts.value = 0;
       player.folds = 0;
+      player.matchTricks = 0;
       player.winner.value = false;
       player.hand.dump();
     }
@@ -634,6 +635,7 @@ class Game {
     }
     var winner = evaluateTableForWinner();
     winner.tricks++;
+    winner.matchTricks++;
     winner.score.value = winner.score.value - 1;
     winner.notifyWin();
     lastTrickWinner = winner;

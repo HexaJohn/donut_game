@@ -7,6 +7,12 @@ import 'package:donut_game/data/model/chat_message.dart';
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
+import 'package:donut_game/data/settings.dart';
+import 'package:donut_game/progression/emblem.dart';
+import 'package:donut_game/progression/environments.dart';
+import 'package:donut_game/progression/gadgets.dart';
+import 'package:donut_game/progression/profile.dart';
+import 'package:donut_game/ui/widget/confetti.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:donut_game/ui/game/announcer.dart';
@@ -61,10 +67,14 @@ class _GameBoardState extends State<GameBoard> {
 
   // Table tools: the revolver, markers and eraser. Each player has their own;
   // what they do to the table and the placards is shared through the game.
-  static const int _chambers = 6;
+  int get _chambers => chambersFor(PlayerProfile.instance);
   _Tool? _held;
   Color _markerColor = markerColors.first;
-  int _ammo = _chambers;
+  late int _ammo = _chambers;
+
+  /// Confetti bursts still falling, by where and when they went off.
+  final List<(Offset, DateTime)> _bursts = [];
+  static const _burstLife = Duration(milliseconds: 1800);
 
   /// Stroke being drawn with a marker or the eraser, and its last point.
   String? _strokeId;
@@ -114,6 +124,37 @@ class _GameBoardState extends State<GameBoard> {
     if (point == null) return;
     controller.throwFlashbang(point.dx, point.dy);
     _putDown();
+  }
+
+  /// Stamps a donut on the felt as a thick ring of ink, so it syncs like any
+  /// other stroke.
+  void _stamp(Offset at) {
+    final centre = _onFelt(at);
+    if (centre == null) return;
+    SoundEffects.instance.play(Sfx.place);
+    const radius = 0.045;
+    final aspect = _feltRect.width / _feltRect.height;
+    const steps = 40;
+    final points = [
+      for (var i = 0; i <= steps; i++)
+        Offset(
+          centre.dx + cos(i * 2 * pi / steps) * radius,
+          centre.dy + sin(i * 2 * pi / steps) * radius * aspect,
+        ),
+    ];
+    controller.draw(
+      '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(1 << 20)}',
+      color: _markerColor,
+      width: radius * 0.9,
+      erase: false,
+      points: points,
+    );
+  }
+
+  void _confetti(Offset at) {
+    if (!_feltRect.contains(at)) return;
+    SoundEffects.instance.play(Sfx.slide);
+    setState(() => _bursts.add((at, DateTime.now())));
   }
 
   void _inkDown(Offset at) {
@@ -299,23 +340,41 @@ class _GameBoardState extends State<GameBoard> {
       ));
     }
 
-    // Felt
+    // Felt, in whatever environment the player has equipped
+    final profile = PlayerProfile.instance;
+    final environment = TableEnvironment.byId(profile.environment);
+    final feltColor = environment.feltColor(colors);
+    final feltEdge = environment.edgeColor(colors);
+    final texture = environment.texture;
     children.add(Positioned.fromRect(
         key: const ValueKey('felt'),
         rect: felt,
         child: RepaintBoundary(
           child: Container(
             decoration: BoxDecoration(
-              gradient: RadialGradient(
-                colors: [Color.lerp(colors.felt, Colors.white, 0.06)!, colors.felt],
-                radius: 1.2,
-              ),
               borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: colors.feltEdge, width: 6),
+              border: Border.all(color: feltEdge, width: 6),
               boxShadow: [
-                if (colors.glow) BoxShadow(color: colors.feltEdge.withValues(alpha: 0.5), blurRadius: 18),
+                if (colors.glow) BoxShadow(color: feltEdge.withValues(alpha: 0.5), blurRadius: 18),
                 const BoxShadow(color: Color(0x44000000), blurRadius: 12, offset: Offset(0, 4)),
               ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        colors: [Color.lerp(feltColor, Colors.white, 0.06)!, feltColor],
+                        radius: 1.2,
+                      ),
+                    ),
+                  ),
+                  if (texture != null) CustomPaint(key: ValueKey(environment.id), painter: texture(feltColor)),
+                ],
+              ),
             ),
           ),
         )));
@@ -340,7 +399,7 @@ class _GameBoardState extends State<GameBoard> {
               duration: const Duration(milliseconds: 140),
               curve: Curves.easeOutBack,
               builder: (context, t, child) => Transform.scale(scale: t, child: child),
-              child: BulletHoleMark(seed: hole.seed, size: holeSize, surface: colors.felt),
+              child: BulletHoleMark(seed: hole.seed, size: holeSize, surface: feltColor),
             ),
           ),
         ),
@@ -371,29 +430,33 @@ class _GameBoardState extends State<GameBoard> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final color in markerColors)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: Opacity(
-                    // The marker you're holding leaves an empty slot
-                    opacity: _held == _Tool.marker && _markerColor == color ? 0 : 1,
-                    child: trayItem(
-                      'Marker',
-                      _Tool.marker,
-                      SizedBox.fromSize(
-                        size: markerSize * toolScale,
-                        child: FittedBox(child: MarkerPen(color: color)),
+          // Markers in columns of seven, so unlocked packs don't climb the felt
+          for (final column in _columnsOf(markerColorsFor(profile), 7)) ...[
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final color in column)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Opacity(
+                      // The marker you're holding leaves an empty slot
+                      opacity: _held == _Tool.marker && _markerColor == color ? 0 : 1,
+                      child: trayItem(
+                        'Marker',
+                        _Tool.marker,
+                        SizedBox.fromSize(
+                          size: markerSize * toolScale,
+                          child: FittedBox(child: MarkerPen(color: color)),
+                        ),
+                        color: color,
                       ),
-                      color: color,
                     ),
                   ),
-                ),
-            ],
-          ),
-          SizedBox(width: cw * 0.25),
+              ],
+            ),
+            SizedBox(width: cw * 0.08),
+          ],
+          SizedBox(width: cw * 0.17),
           Opacity(
             opacity: _held == _Tool.eraser ? 0 : 1,
             child: trayItem(
@@ -420,6 +483,28 @@ class _GameBoardState extends State<GameBoard> {
               ),
             ),
           ),
+          if (profile.owns('gadget.stamp')) ...[
+            SizedBox(width: cw * 0.25),
+            Opacity(
+              opacity: _held == _Tool.stamp ? 0 : 1,
+              child: trayItem(
+                'Donut stamp',
+                _Tool.stamp,
+                _GadgetIcon(icon: Icons.approval_rounded, size: cw * 0.5, color: _markerColor),
+              ),
+            ),
+          ],
+          if (profile.owns('gadget.confetti')) ...[
+            SizedBox(width: cw * 0.25),
+            Opacity(
+              opacity: _held == _Tool.confetti ? 0 : 1,
+              child: trayItem(
+                'Confetti cannon',
+                _Tool.confetti,
+                _GadgetIcon(icon: Icons.celebration_rounded, size: cw * 0.5, color: const Color(0xFFFFC857)),
+              ),
+            ),
+          ],
           SizedBox(width: cw * 0.25),
           Opacity(
             opacity: _held == _Tool.revolver ? 0 : 1,
@@ -437,7 +522,7 @@ class _GameBoardState extends State<GameBoard> {
     ));
 
     // Pile labels and trump chip
-    final onFelt = ThemeData.estimateBrightnessForColor(colors.felt) == Brightness.dark ? Colors.white : Colors.black;
+    final onFelt = ThemeData.estimateBrightnessForColor(feltColor) == Brightness.dark ? Colors.white : Colors.black;
     children.add(Positioned(
       key: const ValueKey('deck-label'),
       left: deckPos.dx - 8,
@@ -681,6 +766,16 @@ class _GameBoardState extends State<GameBoard> {
       }
     }
 
+    _bursts.removeWhere((burst) => now.difference(burst.$2) > _burstLife);
+    for (final (at, fired) in _bursts) {
+      overlays.add(Positioned(
+        key: ValueKey('confetti-${fired.microsecondsSinceEpoch}'),
+        left: at.dx - 150,
+        top: at.dy - 150,
+        child: IgnorePointer(child: ConfettiBurst(size: 300, life: _burstLife, seed: fired.microsecondsSinceEpoch)),
+      ));
+    }
+
     overlays.add(Positioned(
       key: const ValueKey('announcer'),
       left: felt.left,
@@ -728,6 +823,8 @@ class _GameBoardState extends State<GameBoard> {
                 _Tool.marker => 'Drag to draw on the table',
                 _Tool.eraser => 'Drag to rub out ink',
                 _Tool.flashbang => 'Click the table to throw it',
+                _Tool.stamp => 'Click the table to stamp a donut',
+                _Tool.confetti => 'Click the table to fire',
               },
             ),
           ),
@@ -753,6 +850,8 @@ class _GameBoardState extends State<GameBoard> {
               onTapDown: switch (held) {
                 _Tool.revolver => (details) => _fire(details.localPosition),
                 _Tool.flashbang => (details) => _throwFlashbang(details.localPosition),
+                _Tool.stamp => (details) => _stamp(details.localPosition),
+                _Tool.confetti => (details) => _confetti(details.localPosition),
                 _ => null,
               },
               onPanDown: drawing ? (details) => _inkDown(details.localPosition) : null,
@@ -780,6 +879,15 @@ class _GameBoardState extends State<GameBoard> {
                               ),
                             ),
                           ]),
+                        _Tool.stamp => _HeldGadget(
+                            aim: aim,
+                            child: _GadgetIcon(icon: Icons.approval_rounded, size: cw * 0.6, color: _markerColor),
+                          ),
+                        _Tool.confetti => _HeldGadget(
+                            aim: aim,
+                            child: _GadgetIcon(
+                                icon: Icons.celebration_rounded, size: cw * 0.6, color: const Color(0xFFFFC857)),
+                          ),
                       },
               ),
             ),
@@ -816,6 +924,50 @@ class _GameBoardState extends State<GameBoard> {
         final bySuit = suitRank(a.suit).compareTo(suitRank(b.suit));
         return bySuit != 0 ? bySuit : a.value.index.compareTo(b.value.index);
       });
+  }
+}
+
+/// Splits [items] into columns of at most [size].
+List<List<T>> _columnsOf<T>(List<T> items, int size) => [
+      for (var i = 0; i < items.length; i += size) items.sublist(i, min(i + size, items.length)),
+    ];
+
+/// A tray gadget drawn as an icon on a round pad.
+class _GadgetIcon extends StatelessWidget {
+  const _GadgetIcon({required this.icon, required this.size, required this.color});
+
+  final IconData icon;
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: const Color(0xFF263238),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white24),
+        boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 6, offset: Offset(0, 3))],
+      ),
+      child: Icon(icon, size: size * 0.6, color: color),
+    );
+  }
+}
+
+/// A gadget in hand, following the cursor.
+class _HeldGadget extends StatelessWidget {
+  const _HeldGadget({required this.aim, required this.child});
+
+  final Offset aim;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(children: [
+      Positioned(left: aim.dx + 10, top: aim.dy + 10, child: IgnorePointer(child: child)),
+    ]);
   }
 }
 
@@ -1123,6 +1275,8 @@ class PlayerAvatar extends StatelessWidget {
         children: [
           if (player.agent && player.name == fableName)
             FableMark(size: size)
+          else if (player.human && (player.id == 'local' || player.name == Settings.instance.nickname))
+            EmblemWidget(emblem: PlayerProfile.instance.emblem, size: size)
           else
             CircleAvatar(
               radius: size / 2,
@@ -1509,7 +1663,7 @@ class _HeldRevolver extends StatelessWidget {
   }
 }
 
-enum _Tool { revolver, marker, eraser, flashbang }
+enum _Tool { revolver, marker, eraser, flashbang, stamp, confetti }
 
 /// A marker in hand: tip on the cursor, body leaning up and to the right.
 class _HeldMarker extends StatelessWidget {

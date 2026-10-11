@@ -27,3 +27,5 @@ doc/api/
 .flutter-plugins-dependencies
 # Packaged builds
 dist/
+# Python tooling
+__pycache__/

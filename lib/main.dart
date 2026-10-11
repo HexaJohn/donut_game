@@ -1,4 +1,5 @@
 import 'package:donut_game/data/settings.dart';
+import 'package:donut_game/progression/profile.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:donut_game/ui/splash/splash_screen.dart';
 import 'package:donut_game/ui/widget/title_bar.dart';
@@ -8,6 +9,7 @@ import 'package:window_manager/window_manager.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Settings.instance.load();
+  await PlayerProfile.instance.load();
 
   if (isDesktop) {
     await windowManager.ensureInitialized();

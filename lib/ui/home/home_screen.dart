@@ -6,6 +6,7 @@ import 'package:donut_game/data/remote/connectivity.dart';
 import 'package:donut_game/data/settings.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
+import 'package:donut_game/ui/career/career_screen.dart';
 import 'package:donut_game/ui/game/game_controller.dart';
 import 'package:donut_game/ui/game/game_screen.dart';
 import 'package:donut_game/ui/home/routes.dart';
@@ -199,11 +200,23 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ),
         ),
         const SizedBox(height: 20),
+        const CareerStrip(),
+        const SizedBox(height: 16),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           alignment: wide ? WrapAlignment.start : WrapAlignment.center,
           children: [
+            ActionChip(
+              avatar: const Icon(Icons.military_tech_rounded, size: 18),
+              label: const Text('Career'),
+              onPressed: () => showCareer(context),
+            ),
+            ActionChip(
+              avatar: const Icon(Icons.storefront_rounded, size: 18),
+              label: const Text('Shop'),
+              onPressed: () => showCareer(context, tab: 2),
+            ),
             ActionChip(
               avatar: const Icon(Icons.menu_book_rounded, size: 18),
               label: const Text('How to play'),

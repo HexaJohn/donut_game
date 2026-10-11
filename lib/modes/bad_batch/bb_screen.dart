@@ -9,6 +9,9 @@ import 'package:donut_game/modes/bad_batch/bb_controller.dart';
 import 'package:donut_game/modes/bad_batch/bb_game.dart';
 import 'package:donut_game/modes/bad_batch/bb_widgets.dart';
 import 'package:donut_game/modes/game_mode.dart';
+import 'package:donut_game/progression/profile.dart';
+import 'package:donut_game/progression/rewards.dart';
+import 'package:donut_game/ui/career/match_rewards.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:donut_game/ui/game/chat_panel.dart';
 import 'package:donut_game/ui/widget/dialogs.dart';
@@ -45,6 +48,10 @@ class _BbScreenState extends State<BbScreen> {
   BbState? _lastState;
   int _lastRound = 0;
   int _lastChat = 0;
+
+  /// Career rewards for the game just finished, banked once per game.
+  MatchOutcome? _outcome;
+  bool _awarded = false;
 
   @override
   void initState() {
@@ -108,7 +115,29 @@ class _BbScreenState extends State<BbScreen> {
     }
     _lastRound = view.round;
     _lastState = view.state;
+    _bankRewards(view);
     setState(() {});
+  }
+
+  void _bankRewards(BbView view) {
+    if (view.state != BbState.gameOver) {
+      _awarded = false;
+      _outcome = null;
+      return;
+    }
+    if (_awarded || controller.online) return;
+    _awarded = true;
+    final profile = PlayerProfile.instance;
+    final me = controller.localName;
+    _outcome = MatchOutcome.awardBadBatch(
+      profile,
+      BadBatchSummary(
+        won: view.champion == me,
+        roundsWon: view.scores[me] ?? 0,
+        players: view.scores.length,
+        firstWinToday: profile.firstWinTodayAvailable,
+      ),
+    );
   }
 
   bool get _canAnswer {
@@ -286,7 +315,8 @@ class _BbScreenState extends State<BbScreen> {
               SizedBox(height: handWidth / bbCardAspect + 28, child: _hand(view, handWidth)),
             ],
           ),
-          if (view.state == BbState.gameOver) Positioned.fill(child: _GameOver(view: view, controller: controller)),
+          if (view.state == BbState.gameOver)
+            Positioned.fill(child: _GameOver(view: view, controller: controller, outcome: _outcome)),
         ],
       );
     });
@@ -724,10 +754,13 @@ class _Seats extends StatelessWidget {
 }
 
 class _GameOver extends StatelessWidget {
-  const _GameOver({required this.view, required this.controller});
+  const _GameOver({required this.view, required this.controller, required this.outcome});
 
   final BbView view;
   final BbController controller;
+
+  /// Null online, where there's nothing to pay.
+  final MatchOutcome? outcome;
 
   @override
   Widget build(BuildContext context) {
@@ -737,34 +770,41 @@ class _GameOver extends StatelessWidget {
     return Container(
       color: Colors.black.withValues(alpha: 0.45),
       alignment: Alignment.center,
-      child: Container(
-        width: 380,
-        padding: const EdgeInsets.all(28),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [BoxShadow(color: colors.accent.withValues(alpha: 0.4), blurRadius: 40)],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DonutLogo(size: 72, frosting: colors.accent),
-            const SizedBox(height: 12),
-            Text(view.champion == controller.localName ? 'You win!' : '${view.champion} wins!',
-                style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 16),
-            for (final entry in standings)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: Row(
-                  children: [
-                    Expanded(child: Text(entry.key)),
-                    Text('${entry.value}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 20),
-            Row(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Container(
+          width: 420,
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [BoxShadow(color: colors.accent.withValues(alpha: 0.4), blurRadius: 40)],
+          ),
+          child: MatchOverFlow(
+            outcome: outcome,
+            header: Column(
+              children: [
+                DonutLogo(size: 72, frosting: colors.accent),
+                const SizedBox(height: 12),
+                Text(view.champion == controller.localName ? 'You win!' : '${view.champion} wins!',
+                    style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
+              ],
+            ),
+            standings: Column(
+              children: [
+                for (final entry in standings)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      children: [
+                        Expanded(child: Text(entry.key)),
+                        Text('${entry.value}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            actions: Row(
               children: [
                 Expanded(
                     child: OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('Main menu'))),
@@ -777,7 +817,7 @@ class _GameOver extends StatelessWidget {
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );

@@ -7,6 +7,9 @@ import 'package:donut_game/data/model/chat_message.dart';
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/modes/bad_batch/bb_screen.dart';
 import 'package:donut_game/modes/game_mode.dart';
+import 'package:donut_game/progression/profile.dart';
+import 'package:donut_game/progression/rewards.dart';
+import 'package:donut_game/ui/career/match_rewards.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
@@ -59,6 +62,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   bool _lastSuddenDeath = false;
   int _trumpShownForHand = -1;
   Map<String, int> _lastDonuts = {};
+
+  /// Career rewards for the match just finished, banked once per match.
+  MatchOutcome? _outcome;
+  bool _awarded = false;
+  bool _inSuddenDeath = false;
 
   GameController get controller => widget.controller;
   Game get game => controller.game;
@@ -191,6 +199,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
     _detectChat();
     _detectFlashbang();
+    _detectMatchEnd();
 
     if (state != _lastState) {
       if (state == GameState.dealing) {
@@ -263,6 +272,42 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           subtitle: lead == null ? 'Lead with any card' : 'Follow ${suitToString[lead]} if you can', urgent: true));
     }
     _lastPlayTurn = playTurn;
+  }
+
+  /// Banks XP and currency the moment an offline match is decided.
+  void _detectMatchEnd() {
+    final local = controller.localPlayer;
+    final champion = game.champion.value;
+    if (local != null && game.suddenDeath.contains(local)) _inSuddenDeath = true;
+    if (champion == null) {
+      // A new match: ready to pay out again
+      if (_awarded && game.state.value != GameState.gameOver) {
+        _awarded = false;
+        _outcome = null;
+        _inSuddenDeath = false;
+      }
+      return;
+    }
+    if (_awarded || controller.online || local == null) return;
+    _awarded = true;
+    final standings = [...game.players]..sort((a, b) => a.score.value.compareTo(b.score.value));
+    standings
+      ..remove(champion)
+      ..insert(0, champion);
+    final profile = PlayerProfile.instance;
+    _outcome = MatchOutcome.awardDonut(
+      profile,
+      DonutMatchSummary(
+        placement: standings.indexOf(local) + 1,
+        players: game.players.length,
+        tricks: local.matchTricks,
+        donuts: local.donuts.value,
+        hands: game.handNumber,
+        suddenDeath: _inSuddenDeath,
+        duration: game.matchElapsed,
+        firstWinToday: profile.firstWinTodayAvailable,
+      ),
+    );
   }
 
   void _detectFlashbang() {
@@ -394,7 +439,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                               child: AnimatedOpacity(
                                 opacity: champion == null ? 0 : 1,
                                 duration: const Duration(milliseconds: 500),
-                                child: champion == null ? const SizedBox() : _MatchOverOverlay(controller: controller),
+                                child: champion == null
+                                    ? const SizedBox()
+                                    : _MatchOverOverlay(controller: controller, outcome: _outcome),
                               ),
                             ),
                           ),
@@ -433,9 +480,12 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 }
 
 class _MatchOverOverlay extends StatelessWidget {
-  const _MatchOverOverlay({required this.controller});
+  const _MatchOverOverlay({required this.controller, required this.outcome});
 
   final GameController controller;
+
+  /// Null online, where there's nothing to pay.
+  final MatchOutcome? outcome;
 
   @override
   Widget build(BuildContext context) {
@@ -454,52 +504,59 @@ class _MatchOverOverlay extends StatelessWidget {
         duration: const Duration(milliseconds: 500),
         curve: Curves.easeOutBack,
         builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
-        child: Container(
-          width: 380,
-          padding: const EdgeInsets.all(28),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [BoxShadow(color: colors.accent.withValues(alpha: 0.4), blurRadius: 40)],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DonutLogo(size: 84, frosting: colors.accent),
-              const SizedBox(height: 12),
-              Text(youWon ? 'You win!' : '${champion.name} wins!',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
-              const SizedBox(height: 4),
-              Text('Match time ${formatDuration(game.matchElapsed)}',
-                  style:
-                      theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
-              const SizedBox(height: 20),
-              for (var i = 0; i < standings.length; i++)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 28,
-                        child:
-                            Text('${i + 1}.', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Container(
+            width: 420,
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [BoxShadow(color: colors.accent.withValues(alpha: 0.4), blurRadius: 40)],
+            ),
+            child: MatchOverFlow(
+              outcome: outcome,
+              header: Column(
+                children: [
+                  DonutLogo(size: 84, frosting: colors.accent),
+                  const SizedBox(height: 12),
+                  Text(youWon ? 'You win!' : '${champion.name} wins!',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 4),
+                  Text('Match time ${formatDuration(game.matchElapsed)}',
+                      style: theme.textTheme.bodyMedium
+                          ?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+                ],
+              ),
+              standings: Column(
+                children: [
+                  for (var i = 0; i < standings.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 28,
+                            child: Text('${i + 1}.',
+                                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                          ),
+                          PlayerAvatar(player: standings[i], size: 28),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(standings[i].name, overflow: TextOverflow.ellipsis)),
+                          if (standings[i].donuts.value > 0)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: Text('\u{1F369}${standings[i].donuts.value}'),
+                            ),
+                          Text('${standings[i].score.value}',
+                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                        ],
                       ),
-                      PlayerAvatar(player: standings[i], size: 28),
-                      const SizedBox(width: 10),
-                      Expanded(child: Text(standings[i].name, overflow: TextOverflow.ellipsis)),
-                      if (standings[i].donuts.value > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 12),
-                          child: Text('\u{1F369}${standings[i].donuts.value}'),
-                        ),
-                      Text('${standings[i].score.value}',
-                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                    ],
-                  ),
-                ),
-              const SizedBox(height: 20),
-              Row(
+                    ),
+                ],
+              ),
+              actions: Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
@@ -515,7 +572,7 @@ class _MatchOverOverlay extends StatelessWidget {
                   ],
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),
