@@ -52,6 +52,18 @@ class MusicPlayer {
   /// Starts the in-game playlist. Does nothing if it's already playing.
   Future<void> playGame() => _switchTo(MusicMode.game);
 
+  /// Browsers refuse sound until the page is first clicked or tapped, so
+  /// on the web the music that tried to start is started again then.
+  bool _unlocked = !kIsWeb;
+
+  void unlockAudio() {
+    if (_unlocked) return;
+    _unlocked = true;
+    final track = nowPlaying.value, current = mode.value;
+    if (track == null || current == null || _backgrounded) return;
+    _start(track, loop: current == MusicMode.menu, generation: ++_generation);
+  }
+
   /// Whether the app is in the background, where it stays quiet.
   bool _backgrounded = false;
 

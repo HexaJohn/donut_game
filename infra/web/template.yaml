@@ -1,0 +1,192 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Donut on the web: the Flutter web build in a private bucket, served over
+  HTTPS by CloudFront at the game's address. Tagged app=donut so the
+  guardrails' game shutoff can switch the site off, which this stack's
+  traffic alarms ask it to do. Deploy with deploy.sh (in us-east-1, where
+  CloudFront's certificates and metrics live).
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: donut.acrovisuals.com
+  CertificateArn:
+    Type: String
+    Description: An issued ACM certificate in us-east-1 for DomainName.
+  SwitchFunctionArn:
+    Type: String
+    Description: The guardrails switch, which turns the site off when an alarm here fires.
+  HourlyBytes:
+    Type: Number
+    Default: 21474836480
+    Description: Bytes served in an hour that switch the site off (20 GB; a first visit is ~15 MB).
+  DailyBytes:
+    Type: Number
+    Default: 107374182400
+    Description: Bytes served in a day that switch the site off (100 GB; CloudFront's free tier is 1 TB a month).
+  HourlyRequests:
+    Type: Number
+    Default: 1000000
+    Description: Requests in an hour that switch the site off (free tier is 10 million a month).
+
+Resources:
+  SiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      Tags: [{Key: app, Value: donut}]
+
+  # Only this distribution may read the bucket
+  OriginAccess:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: donut-web
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  SiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SiteBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: cloudfront.amazonaws.com}
+            Action: s3:GetObject
+            Resource: !Sub ${SiteBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${Site}
+
+  Site:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: Donut on the web
+        Enabled: true
+        Aliases: [!Ref DomainName]
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        # North America and Europe edges only: the cheapest class
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        Origins:
+          - Id: site
+            DomainName: !GetAtt SiteBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt OriginAccess.Id
+            S3OriginConfig: {OriginAccessIdentity: ''}
+        DefaultCacheBehavior:
+          TargetOriginId: site
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          AllowedMethods: [GET, HEAD]
+          # Managed policies: CachingOptimized (honours the files' own
+          # Cache-Control) and SecurityHeadersPolicy
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03
+        # Unknown paths show the game rather than an S3 error
+        CustomErrorResponses:
+          - {ErrorCode: 403, ResponseCode: 200, ResponsePagePath: /index.html, ErrorCachingMinTTL: 60}
+          - {ErrorCode: 404, ResponseCode: 200, ResponsePagePath: /index.html, ErrorCachingMinTTL: 60}
+      Tags: [{Key: app, Value: donut}]
+
+  # CloudFront's metrics are only in us-east-1 and alarms can only notify
+  # topics in their own region, so the site has its own shutoff topic,
+  # wired to the guardrails switch (whose game scope covers app=donut sites)
+  ShutoffTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: guardrails-game-shutoff-web
+      Tags: [{Key: app, Value: donut}]
+
+  ShutoffTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [!Ref ShutoffTopic]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: cloudwatch.amazonaws.com}
+            Action: sns:Publish
+            Resource: !Ref ShutoffTopic
+            Condition:
+              ArnLike:
+                aws:SourceArn: !Sub arn:aws:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:*
+
+  SwitchSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref ShutoffTopic
+      Protocol: lambda
+      Endpoint: !Ref SwitchFunctionArn
+
+  HourlyBytesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: guardrails-game-web-hourly
+      AlarmDescription: !Sub Donut website - more than ${HourlyBytes} bytes served in an hour.
+      Namespace: AWS/CloudFront
+      MetricName: BytesDownloaded
+      Dimensions: [{Name: DistributionId, Value: !Ref Site}, {Name: Region, Value: Global}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: !Ref HourlyBytes
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref ShutoffTopic]
+
+  DailyBytesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: guardrails-game-web-daily
+      AlarmDescription: !Sub Donut website - more than ${DailyBytes} bytes served in a day.
+      Namespace: AWS/CloudFront
+      MetricName: BytesDownloaded
+      Dimensions: [{Name: DistributionId, Value: !Ref Site}, {Name: Region, Value: Global}]
+      Statistic: Sum
+      Period: 86400
+      EvaluationPeriods: 1
+      Threshold: !Ref DailyBytes
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref ShutoffTopic]
+
+  RequestsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: guardrails-game-web-requests
+      AlarmDescription: !Sub Donut website - more than ${HourlyRequests} requests in an hour.
+      Namespace: AWS/CloudFront
+      MetricName: Requests
+      Dimensions: [{Name: DistributionId, Value: !Ref Site}, {Name: Region, Value: Global}]
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: !Ref HourlyRequests
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref ShutoffTopic]
+
+Outputs:
+  BucketName:
+    Value: !Ref SiteBucket
+  DistributionId:
+    Value: !Ref Site
+  DistributionDomain:
+    Value: !GetAtt Site.DomainName
+    Description: Where the DomainName CNAME points.
+  ShutoffTopicArn:
+    Value: !Ref ShutoffTopic

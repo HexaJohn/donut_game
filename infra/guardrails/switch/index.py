@@ -1,9 +1,11 @@
 """Switches cloud spending off when a guardrail trips, and back on by hand.
 
 Two scopes:
-  game     the Donut game: resources named GAME_PREFIX* in the home region
+  game     the Donut game: resources named GAME_PREFIX* in the home region,
+           and CloudFront sites tagged app=donut
   account  everything in REGIONS: every Lambda function (but this one), every
-           API Gateway stage and Amplify branch, and every public S3 bucket
+           API Gateway stage and Amplify branch, every public S3 bucket and
+           every CloudFront site
 
 Before changing anything it records how each resource was in STATE_BUCKET,
 so restoring puts things back exactly as they were. Shutting off twice keeps
@@ -97,6 +99,36 @@ def public_buckets():
             pass
 
 
+def cloudfront_sites(game):
+    """(id, name) of each CloudFront distribution in scope: every one, or
+    just those tagged app=donut for the game."""
+    cf = client('cloudfront', 'us-east-1')
+    marker = None
+    while True:
+        page = cf.list_distributions(**({'Marker': marker} if marker else {}))['DistributionList']
+        for item in page.get('Items', []):
+            if game:
+                tags = cf.list_tags_for_resource(Resource=item['ARN'])['Tags'].get('Items', [])
+                if not any(tag['Key'] == 'app' and tag['Value'] == 'donut' for tag in tags):
+                    continue
+            yield item['Id'], (item.get('Aliases', {}).get('Items') or [item['DomainName']])[0]
+        if not page.get('IsTruncated'):
+            return
+        marker = page['NextMarker']
+
+
+def set_site_enabled(site_id, enabled):
+    """Turns a distribution on or off. Returns whether it was on before."""
+    cf = client('cloudfront', 'us-east-1')
+    current = cf.get_distribution_config(Id=site_id)
+    config = current['DistributionConfig']
+    was = config['Enabled']
+    if was != enabled:
+        config['Enabled'] = enabled
+        cf.update_distribution(Id=site_id, IfMatch=current['ETag'], DistributionConfig=config)
+    return was
+
+
 # --- Switching off ----------------------------------------------------------
 
 def switch_off(scope):
@@ -154,6 +186,12 @@ def switch_off(scope):
                          'app': app['appId'], 'branch': branch['branchName'], 'was_locked': locked})
             changed.append(f"{region}: site {app['name']} ({branch['branchName']}) password-locked")
 
+    # CloudFront is global: its sites go dark everywhere
+    for site_id, name in cloudfront_sites(game):
+        was = set_site_enabled(site_id, False)
+        undo.append({'kind': 'cloudfront', 'region': 'global', 'name': site_id, 'was_enabled': was})
+        changed.append(f'site {name}: CloudFront distribution disabled')
+
     if not game:
         s3 = client('s3')
         for name in public_buckets():
@@ -206,6 +244,10 @@ def restore(undo):
                 client('amplify', region).update_branch(appId=entry['app'], branchName=entry['branch'],
                                                         enableBasicAuth=False)
             changed.append(f"{region}: site {entry['name']} unlocked")
+        elif kind == 'cloudfront':
+            if entry['was_enabled']:
+                set_site_enabled(entry['name'], True)
+            changed.append(f"site {entry['name']}: CloudFront distribution as before")
         elif kind == 's3':
             s3 = client('s3')
             if entry['previous'] is None:

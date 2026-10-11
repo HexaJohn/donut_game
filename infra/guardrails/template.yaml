@@ -33,19 +33,19 @@ Parameters:
     Description: US dollars a month the whole account may spend before everything is switched off.
   GameBudget:
     Type: Number
-    Default: 1
+    Default: 5
     Description: US dollars a month the game may spend before it's switched off.
   GamePrefix:
     Type: String
     Default: donut-game
   GameSpike:
     Type: Number
-    Default: 300
+    Default: 1500
     Description: Game requests in 5 minutes that switch the game off.
   GameWindow:
     Type: Number
-    Default: 1200
-    Description: Game requests in 6 hours that switch the game off (at most ~144k a month).
+    Default: 5000
+    Description: Game requests in 6 hours that switch the game off (at most ~600k a month).
   AccountLambdaSpike:
     Type: Number
     Default: 500
@@ -78,7 +78,7 @@ Parameters:
     Description: AppSync API id of Acro Office (the dev environment, which is the live one).
   NormalConcurrency:
     Type: Number
-    Default: 2
+    Default: 10
     Description: Copies of the game function allowed at once when it's on.
   NormalRateLimit:
     Type: Number
@@ -195,6 +195,14 @@ Resources:
               - Sid: LockSites
                 Effect: Allow
                 Action: [amplify:ListApps, amplify:ListBranches, amplify:UpdateBranch]
+                Resource: '*'
+              - Sid: DarkenSites
+                Effect: Allow
+                Action:
+                  - cloudfront:ListDistributions
+                  - cloudfront:ListTagsForResource
+                  - cloudfront:GetDistributionConfig
+                  - cloudfront:UpdateDistribution
                 Resource: '*'
               - Sid: BlockPublicBuckets
                 Effect: Allow

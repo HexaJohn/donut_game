@@ -97,7 +97,12 @@ class DonutApp extends StatelessWidget {
         scaffoldMessengerKey: GameCenterLobby.instance.messengerKey,
         theme: buildTheme(preset),
         // Clear of camera cutouts on phones that have them
-        builder: (context, child) => isMobile ? SafeArea(child: child!) : child!,
+        builder: (context, child) {
+          final app = isMobile ? SafeArea(child: child!) : child!;
+          if (!kIsWeb) return app;
+          // The first click or tap lets the browser play sound
+          return Listener(onPointerDown: (_) => MusicPlayer.instance.unlockAudio(), child: app);
+        },
         home: const SplashScreen(),
       ),
     );

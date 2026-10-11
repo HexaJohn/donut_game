@@ -129,6 +129,26 @@ class FakeClient:
     def delete_object(self, Bucket, Key):
         self.a['objects'].pop(Key, None)
 
+    # CloudFront
+    def list_distributions(self, **_):
+        items = [{'Id': i, 'ARN': f'arn:cf:{i}', 'DomainName': f'{i}.cloudfront.net',
+                  'Aliases': {'Items': site['aliases']}} for i, site in self.a['cloudfront'].items()]
+        return {'DistributionList': {'Items': items, 'IsTruncated': False}}
+
+    def list_tags_for_resource(self, Resource):
+        site = self.a['cloudfront'][Resource.split(':')[-1]]
+        return {'Tags': {'Items': [{'Key': k, 'Value': v} for k, v in site['tags'].items()]}}
+
+    def get_distribution_config(self, Id):
+        site = self.a['cloudfront'][Id]
+        return {'ETag': f"e{site['version']}", 'DistributionConfig': {'Enabled': site['enabled'], 'Comment': 'x'}}
+
+    def update_distribution(self, Id, IfMatch, DistributionConfig):
+        site = self.a['cloudfront'][Id]
+        assert IfMatch == f"e{site['version']}", 'stale ETag'
+        site['enabled'] = DistributionConfig['Enabled']
+        site['version'] += 1
+
     # SNS
     def publish(self, TopicArn, Subject, Message):
         self.a['emails'].append((Subject, Message))
@@ -161,6 +181,11 @@ def _account():
             'www.acrovisuals.com': {'public': False, 'website': True, 'block': None},
             'acro-office': {'public': False, 'website': False, 'block': OPEN},
             'guardrails-state': {'public': False, 'website': False, 'block': None},
+        },
+        'cloudfront': {
+            'E1': {'aliases': ['donut.acrovisuals.com'], 'tags': {'app': 'donut'}, 'enabled': True, 'version': 1},
+            'E2': {'aliases': [], 'tags': {}, 'enabled': True, 'version': 1},
+            'E3': {'aliases': ['old.example.com'], 'tags': {'app': 'donut'}, 'enabled': False, 'version': 1},
         },
         'objects': {},
         'emails': [],
@@ -217,8 +242,27 @@ class SwitchTest(unittest.TestCase):
         # SmartShutters had no stage limits; it comes back on API Gateway's defaults
         expected['rest']['us-east-2']['r1']['stages']['prod'] = {
             'throttlingRateLimit': 10000.0, 'throttlingBurstLimit': 5000.0}
+        # CloudFront config versions move on with every update; only the state matters
+        for sites in (after['cloudfront'], expected['cloudfront']):
+            for site in sites.values():
+                site.pop('version')
         self.assertEqual(after, expected)
         self.assertEqual(self.account['objects'], {}, 'the record is cleared once restored')
+
+    def test_cloudfront_sites_go_dark_by_scope_and_come_back_as_they_were(self):
+        self.switch.handler(self.sns('arn:game-shutoff'), None)
+        sites = self.account['cloudfront']
+        self.assertFalse(sites['E1']['enabled'], 'the game\'s site is off')
+        self.assertTrue(sites['E2']['enabled'], 'untagged sites are not the game\'s')
+        self.switch.handler({'action': 'restore', 'scope': 'game'}, None)
+        self.assertTrue(sites['E1']['enabled'])
+        self.assertFalse(sites['E3']['enabled'], 'a site that was off stays off')
+
+        self.switch.handler(self.sns('arn:account-shutoff'), None)
+        self.assertFalse(sites['E2']['enabled'], 'the account shutoff covers every site')
+        self.switch.handler({'action': 'restore', 'scope': 'account'}, None)
+        self.assertTrue(sites['E1']['enabled'] and sites['E2']['enabled'])
+        self.assertFalse(sites['E3']['enabled'])
 
     def test_a_second_shutoff_keeps_the_first_record(self):
         self.switch.handler(self.sns('arn:account-shutoff'), None)

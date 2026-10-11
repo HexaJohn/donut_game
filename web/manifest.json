@@ -3,7 +3,7 @@
     "short_name": "Donut",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#FBF6F0",
+    "background_color": "#0f1420",
     "theme_color": "#E0457B",
     "description": "A trick-taking card game. Get to zero, avoid the donut.",
     "orientation": "any",
