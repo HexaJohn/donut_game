@@ -187,7 +187,7 @@ class ActionBar extends StatelessWidget {
           const PopupMenuItem(
               value: _MenuAction.theme, child: ListTile(leading: Icon(Icons.palette_outlined), title: Text('Theme'))),
           const PopupMenuItem(
-              value: _MenuAction.sound, child: ListTile(leading: Icon(Icons.volume_up_rounded), title: Text('Sound'))),
+              value: _MenuAction.sound, child: ListTile(leading: Icon(Icons.tune_rounded), title: Text('Settings'))),
           if (controller.canManageBots) ...[
             const PopupMenuItem(
                 value: _MenuAction.addBot,

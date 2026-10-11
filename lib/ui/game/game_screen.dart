@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:donut_game/analytics/usage.dart';
 import 'package:donut_game/audio/flashbang.dart';
 import 'package:donut_game/audio/music_player.dart';
 import 'package:donut_game/audio/sfx.dart';
@@ -72,6 +73,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   /// Career rewards for the match just finished, banked once per match.
   MatchOutcome? _outcome;
   bool _awarded = false;
+
+  /// This match's start and finish have been counted (anonymous stats).
+  bool _countedStart = false;
+  bool _countedFinish = false;
   bool _inSuddenDeath = false;
 
   /// Set when this screen gives way straight to another game.
@@ -289,7 +294,16 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         _outcome = null;
         _inSuddenDeath = false;
       }
+      if (_countedFinish && game.handNumber == 0) _countedStart = _countedFinish = false;
+      if (!_countedStart && game.handNumber >= 1 && local != null) {
+        _countedStart = true;
+        Usage.instance.count('match.${controller.kind}.started');
+      }
       return;
+    }
+    if (!_countedFinish && local != null) {
+      _countedFinish = true;
+      _countMatch(won: champion == local, local: local);
     }
     if (_awarded || controller.online || local == null) return;
     _awarded = true;
@@ -316,12 +330,32 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           ? stageClearRewards(campaign.stage, campaign.difficulty, profile.bestClear(campaign.stage))
           : const [],
     );
+    final rankUps = _outcome!.rankUps.length + _outcome!.slotRankUps.length;
+    if (rankUps > 0) Usage.instance.count('rank.up', rankUps);
     if (campaign != null) {
       if (won) {
         profile.recordStageClear(campaign.stage, campaign.difficulty);
       } else {
         campaign.gloat(champion.name);
       }
+    }
+  }
+
+  /// Tallies a finished match for the anonymous gameplay counts.
+  void _countMatch({required bool won, required GamePlayer local}) {
+    final usage = Usage.instance;
+    final result = won ? 'won' : 'lost';
+    usage
+      ..count('match.${controller.kind}.finished')
+      ..count('match.${controller.kind}.$result')
+      ..count('match.hands', game.handNumber)
+      ..count('match.minutes', game.matchElapsed.inMinutes);
+    if (game.suddenDeath.isNotEmpty || _inSuddenDeath) usage.count('match.suddenDeath');
+    final campaign = _campaign;
+    if (campaign != null) {
+      usage.count('campaign.${campaign.stage.id}.${campaign.difficulty.name}.$result');
+    } else if (!controller.online) {
+      usage.count('quick.${game.players.length - 1}bots.$result');
     }
   }
 

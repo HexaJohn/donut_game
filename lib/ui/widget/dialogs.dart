@@ -262,13 +262,16 @@ Future<void> showSoundSettings(BuildContext context) {
       return Dialog(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
-          child: Padding(
+          // Scrolls on a phone held sideways
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Sound', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+                Text('Settings', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 12),
+                Text('Sound', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 16),
                 _VolumeRow(
                   label: 'Music',
@@ -308,7 +311,20 @@ Future<void> showSoundSettings(BuildContext context) {
                   volume: settings.sfxVolume,
                   muted: settings.sfxMuted,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                Text('Privacy', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                ValueListenableBuilder(
+                  valueListenable: settings.shareUsage,
+                  builder: (context, bool on, _) => SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: on,
+                    onChanged: settings.setShareUsage,
+                    title: const Text('Share anonymous gameplay stats'),
+                    subtitle: const Text('Counts like matches played and campaign stages cleared, to help balance '
+                        'the game. Never your name or chat.'),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerRight,
                   child: FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Done')),

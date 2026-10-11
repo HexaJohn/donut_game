@@ -147,6 +147,8 @@ class PartyServer {
           await _matchmake(connection, _who(message), blocked: blocked);
         case 'report':
           await _report(connection, message);
+        case 'usage':
+          await _usage(connection, message);
         case 'ping':
           return;
         default:
@@ -289,6 +291,27 @@ class PartyServer {
         ? ''
         : ' until ${DateTime.fromMillisecondsSinceEpoch(until, isUtc: true).toIso8601String().substring(0, 10)}';
     throw Refusal(403, 'You can\'t play online$when because of reports about your behaviour.');
+  }
+
+  static final _usageName = RegExp(r'^[a-zA-Z0-9_.-]{1,48}$');
+
+  /// Adds an app's anonymous gameplay counts to the day's totals, under
+  /// "app.". Only tallies with plain names and sensible sizes are taken.
+  Future<void> _usage(String connection, Map<String, dynamic> message) async {
+    final player = message['player'];
+    final events = message['events'];
+    if (player is! String || player.length < 8 || player.length > 80 || events is! Map) {
+      throw const Refusal(400, 'Bad usage report.');
+    }
+    var taken = 0;
+    for (final MapEntry(:key, :value) in events.entries) {
+      if (taken >= 100) break;
+      if (key is! String || !_usageName.hasMatch(key) || value is! int || value <= 0 || value > 100000) continue;
+      stats.count('app.$key', value);
+      taken++;
+    }
+    stats.sawPlayer(player);
+    await sender.send(connection, {'k': 'ack', 'n': message['n'], 'ok': true});
   }
 
   static const reportReasons = {'harassment', 'hate', 'sexual', 'cheating', 'name', 'spam', 'other'};

@@ -86,6 +86,10 @@ abstract class GameController {
   /// the table's host.
   bool get canRestart => true;
 
+  /// What kind of game this is, for the anonymous gameplay counts:
+  /// quick, campaign, party, public, gamecenter or server.
+  String get kind => 'quick';
+
   /// Players muted for this game only, by install id.
   final ValueNotifier<Set<String>> muted = ValueNotifier(const {});
 
@@ -522,6 +526,9 @@ class OnlineGameController extends RemoteTableController {
 
   @override
   String get label => 'Online at $host:$port';
+
+  @override
+  String get kind => 'server';
 
   String get _id => '$_deviceId$username';
 

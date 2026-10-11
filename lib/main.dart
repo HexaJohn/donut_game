@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:donut_game/analytics/usage.dart';
 import 'package:donut_game/audio/music_player.dart';
 import 'package:donut_game/data/settings.dart';
 import 'package:donut_game/progression/profile.dart';
@@ -47,6 +49,7 @@ Future<void> main() async {
     },
   );
   await Settings.instance.load();
+  unawaited(Usage.instance.start());
   await PlayerProfile.instance.load();
 
   if (isDesktop) {

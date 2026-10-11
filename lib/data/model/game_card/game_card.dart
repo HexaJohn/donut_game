@@ -17,7 +17,9 @@ class GameCard implements PlayingCard {
     this.tid = tid;
   }
 
+  @override
   Suit suit;
+  @override
   Value value;
   CardState state = CardState.unknown;
   GamePlayer? belongsTo;

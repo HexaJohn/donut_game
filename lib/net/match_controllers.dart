@@ -50,6 +50,9 @@ class MatchHostController extends GameController {
   @override
   String get label => 'Game Center';
 
+  @override
+  String get kind => 'gamecenter';
+
   /// Seats everyone in the match under unique names, with bots to make up
   /// the three players Donut needs.
   void _seat() {
@@ -219,6 +222,9 @@ class MatchClientController extends RemoteTableController {
 
   @override
   String get label => 'Game Center';
+
+  @override
+  String get kind => 'gamecenter';
 
   @override
   GamePlayer? get localPlayer {

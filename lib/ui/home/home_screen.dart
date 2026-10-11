@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_game/analytics/usage.dart';
 import 'package:donut_game/audio/music_player.dart';
 import 'package:donut_game/audio/sfx.dart';
 import 'package:donut_game/data/remote/connectivity.dart';
@@ -108,6 +109,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       return;
     }
     setState(() => _partyError = null);
+    Usage.instance.count(matchmake ? 'online.findGame' : (join ? 'online.joinByCode' : 'online.hostParty'));
     Navigator.of(context).push(partyRoute(code: join ? code : null, matchmake: matchmake, nickname: settings.nickname));
   }
 
@@ -261,8 +263,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               onPressed: () => showThemePicker(context),
             ),
             ActionChip(
-              avatar: const Icon(Icons.volume_up_rounded, size: 18),
-              label: const Text('Sound'),
+              avatar: const Icon(Icons.tune_rounded, size: 18),
+              label: const Text('Settings'),
               onPressed: () => showSoundSettings(context),
             ),
             _NetworkChip(internet: widget.network.internet),
@@ -440,7 +442,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           // No server needed: friends join through Game Center
           FilledButton.tonalIcon(
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-            onPressed: GameCenterLobby.instance.findMatch,
+            onPressed: () {
+              Usage.instance.count('online.gameCenter');
+              GameCenterLobby.instance.findMatch();
+            },
             icon: const Icon(Icons.sports_esports_rounded),
             label: const Text('Play with friends', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           ),

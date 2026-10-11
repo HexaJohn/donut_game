@@ -52,6 +52,9 @@ class PartyController extends RemoteTableController with WidgetsBindingObserver 
 
   @override
   bool get publicParty => _public;
+
+  @override
+  String get kind => matchmake || _public ? 'public' : 'party';
   bool _public = false;
 
   @override

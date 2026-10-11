@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:donut_game/analytics/usage.dart';
 import 'package:donut_game/audio/sfx.dart';
 import 'package:donut_game/campaign/backdrops.dart';
 import 'package:donut_game/data/model/chat_message.dart';
@@ -97,6 +98,7 @@ class _GameBoardState extends State<GameBoard> {
   }
 
   void _pickUp(_Tool tool, Offset at, {Color? color}) {
+    Usage.instance.count('gadget.${tool.name}');
     SoundEffects.instance.play(tool == _Tool.revolver ? Sfx.revolverLoaded : Sfx.click);
     setState(() {
       _held = tool;

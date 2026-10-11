@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:donut_game/analytics/usage.dart';
 import 'package:donut_game/data/settings.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:donut_game/net/party_client.dart';
 import 'package:donut_game/progression/emblem.dart';
 import 'package:flutter/painting.dart';
@@ -186,5 +188,28 @@ void main() {
     expect(reports.keys.where((key) => key.startsWith('reports/')), hasLength(1));
     host.dispose();
     await friend.socket.close();
+  });
+
+  test('gameplay counts are sent anonymously, and nothing is kept while sharing is off', () async {
+    SharedPreferences.setMockInitialValues({});
+    final usage = Usage.instance
+      ..url = gateway.url
+      ..reset();
+    usage
+      ..count('campaign.bakery.1.casual.won')
+      ..count('session.minutes', 12)
+      ..count('not allowed!');
+    expect(usage.pending, {'campaign.bakery.1.casual.won': 1, 'session.minutes': 12});
+    await usage.send();
+    expect(usage.pending, isEmpty, reason: 'the server acknowledged them');
+    final store = gateway.server.store as MemoryStore;
+    final day = store.keys.firstWhere((key) => key.startsWith('stats/days/'));
+    expect((await store.get(day))!.json,
+        allOf(containsPair('app.campaign.bakery.1.casual.won', 1), containsPair('app.session.minutes', 12)));
+
+    Settings.instance.setShareUsage(false);
+    addTearDown(() => Settings.instance.setShareUsage(true));
+    usage.count('match.quick.finished');
+    expect(usage.pending, isEmpty);
   });
 }

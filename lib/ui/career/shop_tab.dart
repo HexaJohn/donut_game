@@ -1,3 +1,4 @@
+import 'package:donut_game/analytics/usage.dart';
 import 'package:donut_game/ui/widget/playing_card.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
@@ -76,6 +77,7 @@ class ShopCard extends StatelessWidget {
 
   Future<void> _buy(BuildContext context) async {
     final bought = profile.buy(item);
+    if (bought) Usage.instance.count('shop.${item.id}');
     SoundEffects.instance.play(bought ? Sfx.place : Sfx.click);
     if (!bought && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(

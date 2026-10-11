@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'app_usage.dart';
 import 'model.dart';
 import 'widgets.dart';
 
@@ -64,6 +65,15 @@ class StatsScreen extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 24),
+        Text('In the app', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 4),
+        Text(
+          'Anonymous gameplay counts sent by the app (players can turn this off in Settings).',
+          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 10),
+        AppUsageSection(model: model),
         const SizedBox(height: 24),
         Text('By day', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),

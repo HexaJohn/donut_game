@@ -24,6 +24,14 @@ class Settings {
   int serverPort = defaultPort;
   int bots = 3;
 
+  /// Send anonymous gameplay counts (see Usage). On unless turned off.
+  final ValueNotifier<bool> shareUsage = ValueNotifier(true);
+
+  void setShareUsage(bool on) {
+    shareUsage.value = on;
+    _prefs?.setBool('shareUsage', on);
+  }
+
   /// Players this player blocked, by install id, with the name they had:
   /// their chat is hidden and matchmaking keeps them apart.
   final ValueNotifier<Map<String, String>> blocked = ValueNotifier(const {});
@@ -70,6 +78,7 @@ class Settings {
     musicMuted.value = prefs.getBool('musicMuted') ?? false;
     sfxVolume.value = prefs.getDouble('sfxVolume') ?? sfxVolume.value;
     sfxMuted.value = prefs.getBool('sfxMuted') ?? false;
+    shareUsage.value = prefs.getBool('shareUsage') ?? true;
     try {
       blocked.value = Map<String, String>.from(jsonDecode(prefs.getString('blockedPlayers') ?? '{}') as Map);
     } catch (_) {}

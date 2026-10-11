@@ -271,4 +271,17 @@ void main() {
       expect(sender.of('c-cat', 'joined').single['code'], annTable, reason: 'Ann\'s table was still listed');
     });
   });
+
+  test('usage reports add to the day\'s app counts, keeping only well-formed tallies', () async {
+    await server.handle(_event('\$default', 'c-app', {
+      'a': 'usage',
+      'player': 'install-0001',
+      'n': 4,
+      'events': {'campaign.bakery.1.casual.won': 2, 'session.minutes': 14, 'bad name!': 3, 'negative': -5, 'huge': 999999999},
+    }));
+    expect(sender.of('c-app', 'ack').single, containsPair('ok', true));
+    final day = (await store.get('stats/days/1970-01-01.json'))!.json;
+    expect(day, {'app.campaign.bakery.1.casual.won': 2, 'app.session.minutes': 14});
+    expect((await store.get('stats/uniques/1970-01-01.json'))!.json['players'], hasLength(1));
+  });
 }

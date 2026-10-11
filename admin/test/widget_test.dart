@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:donut_admin/src/model.dart';
 import 'package:donut_admin/src/reports_screen.dart';
+import 'package:donut_admin/src/app_usage.dart';
 import 'package:donut_admin/src/aws.dart';
 import 'package:donut_admin/src/tables_screen.dart';
 import 'package:donut_admin/src/widgets.dart';
@@ -74,6 +75,22 @@ void main() {
     expect(find.text('"kept insulting me"'), findsOneWidget);
     expect(find.textContaining('you are terrible', findRichText: true), findsOneWidget);
     expect(find.text('Ban 7 days'), findsOneWidget);
+  });
+
+  testWidgets('app counts add up across days, with campaign stages read correctly', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final model = AdminModel(_NoAws())
+      ..days = [
+        DayStats('2026-10-10', {'app.campaign.bakery.2.casual.won': 3, 'app.session.count': 4, 'app.session.minutes': 40}, {}),
+        DayStats('2026-10-11', {'app.campaign.bakery.2.casual.lost': 1, 'app.quick.3bots.won': 1, 'app.quick.3bots.lost': 1}, {}),
+      ];
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: SingleChildScrollView(child: AppUsageSection(model: model)))));
+    expect(find.text('bakery.2 · casual'), findsOneWidget);
+    expect(find.text('3 / 1  (75%)'), findsOneWidget);
+    expect(find.text('10.0 min'), findsOneWidget);
+    expect(find.text('50%'), findsOneWidget);
   });
 }
 

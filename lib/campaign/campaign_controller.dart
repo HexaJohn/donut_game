@@ -25,6 +25,9 @@ class CampaignGameController extends OfflineGameController {
   @override
   String get label => '${venue.name} · ${stage.name}';
 
+  @override
+  String get kind => 'campaign';
+
   /// The venue's scene and table, unless scenery is turned off in the theme
   /// picker; then the theme and the player's own table show instead.
   @override
