@@ -31,7 +31,10 @@ class ActionBar extends StatelessWidget {
   static const double compactWidth = 620;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ValueListenableBuilder(valueListenable: controller.autoReadyIn, builder: (context, _, __) => _bar(context));
+
+  Widget _bar(BuildContext context) {
     final colors = DonutColors.of(context);
     final theme = Theme.of(context);
     final (status, needsYou) = _status();
@@ -263,6 +266,11 @@ class ActionBar extends StatelessWidget {
         if (!controller.online) return ('Ready when you are', true);
         final humans = game.players.where((element) => element.human).toList();
         final ready = humans.where((element) => element.voteToDeal).length;
+        final countdown = controller.autoReadyIn.value;
+        if (countdown != null) return ('Next hand in ${countdown}s. Ready ($ready/${humans.length})', true);
+        if (local?.voteToDeal == false && game.handNumber > 0) {
+          return ('Tap I\'m ready for the next hand ($ready/${humans.length} ready)', true);
+        }
         return ('Waiting for players to be ready ($ready/${humans.length})', !(local?.voteToDeal ?? true));
       case GameState.dealing:
         return ('Dealing', false);
@@ -274,7 +282,13 @@ class ActionBar extends StatelessWidget {
           final marked = local.hand.cards.value.where((element) => element.state == CardState.swap).length;
           return ('Your move: pick up to $maxSwaps cards to swap ($marked picked)', true);
         }
-        return ('$activeName is choosing swaps', false);
+        if (local == null || local.skip || game.players.isEmpty) return ('$activeName is choosing swaps', false);
+        final turns = game.swapTurnsUntil(local);
+        return (
+          '$activeName is choosing swaps. '
+              '${turns < 0 ? 'You\'ve swapped.' : (turns == 1 ? 'You\'re next.' : '${turns - 1} more before you.')}',
+          false
+        );
       case GameState.playing:
       case GameState.waitingForPlayer:
         if (local?.skip == true) return ('You folded this hand', false);
@@ -306,6 +320,9 @@ class ActionBar extends StatelessWidget {
         ];
       }
       return [
+        // While the next hand counts down, a way to hold it
+        if (!local.voteToDeal && controller.autoReadyIn.value != null)
+          TextButton(onPressed: controller.holdNextHand, child: const Text('Wait')),
         local.voteToDeal
             ? OutlinedButton.icon(
                 onPressed: controller.deal, icon: const Icon(Icons.check_rounded), label: const Text('Ready'))

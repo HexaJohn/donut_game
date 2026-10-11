@@ -14,13 +14,18 @@ const double titleBarHeight = 40;
 
 /// Custom window chrome: drag area, title, an optional trailing widget and
 /// the window buttons. Desktop only: phones and browsers have their own
-/// chrome, so there it takes no space at all.
+/// chrome, so there it takes no space at all, except on screens with
+/// [onBack], which get a slim header with a back arrow so there's a way out.
 class DonutTitleBar extends StatefulWidget {
   const DonutTitleBar(
-      {super.key, this.title, this.trailing, this.transparent = false, this.solid = true, this.foreground});
+      {super.key, this.title, this.trailing, this.onBack, this.transparent = false, this.solid = true, this.foreground});
 
   final String? title;
   final Widget? trailing;
+
+  /// Leaves the screen: a close button in the bar on desktop, a back arrow
+  /// elsewhere.
+  final VoidCallback? onBack;
 
   /// For splash screens: no background, logo or title.
   final bool transparent;
@@ -61,9 +66,29 @@ class _DonutTitleBarState extends State<DonutTitleBar> with WindowListener {
 
   @override
   Widget build(BuildContext context) {
-    if (!isDesktop) return const SizedBox.shrink();
     final theme = Theme.of(context);
     final colors = DonutColors.of(context);
+    if (!isDesktop) {
+      final back = widget.onBack;
+      if (back == null) return const SizedBox.shrink();
+      return Container(
+        height: 48,
+        color: widget.solid ? colors.chrome : Colors.transparent,
+        child: Row(children: [
+          IconButton(tooltip: 'Back', onPressed: back, icon: const Icon(Icons.arrow_back_rounded)),
+          if (widget.title != null)
+            Expanded(
+              child: Text(widget.title!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+            )
+          else
+            const Spacer(),
+          if (widget.trailing != null) ...[widget.trailing!, const SizedBox(width: 8)],
+        ]),
+      );
+    }
     final foreground = widget.foreground ?? theme.colorScheme.onSurface;
     // Window buttons pick their colours from the background behind them
     final behind = widget.transparent
@@ -90,6 +115,8 @@ class _DonutTitleBarState extends State<DonutTitleBar> with WindowListener {
               style: theme.textTheme.bodySmall?.copyWith(color: foreground.withValues(alpha: 0.7))),
         ),
         if (widget.trailing != null) ...[widget.trailing!, const SizedBox(width: 8)],
+        if (widget.onBack != null)
+          IconButton(tooltip: 'Back', icon: const Icon(Icons.close_rounded), onPressed: widget.onBack),
       ],
     );
 

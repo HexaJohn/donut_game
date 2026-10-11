@@ -87,6 +87,13 @@ abstract class GameController {
   /// the table's host.
   bool get canRestart => true;
 
+  /// Seconds until this player is marked ready for the next hand (online
+  /// games, between hands), or null when nothing's counting down.
+  final ValueNotifier<int?> autoReadyIn = ValueNotifier(null);
+
+  /// Stops the countdown to the next hand, until this player is ready.
+  void holdNextHand() {}
+
   /// What kind of game this is, for the anonymous gameplay counts:
   /// quick, campaign, party, public, gamecenter or server.
   String get kind => 'quick';
@@ -246,6 +253,48 @@ class OfflineGameController extends GameController {
 abstract class RemoteTableController extends GameController {
   Map<String, ChatMessage> _chatSeen = {};
   String? _hostName;
+
+  /// Between hands, everyone still at the table has to be ready before the
+  /// next deal. Players didn't notice, so after this long they're marked
+  /// ready unless they ask to wait.
+  static const autoReadySeconds = 10;
+  Timer? _autoReady;
+  bool _holding = false;
+
+  void _checkAutoReady() {
+    final local = localPlayer;
+    final between = game.state.value == GameState.waitingToDeal && game.handNumber > 0 && game.champion.value == null;
+    if (!between) _holding = false;
+    if (!between || local == null || local.voteToDeal) {
+      stopAutoReady();
+      return;
+    }
+    if (_holding || _autoReady != null) return;
+    var left = autoReadySeconds;
+    autoReadyIn.value = left;
+    _autoReady = Timer.periodic(const Duration(seconds: 1), (_) {
+      left--;
+      if (left > 0) {
+        autoReadyIn.value = left;
+        return;
+      }
+      stopAutoReady();
+      final player = localPlayer;
+      if (player != null && !player.voteToDeal) deal();
+    });
+  }
+
+  @override
+  void holdNextHand() {
+    _holding = true;
+    stopAutoReady();
+  }
+
+  void stopAutoReady() {
+    _autoReady?.cancel();
+    _autoReady = null;
+    autoReadyIn.value = null;
+  }
 
   @override
   void refilterChat() {
@@ -407,6 +456,7 @@ abstract class RemoteTableController extends GameController {
       game.chat.value = seen.values.toList();
       refilterChat();
     }
+    _checkAutoReady();
   }
 
   int _indexOf(GameCard card) => localPlayer?.hand.cards.value.indexOf(card) ?? -1;

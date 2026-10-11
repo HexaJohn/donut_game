@@ -578,6 +578,12 @@ class DonutEngine {
       _endHand(table, frames, now);
       return true;
     }
+    // Everyone else folded: nobody to play against, so the last one in
+    // takes every trick at once rather than playing them out alone
+    if (table.trick.isEmpty && _inHand(table) == 1) {
+      _takeTheRest(table, table.seats.firstWhere((seat) => !seat.skip), frames, now);
+      return true;
+    }
     if (table.trick.isNotEmpty && table.trick.length >= _inHand(table)) {
       _takeTrick(table, frames, now);
       return true;
@@ -608,6 +614,30 @@ class DonutEngine {
       ..active = (table.active + 1) % table.seats.length
       ..status = GameState.playing;
     _frame(table, frames, delay, now);
+  }
+
+  /// [seat] wins every trick left in the hand, scored as if played out.
+  void _takeTheRest(TableState table, Seat seat, List<Frame> frames, int now) {
+    final tricks = table.tricksLeft;
+    seat
+      ..tricks += tricks
+      ..matchTricks += tricks
+      ..score -= tricks
+      ..donut = false;
+    for (final card in seat.hand) {
+      card
+        ..state = CardState.played
+        ..owner = seat.id;
+      table.discard.add(card);
+    }
+    seat.hand = [];
+    table
+      ..tricksLeft = 0
+      ..trickWinner = seat.id
+      ..trickSerial += 1
+      ..status = GameState.waitingForNextRound;
+    _say(table, '', '${seat.name} is the only one left in and takes all $tricks tricks.', now, system: true);
+    _frame(table, frames, trickMs, now);
   }
 
   void _takeTrick(TableState table, List<Frame> frames, int now) {

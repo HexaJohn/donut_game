@@ -352,6 +352,23 @@ class Game {
     return _activeValue;
   }
 
+  /// Where [player] stands in this hand's swap round, which runs from the
+  /// dealer's left: 0 while they choose, how many swappers are still ahead
+  /// of them, or -1 once they're done.
+  int swapTurnsUntil(GamePlayer player) {
+    final n = players.length;
+    if (n < 2 || !players.contains(player)) return 0;
+    final first = (_dealer % n) + 1;
+    int place(GamePlayer p) => (players.indexOf(p) - first + 2 * n) % n;
+    final mine = place(player), now = place(activePlayerLazy);
+    if (mine < now) return -1;
+    var ahead = 0;
+    for (var i = now; i < mine; i++) {
+      if (!players[(first + i) % n].skip) ahead++;
+    }
+    return ahead;
+  }
+
   GamePlayer get activePlayerLazy {
     if (players.length < 2) {
       return players.elementAt(0);
@@ -558,6 +575,22 @@ class Game {
     }
     // Nobody left to play if everyone folded
     _tricksRemaining = players.any((element) => !element.skip) ? cardsPerHand : 0;
+    // Everyone else folded: the last one in takes every trick at once rather
+    // than playing them out alone
+    final stillIn = players.where((element) => !element.skip).toList();
+    if (stillIn.length == 1 && _tricksRemaining > 0) {
+      final last = stillIn.single;
+      last
+        ..tricks += _tricksRemaining
+        ..matchTricks += _tricksRemaining
+        ..donut = false;
+      last.score.value = last.score.value - _tricksRemaining;
+      lastTrickWinner = last;
+      trickSerial++;
+      _announce('${last.name} is the only one left in and takes all $_tricksRemaining tricks.');
+      _tricksRemaining = 0;
+      await _pause(const Duration(milliseconds: 1400), epoch);
+    }
     while (_tricksRemaining > 0) {
       state.value = GameState.waitingForNextRound;
       await _playRound(epoch);

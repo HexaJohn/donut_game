@@ -27,14 +27,7 @@ class CampaignScreen extends StatelessWidget {
     return Scaffold(
       body: Column(
         children: [
-          DonutTitleBar(
-            title: 'Campaign',
-            trailing: IconButton(
-              tooltip: 'Back',
-              icon: const Icon(Icons.close_rounded),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
+          DonutTitleBar(title: 'Campaign', onBack: () => Navigator.pop(context)),
           Expanded(
             child: ListenableBuilder(
               listenable: profile,

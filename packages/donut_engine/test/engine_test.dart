@@ -303,6 +303,28 @@ void main() {
           reason: 'not mid-match');
     });
 
+    test('the last one in after everyone folds takes every trick without playing them out', () {
+      final (engine, table) = _table(seed: 16);
+      engine.act(table, 'alice', 'vote', {'vote': 'true'}, now: 1);
+      engine.act(table, 'bob', 'vote', {'vote': 'true'}, now: 2);
+      final bot = table.seats.firstWhere((seat) => !seat.human);
+      // The bot sits this one out; Bob folds when his turn comes; Alice keeps
+      var now = 3;
+      bot.skip = true;
+      bot.notReady = false;
+      while (table.phase == Phase.swap) {
+        final seat = table.seats[table.active];
+        engine.act(table, seat.id, seat.id == 'bob' ? 'fold' : 'swapvote', {}, now: now++);
+      }
+      final alice = table.seat('alice')!;
+      expect(alice.score, startingScore - cardsPerHand, reason: 'all five tricks, at once');
+      expect(alice.hand, isEmpty);
+      expect(table.handNumber, 1);
+      expect(table.phase, Phase.lobby, reason: 'the hand ended without anyone playing a card');
+      expect(table.chat.map((line) => line['text']), contains('Alice is the only one left in and takes all 5 tricks.'));
+      _expectAllCards(table);
+    });
+
     test('a disconnected player is played for, so the table carries on', () {
       final (engine, table) = _table(seed: 6);
       engine.act(table, 'alice', 'vote', {'vote': 'true'}, now: 1);

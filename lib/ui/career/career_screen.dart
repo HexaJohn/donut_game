@@ -44,14 +44,7 @@ class CareerScreen extends StatelessWidget {
       child: Scaffold(
         body: Column(
           children: [
-            DonutTitleBar(
-              title: 'Career',
-              trailing: IconButton(
-                tooltip: 'Back',
-                icon: const Icon(Icons.close_rounded),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ),
+            DonutTitleBar(title: 'Career', onBack: () => Navigator.pop(context)),
             ListenableBuilder(listenable: profile, builder: (context, _) => _Header(profile: profile)),
             Container(
               decoration: BoxDecoration(

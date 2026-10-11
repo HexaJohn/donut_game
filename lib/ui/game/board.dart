@@ -704,7 +704,14 @@ class _GameBoardState extends State<GameBoard> {
             glow: legal,
             onHover: (hovering) => setState(() => _hovered = hovering ? key : (_hovered == key ? null : _hovered)),
             onTap: !clickable
-                ? null
+                ? () {
+                    // Say why, rather than silently ignore the tap
+                    final reason = _whyNotNow(controller);
+                    if (reason == null) return;
+                    ScaffoldMessenger.maybeOf(context)
+                      ?..hideCurrentSnackBar()
+                      ..showSnackBar(SnackBar(content: Text(reason), duration: const Duration(seconds: 3)));
+                  }
                 : () {
                     if (interactive.swap) {
                       SoundEffects.instance.play(Sfx.click);
@@ -1077,6 +1084,29 @@ extension _LastWhere<T> on List<T> {
 }
 
 /// What the local player can do with their hand right now.
+bool _swapRound(GameState state) =>
+    state == GameState.waitingToSwap || state == GameState.swapping || state == GameState.waitingForPlayerToSwap;
+
+/// Why tapping your hand does nothing right now, if there's a reason worth
+/// saying.
+String? _whyNotNow(GameController controller) {
+  final local = controller.localPlayer;
+  final game = controller.game;
+  if (local == null || local.skip || game.players.isEmpty) return null;
+  final active = game.activePlayerLazy;
+  if (_swapRound(game.state.value)) {
+    final turns = game.swapTurnsUntil(local);
+    if (turns < 0) return 'You\'ve swapped this hand. Waiting for ${active.name}.';
+    return 'Not your turn to swap yet. ${active.name} is choosing'
+        '${turns == 1 ? ', and you\'re next.' : ', then ${turns - 1} more before you.'}';
+  }
+  final state = game.state.value;
+  if ((state == GameState.playing || state == GameState.waitingForPlayer) && !controller.canPlayNow && active != local) {
+    return 'Wait for your turn. ${active.name} is playing.';
+  }
+  return null;
+}
+
 class _Interaction {
   const _Interaction({required this.swap, required this.play});
 
@@ -1303,6 +1333,10 @@ class SeatPanel extends StatelessWidget {
       status = game.state.value == GameState.waitingForPlayerToSwap || game.state.value == GameState.swapping
           ? 'Choosing swaps'
           : 'Thinking';
+    } else if (_swapRound(game.state.value) && game.handNumber > 0) {
+      // Everyone can see who's done, who's next and who's waiting
+      final turns = game.swapTurnsUntil(player);
+      status = turns < 0 ? 'Swapped' : (turns == 1 ? 'Up next' : 'Waiting to swap');
     } else if (game.state.value == GameState.waitingToDeal && player.voteToDeal && player.human) {
       status = 'Ready';
     }

@@ -1,6 +1,8 @@
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
+import 'package:donut_game/ui/campaign/campaign_screen.dart';
+import 'package:donut_game/ui/career/career_screen.dart';
 import 'package:donut_game/ui/game/game_controller.dart';
 import 'package:donut_game/ui/game/game_screen.dart';
 import 'package:donut_game/ui/home/home_screen.dart';
@@ -123,6 +125,29 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await _pumpFor(tester, const Duration(seconds: 3));
+    });
+  }
+
+  for (final (name, screen) in [('career', const CareerScreen()), ('campaign', const CampaignScreen())]) {
+    testWidgets('the $name screen has a way back on a phone', (tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(MaterialApp(
+        theme: buildTheme(ThemePreset.donutDark),
+        home: Builder(
+            builder: (context) => Scaffold(
+                body: Center(
+                    child: TextButton(
+                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen)),
+                        child: const Text('open'))))),
+      ));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Back'), findsOneWidget);
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(find.text('open'), findsOneWidget, reason: 'back on the screen it came from');
     });
   }
 }

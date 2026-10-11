@@ -114,6 +114,7 @@ class PartyController extends RemoteTableController with WidgetsBindingObserver 
 
   @override
   void dispose() {
+    stopAutoReady();
     _running = false;
     WidgetsBinding.instance.removeObserver(this);
     _keepAlive?.cancel();
