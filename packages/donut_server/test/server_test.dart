@@ -119,8 +119,9 @@ void main() {
     final code = await host();
     await server.handle(_event('\$default', 'c-bob', {'a': 'join', 'code': code, ..._hello('player-bob', 'Bob')}));
     await server.handle(_event('\$disconnect', 'c-bob'));
+    // Before the deal, leaving leaves the table
     final state = TableState.fromJson((await store.get('tables/$code/state.json'))!.json);
-    expect(state.seat('player-bob')!.connected, isFalse);
+    expect(state.seat('player-bob'), isNull);
     expect((await store.get('tables/$code/players.json'))!.json.keys, ['player-alice']);
 
     // Bob comes back on a new connection, then that one silently dies
@@ -128,7 +129,8 @@ void main() {
     sender.gone.add('c-bob2');
     await server.handle(_event('\$default', 'c-alice', {'a': 'chat', 'b': {'text': 'anyone?'}, 'n': 3}));
     final after = TableState.fromJson((await store.get('tables/$code/state.json'))!.json);
-    expect(after.seat('player-bob')!.connected, isFalse);
+    expect(after.seat('player-bob'), isNull);
+    expect(sender.of('c-alice', 'snap').last['players'], hasLength(1), reason: 'Alice saw Bob go');
   });
 
   test('signs requests the way AWS documents', () {

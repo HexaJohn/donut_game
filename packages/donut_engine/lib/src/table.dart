@@ -203,6 +203,9 @@ class TableState {
   String? trickWinner;
   List<String> suddenDeath = [];
   String? champion;
+
+  /// The champion's name, kept so it still shows if they leave the table.
+  String? championName;
   int target = startingScore;
   int? matchStartedAt;
   int? matchEndedAt;
@@ -258,6 +261,7 @@ class TableState {
         'trickWinner': trickWinner,
         'suddenDeath': suddenDeath,
         'champion': champion,
+        'championName': championName,
         'target': target,
         'matchStartedAt': matchStartedAt,
         'matchEndedAt': matchEndedAt,
@@ -300,6 +304,7 @@ class TableState {
       ..trickWinner = json['trickWinner'] as String?
       ..suddenDeath = List<String>.from(json['suddenDeath'] as List)
       ..champion = json['champion'] as String?
+      ..championName = json['championName'] as String?
       ..target = json['target'] as int
       ..matchStartedAt = json['matchStartedAt'] as int?
       ..matchEndedAt = json['matchEndedAt'] as int?

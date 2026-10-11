@@ -86,11 +86,55 @@ void main() {
           throwsA(isA<Refusal>().having((r) => r.status, 'status', 403)));
       expect(() => engine.join(table, id: 'eve', name: 'Eve', secret: 'short', now: 0),
           throwsA(isA<Refusal>().having((r) => r.status, 'status', 400)));
-      // Bob dropping out and coming back keeps his seat
+      // Leaving before the deal just leaves; coming back sits down afresh
       engine.disconnect(table, 'bob', now: 1);
-      expect(table.seat('bob')!.connected, isFalse);
+      expect(table.seat('bob'), isNull);
+      expect(table.chat.last['text'], 'Bob left the table.');
       engine.join(table, id: 'bob', name: 'Bob', secret: _bobSecret, now: 2);
       expect(table.seat('bob')!.connected, isTrue);
+    });
+
+    test('dropping out mid-hand keeps the seat for when they\'re back', () {
+      final (engine, table) = _table(seed: 11);
+      engine.act(table, 'alice', 'vote', {'vote': 'true'}, now: 1);
+      engine.act(table, 'bob', 'vote', {'vote': 'true'}, now: 2);
+      expect(table.phase, isNot(Phase.lobby));
+      engine.disconnect(table, 'bob', now: 3);
+      expect(table.seat('bob')!.connected, isFalse);
+      engine.join(table, id: 'bob', name: 'Bob', secret: _bobSecret, now: 4);
+      expect(table.seat('bob')!.connected, isTrue);
+    });
+
+    test('leaving between hands leaves the table; the next dealer and the host carry on', () {
+      final (engine, table) = _table(seed: 12);
+      engine.join(table, id: 'carol', name: 'Carol', secret: 'carol-secret-0123456789', now: 0);
+      engine.act(table, 'alice', 'addBot', {}, now: 0);
+      var now = 1;
+      // Play the first hand through
+      while (table.handNumber < 1 || table.phase != Phase.lobby) {
+        if (table.phase == Phase.lobby) {
+          for (final id in ['alice', 'bob', 'carol']) {
+            engine.act(table, id, 'vote', {'vote': 'true'}, now: now);
+          }
+        } else {
+          _humanTurn(engine, table, now);
+        }
+        now += 1000;
+        if (table.phase == Phase.over) return;
+      }
+      final nextDealer = table.seats[table.dealer].id;
+      final leaving = table.seats.firstWhere((seat) => seat.human && seat.id != nextDealer);
+      final wasHost = leaving.id == table.hostId;
+      engine.disconnect(table, leaving.id, now: now);
+      expect(table.seat(leaving.id), isNull);
+      expect(table.seats[table.dealer].id, nextDealer, reason: 'the deal still goes to the same player');
+      expect(table.seat(table.hostId)!.human, isTrue);
+      if (wasHost) expect(table.hostId, isNot(leaving.id));
+      // The host leaving hands hosting on
+      final host = table.hostId;
+      engine.disconnect(table, host, now: now + 1);
+      expect(table.hostId, isNot(host));
+      expect(table.seat(table.hostId)!.human, isTrue);
     });
 
     test('nobody new joins once the match has started', () {

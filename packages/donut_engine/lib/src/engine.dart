@@ -133,17 +133,46 @@ class DonutEngine {
     return frames;
   }
 
-  /// A player's connection dropped. A bot plays for them until they're back,
-  /// so the table doesn't stall.
+  /// A player's connection dropped. Outside a hand (waiting to deal, between
+  /// hands, after the match) they simply leave the table. Mid-hand a bot
+  /// plays for them until they're back, so the table doesn't stall.
   List<Frame> disconnect(TableState table, String id, {required int now}) {
     final seat = table.seat(id);
     if (seat == null || !seat.connected) return const [];
-    seat.connected = false;
     final frames = <Frame>[];
+    if (table.phase == Phase.lobby || table.phase == Phase.over) {
+      _removeSeat(table, seat);
+      _say(table, '', '${seat.name} left the table.', now, system: true);
+      _frame(table, frames, 0, now);
+      // Everyone left may now be ready
+      _advance(table, frames, now);
+      return frames;
+    }
+    seat.connected = false;
     _say(table, '', '${seat.name} lost connection. A bot plays for them until they\'re back.', now, system: true);
     _frame(table, frames, 0, now);
     _advance(table, frames, now);
     return frames;
+  }
+
+  /// Takes [seat] off the table, keeping the next dealer where they were,
+  /// and hands hosting on if it was the host's.
+  void _removeSeat(TableState table, Seat seat) {
+    final index = table.seats.indexOf(seat);
+    table.seats.removeAt(index);
+    table.suddenDeath.remove(seat.id);
+    final n = table.seats.length;
+    if (n > 0) {
+      if (index < table.dealer) table.dealer -= 1;
+      table
+        ..dealer %= n
+        ..active = (table.dealer + 1) % n;
+    }
+    if (table.hostId == seat.id) {
+      final humans = table.seats.where((other) => other.human);
+      final next = humans.where((other) => other.connected).firstOrNull ?? humans.firstOrNull;
+      if (next != null) table.hostId = next.id;
+    }
   }
 
   bool _canChangeSeats(TableState table) =>
@@ -581,6 +610,7 @@ class DonutEngine {
     if (champion != null) {
       champion.winner = true;
       table
+        ..championName = champion.name
         ..phase = Phase.over
         ..matchEndedAt = now
         ..status = GameState.gameOver;
@@ -646,6 +676,7 @@ class DonutEngine {
       ..lead = null
       ..suddenDeath = []
       ..champion = null
+      ..championName = null
       ..handNumber = 0
       ..trickWinner = null
       ..holes = []
@@ -793,7 +824,7 @@ class DonutEngine {
             ? null
             : table.trick.first.clientJson(hide: false, ownerName: nameOf(table.trick.first.owner)),
         'sudden_death': [for (final id in table.suddenDeath) nameOf(id)],
-        'champion': table.champion == null ? null : nameOf(table.champion),
+        'champion': table.champion == null ? null : (table.seat(table.champion!)?.name ?? table.championName),
         'elapsed_ms': table.matchStartedAt == null ? 0 : (table.matchEndedAt ?? now) - table.matchStartedAt!,
         'clock_running': table.matchStartedAt != null && table.matchEndedAt == null,
         'hand': table.handNumber,
