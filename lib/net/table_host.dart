@@ -28,29 +28,63 @@ class ActionResult {
 /// Players are addressed by id: the HTTP server's is device id + nickname,
 /// Game Center's is the player's gamePlayerID.
 class TableHost {
-  TableHost({this.onAllReady});
+  TableHost({this.onAllReady, this.checkSecrets = false, this.fixedHostId});
 
   final Game game = Game();
 
   /// Called when every human has voted to deal. Defaults to dealing.
   final void Function()? onAllReady;
 
+  /// Players must prove who they are with the secret they joined with. The
+  /// HTTP server needs this, since ids are visible to everyone at the table;
+  /// a Game Center host doesn't, since Apple vouches for who sent what.
+  final bool checkSecrets;
+
+  /// Who may restart the match. Null means the first human to join.
+  final String? fixedHostId;
+
+  final Map<String, String> _secrets = {};
+  final Map<String, Map<String, _Bucket>> _buckets = {};
+
+  /// Longest name shown at the table.
+  static const int maxNameLength = 20;
+
   GamePlayer? player(String id) => game.playerDB[id];
 
-  /// Seats a human, or updates their deck if they're back.
-  ActionResult join(String id, String name, {String? back, String? face}) {
+  String? get hostId =>
+      fixedHostId ?? game.players.where((player) => player.human).map((player) => player.id).firstOrNull;
+
+  /// Whether [secret] is the one player [id] joined with (always true when
+  /// secrets aren't checked).
+  bool verify(String id, Object? secret) =>
+      !checkSecrets || (game.playerDB.containsKey(id) && _secrets[id] != null && _secrets[id] == secret);
+
+  /// Seats a human, or updates their deck if they're back. Coming back to a
+  /// seat needs the secret it was taken with.
+  ActionResult join(String id, String name, {String? back, String? face, String? secret}) {
     final existing = game.playerDB[id];
     if (existing != null) {
+      if (!verify(id, secret)) return const ActionResult.refused(409, 'That seat belongs to someone else.');
       // Reconnecting keeps the seat, wearing whatever deck it brought
       if (back != null) existing.cardBack = back;
       if (face != null) existing.cardFace = face;
       return const ActionResult.ok();
     }
-    final player = GamePlayer(name, 0, true)..id = id;
+    if (checkSecrets && (secret == null || secret.length < 16)) {
+      return const ActionResult.refused(400, 'Missing secret');
+    }
+    var trimmed = name.trim();
+    if (trimmed.isEmpty) return const ActionResult.refused(400, 'Pick a name');
+    if (trimmed.length > maxNameLength) trimmed = trimmed.substring(0, maxNameLength);
+    if (game.players.any((player) => player.name.toLowerCase() == trimmed.toLowerCase())) {
+      return const ActionResult.refused(409, 'Someone at the table already has that name.');
+    }
+    if (secret != null) _secrets[id] = secret;
+    final player = GamePlayer(trimmed, 0, true)..id = id;
     if (back != null) player.cardBack = back;
     if (face != null) player.cardFace = face;
     game.addLocalPlayer(player);
-    game.say('', '$name joined the game.', system: true);
+    game.say('', '$trimmed joined the game.', system: true);
     if (game.playerDB.length == 2) {
       game.protectedActive = 1;
       game.protectedDealer = 0;
@@ -64,6 +98,8 @@ class TableHost {
   ActionResult act(String id, String action, Map<String, dynamic> body) {
     final player = game.playerDB[id];
     if (player == null) return const ActionResult.refused(400, 'Not at this table');
+    if (!verify(id, body['secret'])) return const ActionResult.refused(403, 'Not your seat');
+    if (!_allow(id, action)) return const ActionResult.refused(429, 'Slow down');
     switch (action) {
       case 'vote':
         // "vote": "false" takes a ready back
@@ -106,6 +142,7 @@ class TableHost {
       case 'draw':
         return _draw(player, body);
       case 'newMatch':
+        if (id != hostId) return const ActionResult.refused(403, 'Only the host can restart');
         game.abort();
         game.newMatch();
         return const ActionResult.ok();
@@ -201,8 +238,22 @@ class TableHost {
     evaluateDeal();
   }
 
-  /// Everyone at the table, as clients see them.
-  List<Map<String, dynamic>> playersJson() => [
+  /// Throttles the moves that could flood everyone else's screen.
+  bool _allow(String id, String action) {
+    final (burst, perSecond) = switch (action) {
+      'chat' => (5, 0.5),
+      'shoot' => (6, 1.0),
+      'draw' => (40, 20.0),
+      _ => (0, 0.0),
+    };
+    if (burst == 0) return true;
+    final bucket = _buckets.putIfAbsent(id, () => {}).putIfAbsent(action, () => _Bucket(burst, perSecond));
+    return bucket.take();
+  }
+
+  /// Everyone at the table as player [viewer] may see them: their own hand,
+  /// face down for everyone else. A spectator (null) sees no hands.
+  List<Map<String, dynamic>> playersJson({String? viewer}) => [
         for (final player in game.players)
           {
             'username': player.name,
@@ -210,7 +261,7 @@ class TableHost {
             'pid': player.id,
             'human': player.human.toString(),
             'voteDeal': (player.voteToDeal || !player.human).toString(),
-            'cards': player.hand.toJsonArray(),
+            'cards': player.hand.toJsonArray(hide: player.id != viewer || viewer == null),
             'swaps': player.swaps.value,
             'notReady': player.notReady.toString(),
             'score': player.score.value,
@@ -230,8 +281,9 @@ class TableHost {
   Map<String, dynamic> gameJson({int? inkRevision}) => {
         'state': gameStateToString[game.state.value]!,
         'table': GameCard.jsonArray(game.table.cards.value),
-        'discard': GameCard.jsonArray(game.discard.cards.value),
-        'deck': GameCard.jsonArray(game.deck.contents),
+        // Face down for everyone: only tracking ids, so cards can be animated
+        'discard': GameCard.jsonArray(game.discard.cards.value, hide: true),
+        'deck': GameCard.jsonArray(game.deck.contents, hide: true),
         'active': game.protectedActive,
         'dealer': game.protectedDealer,
         'trump': suitToString[game.trumpSuit.value],
@@ -248,6 +300,7 @@ class TableHost {
         'spins': game.spins.value,
         'ink_rev': game.inkRevision,
         'target': game.targetScore,
+        'host': game.playerDB[hostId]?.name,
         'flash': {
           'serial': game.flashSerial,
           'x': game.flashAt.dx,
@@ -258,4 +311,23 @@ class TableHost {
         if (inkRevision != game.inkRevision) 'ink': game.ink.value.map((e) => e.toJson()).toList(),
         'now_ms': DateTime.now().millisecondsSinceEpoch,
       };
+}
+
+/// A token bucket: [burst] at once, refilled at [perSecond].
+class _Bucket {
+  _Bucket(this.burst, this.perSecond) : _tokens = burst.toDouble();
+
+  final int burst;
+  final double perSecond;
+  double _tokens;
+  DateTime _at = DateTime.now();
+
+  bool take() {
+    final now = DateTime.now();
+    _tokens = (_tokens + now.difference(_at).inMicroseconds / 1e6 * perSecond).clamp(0, burst.toDouble());
+    _at = now;
+    if (_tokens < 1) return false;
+    _tokens -= 1;
+    return true;
+  }
 }

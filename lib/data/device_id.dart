@@ -22,3 +22,26 @@ Future<String> deviceId() async {
     return 'unknown';
   }
 }
+
+String? _secret;
+
+/// A private random value for this install, never shown to anyone. Proves
+/// to a server that a move really comes from this player, since the device
+/// id is visible to everyone at the table.
+Future<String> deviceSecret() async {
+  if (_secret != null) return _secret!;
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    var secret = prefs.getString('deviceSecret');
+    if (secret == null) {
+      final random = Random.secure();
+      secret = List.generate(32, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+      await prefs.setString('deviceSecret', secret);
+    }
+    return _secret = secret;
+  } catch (e) {
+    // No storage: a secret for this run only
+    final random = Random.secure();
+    return _secret = List.generate(32, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+  }
+}

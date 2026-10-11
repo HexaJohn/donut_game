@@ -19,8 +19,13 @@ class GameCardDeck {
   int decks = 1;
   late List<GameCard> contents;
 
+  /// Shuffles, and gives every card a new tracking id so nobody can follow
+  /// one from an earlier hand.
   void shuffle() {
     contents.shuffle();
+    for (final card in contents) {
+      card.retag();
+    }
   }
 
   void replace() {

@@ -99,11 +99,107 @@ void main() {
       for (var i = 0; i < 200; i++) {
         table.act(_alice.id, 'chat', {'text': 'Message number $i, padded out like a real chat line'});
       }
-      final snapshot = {'k': 'snap', 'mode': 'donut', 'players': table.playersJson(), 'game': table.gameJson()};
+      final snapshot = {'k': 'snap', 'players': table.playersJson(), 'game': table.gameJson()};
       final bytes = encodeMessage(snapshot);
       expect(decodeMessage(bytes)['players'], hasLength(3));
       // Game Center's reliable messages top out around 87 KB
       expect(bytes.length, lessThan(20 * 1024), reason: '${bytes.length} bytes');
+    });
+  });
+
+  group('fair play', () {
+    Future<TableHost> dealt({bool secrets = false}) async {
+      final table = TableHost(checkSecrets: secrets);
+      table.game
+        ..abort()
+        ..playerDB.clear()
+        ..chat.value = [];
+      table.join(_alice.id, _alice.name, secret: secrets ? 'alice-secret-0123456789' : null);
+      table.join(_bob.id, _bob.name, secret: secrets ? 'bob-secret-0123456789ab' : null);
+      table.game.addBot();
+      table.game.newMatch();
+      table.game.deck.shuffle();
+      for (var i = 0; i < 5; i++) {
+        for (final player in table.game.players) {
+          await table.game.dealCard(player);
+        }
+      }
+      return table;
+    }
+
+    test('everyone sees only their own hand; the deck and discard never show faces', () async {
+      final table = await dealt();
+      final view = table.playersJson(viewer: _alice.id);
+      final mine = view.firstWhere((p) => p['pid'] == _alice.id)['cards'] as List;
+      final bobs = view.firstWhere((p) => p['pid'] == _bob.id)['cards'] as List;
+      expect(mine, hasLength(5));
+      expect(mine.every((c) => c['suit'] != null), isTrue);
+      expect(bobs, hasLength(5));
+      expect(bobs.every((c) => c['suit'] == null && c['tid'] != null), isTrue, reason: 'Bob\'s faces leaked');
+      expect(table.playersJson().every((p) => (p['cards'] as List).every((c) => c['suit'] == null)), isTrue,
+          reason: 'a spectator sees no faces');
+      final g = table.gameJson();
+      expect((g['deck'] as List).every((c) => c['suit'] == null), isTrue);
+      expect((g['discard'] as List).every((c) => c['suit'] == null), isTrue);
+    });
+
+    test('tracking ids are drawn afresh at every shuffle', () async {
+      final table = await dealt();
+      final before = table.game.deck.contents.map((c) => c.tid).toSet();
+      table.game.deck.shuffle();
+      final after = table.game.deck.contents.map((c) => c.tid).toSet();
+      expect(before.intersection(after), isEmpty);
+    });
+
+    test('moves and seats need the secret they were joined with', () async {
+      final table = await dealt(secrets: true);
+      expect(table.act(_bob.id, 'chat', {'text': 'hi', 'secret': 'nope'}).status, 403);
+      expect(table.act(_bob.id, 'chat', {'text': 'hi'}).status, 403);
+      expect(table.act(_bob.id, 'chat', {'text': 'hi', 'secret': 'bob-secret-0123456789ab'}).ok, isTrue);
+      // Taking Bob's seat by rejoining as him fails
+      expect(table.join(_bob.id, _bob.name, secret: 'stolen-secret-0123456').ok, isFalse);
+      expect(table.verify(_alice.id, 'alice-secret-0123456789'), isTrue);
+      expect(table.verify(_alice.id, 'bob-secret-0123456789ab'), isFalse);
+      expect(table.join('C:carol', 'Carol').status, 400, reason: 'joining needs a secret');
+    });
+
+    test('only the host restarts the match', () async {
+      final table = await dealt();
+      expect(table.hostId, _alice.id);
+      expect(table.act(_bob.id, 'newMatch', {}).status, 403);
+      expect(table.act(_alice.id, 'newMatch', {}).ok, isTrue);
+      expect(table.gameJson()['host'], 'Alice');
+    });
+
+    test('chat floods are slowed and names are kept short and unique', () async {
+      final table = await dealt();
+      final results = [
+        for (var i = 0; i < 8; i++) table.act(_alice.id, 'chat', {'text': 'spam $i'}).status
+      ];
+      expect(results.take(5), everyElement(200));
+      expect(results.last, 429);
+      expect(table.join('D:dee', 'Dee' * 20).ok, isTrue);
+      expect(table.player('D:dee')!.name.length, TableHost.maxNameLength);
+      expect(table.join('E:bob2', 'BOB').status, 409);
+    });
+
+    test('a client builds face-down cards it can animate but not read', () async {
+      final table = await dealt();
+      final snapshot = decodeMessage(encodeMessage({
+        'k': 'snap',
+        'players': table.playersJson(viewer: _bob.id),
+        'game': table.gameJson(),
+      }));
+      final link = FakeLink(_bob.id, [_alice, _bob]);
+      final client = MatchClientController(link)..start();
+      addTearDown(client.dispose);
+      link.receive(LinkMessage(_alice.id, snapshot));
+      await _until(() => client.localPlayer != null);
+      final alice = client.game.players.firstWhere((p) => p.name == 'Alice');
+      expect(alice.hand.cards.value.every((c) => c.hidden), isTrue);
+      expect(client.localPlayer!.hand.cards.value.every((c) => !c.hidden), isTrue);
+      final keys = alice.hand.cards.value.map((c) => c.key).toSet();
+      expect(keys, hasLength(5), reason: 'face-down cards still need distinct keys');
     });
   });
 
@@ -118,7 +214,12 @@ void main() {
       expect(names, containsAll(['Alice', 'Bob', 'Alice 2']));
       expect(host.localPlayer!.id, _alice.id);
 
-      link.receive(LinkMessage(_bob.id, {'k': 'act', 'a': 'chat', 'b': {'text': 'hello'}, 'n': 7}));
+      link.receive(LinkMessage(_bob.id, {
+        'k': 'act',
+        'a': 'chat',
+        'b': {'text': 'hello'},
+        'n': 7
+      }));
       await _until(() => link.ofKind('ack').isNotEmpty);
       final ack = link.sent.firstWhere((s) => s.$2['k'] == 'ack');
       expect(ack.$1, _bob.id);
@@ -127,6 +228,11 @@ void main() {
 
       final snap = link.ofKind('snap').last;
       expect((snap['game']['chat'] as List).last['text'], 'hello');
+      // Each guest gets their own view, sent to them alone
+      final toBob = link.sent.lastWhere((s) => s.$2['k'] == 'snap' && s.$1 == _bob.id).$2;
+      final players = (toBob['players'] as List).cast<Map>();
+      expect(players.firstWhere((p) => p['pid'] == _alice.id)['cards'], everyElement(isNot(contains('suit'))));
+      expect(link.sent.where((s) => s.$2['k'] == 'snap').every((s) => s.$1 != null), isTrue);
     });
 
     test('two humans get a bot, since Donut needs three', () {
@@ -141,8 +247,8 @@ void main() {
     test('rebuilds the host\'s table, finds its seat and sends moves to the host', () async {
       // What the host would send, made the same way
       final table = _table();
-      final snapshot = decodeMessage(encodeMessage(
-          {'k': 'snap', 'mode': 'donut', 'players': table.playersJson(), 'game': table.gameJson()}));
+      final snapshot = decodeMessage(
+          encodeMessage({'k': 'snap', 'players': table.playersJson(viewer: _bob.id), 'game': table.gameJson()}));
 
       final link = FakeLink(_bob.id, [_alice, _bob]);
       expect(link.hostId, _alice.id);
@@ -166,7 +272,7 @@ void main() {
       expect(await sending, isTrue);
 
       // Only the host speaks for the table
-      link.receive(const LinkMessage('B:bob', {'k': 'snap', 'mode': 'donut', 'players': [], 'game': {}}));
+      link.receive(const LinkMessage('B:bob', {'k': 'snap', 'players': [], 'game': {}}));
       await Future.delayed(const Duration(milliseconds: 50));
       expect(client.game.players, hasLength(3));
 

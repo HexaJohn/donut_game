@@ -80,6 +80,10 @@ abstract class GameController {
       {required Color color, required double width, required bool erase, required List<Offset> points});
   Future<void> newMatch();
 
+  /// Whether this player may restart the match: offline always, online only
+  /// the table's host.
+  bool get canRestart => true;
+
   /// Whether the local player may play [card] right now.
   bool isLegal(GameCard card) {
     final hand = localPlayer?.hand.cards.value ?? [];
@@ -183,6 +187,10 @@ class OfflineGameController extends GameController {
 /// sends this player's moves to it.
 abstract class RemoteTableController extends GameController {
   Map<String, ChatMessage> _chatSeen = {};
+  String? _hostName;
+
+  @override
+  bool get canRestart => _hostName != null && _hostName == localPlayer?.name;
   int _inkRevision = -1;
 
   /// The drawing this copy of the table has, so the host can skip resending it.
@@ -243,6 +251,7 @@ abstract class RemoteTableController extends GameController {
 
     final g = json['game'];
     game.targetScore = g['target'] ?? game.targetScore;
+    _hostName = g['host'];
     game.state.value = stringToGameState[g['state']] ?? game.state.value;
     if (game.players.isNotEmpty) {
       game.protectedActive = g['active'];
@@ -445,6 +454,7 @@ class OnlineGameController extends RemoteTableController {
   final int port;
   final String username;
   String _deviceId = '';
+  String _secret = '';
   bool _running = false;
   int _failures = 0;
 
@@ -471,6 +481,7 @@ class OnlineGameController extends RemoteTableController {
               body: jsonEncode({
                 'username': username,
                 'id': id,
+                'secret': await deviceSecret(),
                 'back': PlayerProfile.instance.cardPattern,
                 'face': PlayerProfile.instance.cardFace,
               }))
@@ -495,11 +506,13 @@ class OnlineGameController extends RemoteTableController {
 
   Future<void> _loop() async {
     _deviceId = await deviceId();
+    _secret = await deviceSecret();
     while (_running) {
       try {
+        // A POST, so the secret stays out of the server's request log
         final response = await http
-            .get(Uri(
-                scheme: 'http', host: host, port: port, path: '/update', queryParameters: {'ink_rev': '$inkRevision'}))
+            .post(Uri(scheme: 'http', host: host, port: port, path: '/update'),
+                body: jsonEncode({'id': _id, 'secret': _secret, 'ink_rev': inkRevision}))
             .timeout(const Duration(seconds: 3));
         if (!_running) break;
         applySnapshot(jsonDecode(response.body)[0]);
@@ -517,7 +530,8 @@ class OnlineGameController extends RemoteTableController {
   Future<bool> _post(String path, Map<String, dynamic> body) async {
     try {
       final response = await http
-          .post(Uri(scheme: 'http', host: host, port: port, path: path), body: jsonEncode({'id': _id, ...body}))
+          .post(Uri(scheme: 'http', host: host, port: port, path: path),
+              body: jsonEncode({...body, 'id': _id, 'secret': _secret}))
           .timeout(const Duration(seconds: 3));
       return response.statusCode == 200;
     } catch (e) {
@@ -528,13 +542,4 @@ class OnlineGameController extends RemoteTableController {
 
   @override
   Future<bool> send(String action, Map<String, dynamic> body) => _post('/$action', body);
-
-  @override
-  Future<void> newMatch() async {
-    try {
-      await http.get(Uri(scheme: 'http', host: host, port: port, path: '/reset'));
-    } catch (e) {
-      error.value = 'Could not reach the server.';
-    }
-  }
 }

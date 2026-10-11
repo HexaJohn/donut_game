@@ -30,7 +30,10 @@ class MatchHostController extends GameController {
   }
 
   final MatchLink link;
-  final TableHost table = TableHost();
+
+  /// Apple vouches for who sends each message, so no secrets; only the host
+  /// may restart.
+  late final TableHost table = TableHost(fixedHostId: link.localId);
   late final StreamSubscription<LinkEvent> _subscription;
   late final Timer _ticker;
 
@@ -105,28 +108,33 @@ class MatchHostController extends GameController {
     }
   }
 
-  String _lastSent = '';
-  DateTime _sentAt = DateTime(0);
-  int _sentInk = -1;
+  final Map<String, String> _lastSent = {};
+  final Map<String, DateTime> _sentAt = {};
+  final Map<String, int> _sentInk = {};
 
-  /// Sends the table to everyone if it's changed, or every couple of seconds
+  /// Sends each player the table as they may see it (their own hand face up,
+  /// everyone else's face down) if it's changed, or every couple of seconds
   /// regardless so a missed message can't leave anyone stuck.
   void _broadcast({bool force = false}) {
-    final players = table.playersJson();
-    final g = table.gameJson(inkRevision: _sentInk);
-    // The clock fields tick on their own; they don't count as a change
-    final key = jsonEncode({
-      'p': players,
-      'g': {...g}
-        ..remove('now_ms')
-        ..remove('elapsed_ms'),
-    });
     final now = DateTime.now();
-    if (!force && key == _lastSent && now.difference(_sentAt) < const Duration(seconds: 2)) return;
-    _lastSent = key;
-    _sentAt = now;
-    _sentInk = game.inkRevision;
-    link.send({'k': 'snap', 'players': players, 'game': g}).catchError((_) {});
+    for (final peer in link.peers) {
+      if (peer.id == link.localId) continue;
+      final players = table.playersJson(viewer: peer.id);
+      final g = table.gameJson(inkRevision: _sentInk[peer.id] ?? -1);
+      // The clock fields tick on their own; they don't count as a change
+      final key = jsonEncode({
+        'p': players,
+        'g': {...g}
+          ..remove('now_ms')
+          ..remove('elapsed_ms'),
+      });
+      final last = _sentAt[peer.id] ?? DateTime(0);
+      if (!force && key == _lastSent[peer.id] && now.difference(last) < const Duration(seconds: 2)) continue;
+      _lastSent[peer.id] = key;
+      _sentAt[peer.id] = now;
+      _sentInk[peer.id] = game.inkRevision;
+      link.send({'k': 'snap', 'players': players, 'game': g}, to: peer.id).catchError((_) {});
+    }
   }
 
   /// Applies one of this device's own moves, as the host would anyone's.

@@ -478,7 +478,7 @@ class Game {
       deck.contents = discard.cards.value;
       discard.dump();
       revealed.clear();
-      deck.contents.shuffle();
+      deck.shuffle();
       top = deck.contents.first;
     }
     deck.contents.removeAt(0);

@@ -341,7 +341,7 @@ class _GameBoardState extends State<GameBoard> {
         bool faceUp = false,
         bool trump = false,
         Widget Function(Widget)? wrap}) {
-      final key = card.toString();
+      final key = card.key;
       if (!used.add(key)) return;
       final previous = _zones[key];
       // A card seen for the first time just appears where it belongs
@@ -660,7 +660,7 @@ class _GameBoardState extends State<GameBoard> {
     final discard = game.discard.cards.value;
     final shown = discard.length > 3 ? discard.sublist(discard.length - 3) : discard;
     for (final card in shown) {
-      final h = card.toString().hashCode;
+      final h = card.key.hashCode;
       addCard(card, Rect.fromLTWH(discardPos.dx + (h % 7 - 3), discardPos.dy + (h % 5 - 2), pileW, pileH),
           zone: 'discard', angle: ((h % 13) - 6) * 0.025);
     }
@@ -679,7 +679,7 @@ class _GameBoardState extends State<GameBoard> {
       final base = size.height - handH - 14;
       for (var i = 0; i < count; i++) {
         final card = hand[i];
-        final key = card.toString();
+        final key = card.key;
         final mid = (slots - 1) / 2;
         final marked = card.state == CardState.swap;
         final legal = interactive.play && controller.isLegal(card);
@@ -740,7 +740,7 @@ class _GameBoardState extends State<GameBoard> {
         card,
         Rect.fromLTWH(x, rowTop, tableW, tableH),
         zone: 'table',
-        angle: ((card.toString().hashCode % 9) - 4) * 0.012,
+        angle: ((card.key.hashCode % 9) - 4) * 0.012,
         faceUp: true,
         trump: card.suit == game.trumpSuit.value,
         wrap: (child) => _TableCardFrame(winning: winning, lead: lead && !trickDone, child: child),

@@ -188,11 +188,12 @@ class ActionBar extends StatelessWidget {
               value: _MenuAction.theme, child: ListTile(leading: Icon(Icons.palette_outlined), title: Text('Theme'))),
           const PopupMenuItem(
               value: _MenuAction.sound, child: ListTile(leading: Icon(Icons.volume_up_rounded), title: Text('Sound'))),
-          PopupMenuItem(
-              value: _MenuAction.restart,
-              child: ListTile(
-                  leading: const Icon(Icons.restart_alt_rounded),
-                  title: Text(controller.online ? 'Restart server game' : 'Restart match'))),
+          if (controller.canRestart)
+            PopupMenuItem(
+                value: _MenuAction.restart,
+                child: ListTile(
+                    leading: const Icon(Icons.restart_alt_rounded),
+                    title: Text(controller.online ? 'Restart server game' : 'Restart match'))),
           const PopupMenuDivider(),
           const PopupMenuItem(
               value: _MenuAction.leave,

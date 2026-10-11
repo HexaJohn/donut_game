@@ -29,13 +29,7 @@ class GameCardStack {
     return swap.toList();
   }
 
-  List<Map<String, String>> toJsonArray() {
-    List<Map<String, String>> output = [];
-    for (final element in cards.value) {
-      output.add(element.toJson());
-    }
-    return output;
-  }
+  List<Map<String, String>> toJsonArray({bool hide = false}) => GameCard.jsonArray(cards.value, hide: hide);
 
   static GameCardStack fromJson(element) {
     var stack = GameCardStack();

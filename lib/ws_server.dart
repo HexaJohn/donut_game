@@ -18,7 +18,7 @@ import 'package:window_manager/window_manager.dart';
 Game serverGame = Game();
 
 /// Seats players and applies their moves; shared with Game Center matches.
-final TableHost tableHost = TableHost();
+final TableHost tableHost = TableHost(checkSecrets: true);
 
 Future main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -127,7 +127,7 @@ const _webBuildPath = 'build/web';
 final _router = shelf_router.Router()
   ..get('/helloworld', _helloWorldHandler)
   ..post('/connect', _newConnectionHandler)
-  ..get('/update', _activeConnection)
+  ..post('/update', _activeConnection)
   ..post('/vote', (Request request) => _act(request, 'vote'))
   ..post('/swap', (Request request) => _act(request, 'swap'))
   ..post('/play', (Request request) => _act(request, 'play'))
@@ -137,7 +137,7 @@ final _router = shelf_router.Router()
   ..post('/shoot', (Request request) => _act(request, 'shoot'))
   ..post('/draw', (Request request) => _act(request, 'draw'))
   ..post('/flashbang', (Request request) => _act(request, 'flashbang'))
-  ..get('/reset', _executeReset)
+  ..post('/newMatch', (Request request) => _act(request, 'newMatch'))
   ..get(
     '/time',
     (request) => Response.ok(DateTime.now().toUtc().toIso8601String()),
@@ -151,9 +151,10 @@ Future<Response> _newConnectionHandler(Request request) async {
   final id = '${playerJson['id']}${playerJson['username']}';
   final result = tableHost.join(id, '${playerJson['username']}',
       back: playerJson['back'] is String ? playerJson['back'] : null,
-      face: playerJson['face'] is String ? playerJson['face'] : null);
+      face: playerJson['face'] is String ? playerJson['face'] : null,
+      secret: playerJson['secret'] is String ? playerJson['secret'] : null);
   if (!result.ok) return _respond(result);
-  return Response.ok('{"topic": "generic", "error": "", "data": "Welcome, ${playerJson['username']}"}');
+  return Response.ok(jsonEncode({'topic': 'generic', 'error': '', 'data': 'Welcome, ${playerJson['username']}'}));
 }
 
 Response _respond(ActionResult result) => result.ok ? Response.ok('') : Response(result.status, body: result.message);
@@ -170,14 +171,25 @@ Future<Response> _act(Request request, String action) async {
 
 Map<String, dynamic> _gameToJson({int? inkRevision}) => tableHost.gameJson(inkRevision: inkRevision);
 
+/// The table as one player may see it: {"id", "secret", "ink_rev"}. Without a
+/// valid secret it's a spectator's view, with every hand face down. A POST,
+/// so the secret stays out of the request log.
 Future<Response> _activeConnection(Request request) async {
   if (serverGame.playerDB.length > 2 && serverGame.state.value == GameState.waitingForPlayers) {
     serverGame.state.value = GameState.waitingToDeal;
   }
+  Map<String, dynamic> body;
+  try {
+    body = Map<String, dynamic>.from(jsonDecode(await request.readAsString()));
+  } catch (e) {
+    body = {};
+  }
+  final id = '${body['id']}';
+  final viewer = tableHost.verify(id, body['secret']) ? id : null;
   var scores = [
     {
-      'players': _playersToJson(),
-      'game': _gameToJson(inkRevision: int.tryParse(request.url.queryParameters['ink_rev'] ?? '')),
+      'players': tableHost.playersJson(viewer: viewer),
+      'game': _gameToJson(inkRevision: body['ink_rev'] is int ? body['ink_rev'] : null),
     }
   ];
 
@@ -186,11 +198,6 @@ Future<Response> _activeConnection(Request request) async {
 }
 
 List<Map<String, dynamic>> _playersToJson() => tableHost.playersJson();
-
-Future<Response> _executeReset(Request request) async {
-  Game.reset();
-  return Response.ok('');
-}
 
 Response _sumHandler(request, String a, String b) {
   final aNum = int.parse(a);
