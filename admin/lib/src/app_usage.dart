@@ -69,7 +69,8 @@ class AppUsageSection extends StatelessWidget {
           spacing: 12,
           runSpacing: 12,
           children: [
-            StatCard(label: 'Sessions', value: '$sessions', note: 'times the app was opened'),
+            StatCard(label: 'Launches', value: '${t('launch')}', note: 'times the app started'),
+            StatCard(label: 'Sessions', value: '$sessions', note: 'launches and returns to the app'),
             StatCard(
               label: 'Average session',
               value: sessions == 0 ? '-' : '${(t('session.minutes') / sessions).toStringAsFixed(1)} min',
@@ -100,6 +101,7 @@ class AppUsageSection extends StatelessWidget {
                   kind: '${t('match.$kind.started')} (${t('match.$kind.finished')} finished)',
               },
             ),
+            _CountTable(title: 'Launches by platform', rows: group('launch.').map((k, v) => MapEntry(k, '$v'))),
             _CountTable(title: 'Online entry', rows: group('online.').map((k, v) => MapEntry(k, '$v'))),
             _CountTable(title: 'Gadgets picked up', rows: group('gadget.').map((k, v) => MapEntry(k, '$v'))),
             _CountTable(title: 'Shop purchases', rows: group('shop.').map((k, v) => MapEntry(k, '$v'))),

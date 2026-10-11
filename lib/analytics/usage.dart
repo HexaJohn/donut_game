@@ -51,6 +51,9 @@ class Usage with WidgetsBindingObserver {
     } catch (_) {}
     WidgetsBinding.instance.addObserver(this);
     Settings.instance.shareUsage.addListener(_onToggle);
+    // A launch is the app starting up; sessions also count coming back to it
+    count('launch');
+    count('launch.$_platform');
     _beginSession();
     _timer = Timer.periodic(_sendEvery, (_) => send());
     // Give the app a moment to settle before the first send
@@ -85,10 +88,12 @@ class Usage with WidgetsBindingObserver {
     final today = DateTime.now().toUtc().toIso8601String().substring(0, 10);
     if (_prefs?.getString(_dailyKey) != today) {
       _prefs?.setString(_dailyKey, today);
-      count('platform.${kIsWeb ? 'web' : defaultTargetPlatform.name}');
+      count('platform.$_platform');
       count('version.$appVersion');
     }
   }
+
+  static String get _platform => kIsWeb ? 'web' : defaultTargetPlatform.name;
 
   void _endSession() {
     final start = _sessionStart;

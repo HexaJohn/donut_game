@@ -58,6 +58,12 @@ class StatsScreen extends StatelessWidget {
               color: theme.colorScheme.tertiary,
             ),
             _Chart(
+              title: 'App launches per day',
+              labels: window,
+              series: [for (final d in window) dayOf(d)['app.launch'].toDouble()],
+              color: theme.colorScheme.error,
+            ),
+            _Chart(
               title: 'Hands per day',
               labels: window,
               series: [for (final d in window) dayOf(d)['hands'].toDouble()],
