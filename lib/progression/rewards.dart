@@ -80,28 +80,3 @@ MatchRewards donutMatchRewards(DonutMatchSummary match) {
   }
   return MatchRewards(lines);
 }
-
-/// A finished offline Bad Batch game from the local player's point of view.
-class BadBatchSummary {
-  const BadBatchSummary({required this.won, required this.roundsWon, required this.players, this.firstWinToday = false});
-
-  final bool won;
-  final int roundsWon;
-  final int players;
-  final bool firstWinToday;
-}
-
-MatchRewards badBatchRewards(BadBatchSummary game) {
-  final lines = <RewardLine>[
-    const RewardLine('Game played', xp: 60, crumbs: 40),
-  ];
-  if (game.won) lines.add(const RewardLine('Victory', xp: 150, crumbs: 100));
-  if (game.roundsWon > 0) {
-    lines.add(RewardLine('${game.roundsWon} round${game.roundsWon == 1 ? '' : 's'} won',
-        xp: 10 * game.roundsWon, crumbs: 5 * game.roundsWon));
-  }
-  if (game.firstWinToday && game.won) {
-    lines.add(const RewardLine('First win of the day', xp: 200, crumbs: 100));
-  }
-  return MatchRewards(lines);
-}

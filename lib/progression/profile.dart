@@ -16,8 +16,6 @@ class CareerStats {
   int tricks = 0;
   int donuts = 0;
   int handsPlayed = 0;
-  int badBatchGames = 0;
-  int badBatchWins = 0;
   int jackpots = 0;
   int slotPulls = 0;
 
@@ -27,8 +25,6 @@ class CareerStats {
         'tricks': tricks,
         'donuts': donuts,
         'hands': handsPlayed,
-        'bbGames': badBatchGames,
-        'bbWins': badBatchWins,
         'jackpots': jackpots,
         'slotPulls': slotPulls,
       };
@@ -42,8 +38,6 @@ class CareerStats {
       ..tricks = json['tricks'] ?? 0
       ..donuts = json['donuts'] ?? 0
       ..handsPlayed = json['hands'] ?? 0
-      ..badBatchGames = json['bbGames'] ?? 0
-      ..badBatchWins = json['bbWins'] ?? 0
       ..jackpots = json['jackpots'] ?? 0
       ..slotPulls = json['slotPulls'] ?? 0;
     return stats;
@@ -214,15 +208,6 @@ class PlayerProfile extends ChangeNotifier {
     stats.handsPlayed += match.hands;
     if (match.won) {
       stats.wins++;
-      _lastDailyWin = _today();
-    }
-    return grant(xp: rewards.xp, crumbs: rewards.crumbs, glaze: rewards.glaze);
-  }
-
-  List<Rank> recordBadBatch(BadBatchSummary game, MatchRewards rewards) {
-    stats.badBatchGames++;
-    if (game.won) {
-      stats.badBatchWins++;
       _lastDailyWin = _today();
     }
     return grant(xp: rewards.xp, crumbs: rewards.crumbs, glaze: rewards.glaze);

@@ -5,7 +5,6 @@ import 'package:donut_game/data/model/game_card/game_card_stack.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
-import 'package:donut_game/ai/acrotron.dart';
 import 'package:donut_game/data/model/bullet_hole.dart';
 import 'package:donut_game/data/model/chat_message.dart';
 import 'package:donut_game/data/model/ink_stroke.dart';
@@ -273,24 +272,10 @@ class Game {
     state.value = GameState.waitingToDeal;
   }
 
-  /// Seats Acrotron, the Ollama-driven player. Returns false if it's already
-  /// here, bots can't change now, or the table is full.
-  bool addAcrotron() {
-    if (players.any((p) => p.name == acrotronName) || !canChangeBots || players.length >= maxPlayers) return false;
-    final acrotron = GamePlayer(acrotronName, players.length, false);
-    playerDB['acrotron'] = acrotron;
-    Acrotron.instance.attach(this);
-    _announce('$acrotronName joined the table.');
-    if (players.length > 2 && state.value == GameState.waitingForPlayers) state.value = GameState.waitingToDeal;
-    return true;
-  }
-
   /// Sets up a local game against bots, cancelling anything in progress.
-  /// With [acrotron], one of the [bots] seats goes to Acrotron. Preset
-  /// [opponents] take the place of random bots; [target] is the score
+  /// Preset [opponents] take the place of random bots; [target] is the score
   /// everyone starts on.
-  void setupOffline(GamePlayer localPlayer, int bots,
-      {bool acrotron = false, List<GamePlayer>? opponents, int target = startingScore}) {
+  void setupOffline(GamePlayer localPlayer, int bots, {List<GamePlayer>? opponents, int target = startingScore}) {
     abort();
     playerDB.clear();
     chat.value = [];
@@ -303,14 +288,10 @@ class Game {
       }
     } else {
       final names = List<String>.from(_botNames)..shuffle();
-      for (var i = 0; i < bots - (acrotron ? 1 : 0); i++) {
+      for (var i = 0; i < bots; i++) {
         final bot = GamePlayer(names[i % names.length], players.length, false);
         playerDB[bot.hashCode.toString()] = bot;
       }
-    }
-    if (acrotron) {
-      playerDB['acrotron'] = GamePlayer(acrotronName, players.length, false);
-      Acrotron.instance.attach(this);
     }
     protectedDealer = 0;
     protectedActive = 1;

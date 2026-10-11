@@ -9,8 +9,6 @@ import 'package:donut_game/data/model/chat_message.dart';
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
 import 'package:donut_game/data/settings.dart';
-import 'package:donut_game/modes/bad_batch/bb_screen.dart';
-import 'package:donut_game/modes/game_mode.dart';
 import 'package:donut_game/progression/profile.dart';
 import 'package:donut_game/progression/rewards.dart';
 import 'package:donut_game/res/resources.dart';
@@ -31,12 +29,9 @@ import 'package:donut_game/ui/widget/title_bar.dart';
 import 'package:flutter/material.dart';
 
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key, required this.controller, this.onModeSwitch});
+  const GameScreen({super.key, required this.controller});
 
   final GameController controller;
-
-  /// Called when an online server switches the table to another game.
-  final ModeSwitcher? onModeSwitch;
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -121,7 +116,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   void initState() {
     super.initState();
     controller.start();
-    controller.switchedTo.addListener(_onSwitch);
     SoundEffects.instance.preload();
     FlashbangAudio.instance.preload();
     // Only bangs from now on; joining mid-game doesn't replay old ones
@@ -138,7 +132,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   @override
   void dispose() {
     _ticker.cancel();
-    controller.switchedTo.removeListener(_onSwitch);
     _sources?.removeListener(_onModelChanged);
     _announcer.dispose();
     _revision.dispose();
@@ -150,11 +143,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     // Back to the menus, unless the next campaign stage is already playing
     if (!_handedOff) MusicPlayer.instance.playMenu();
     super.dispose();
-  }
-
-  void _onSwitch() {
-    final mode = controller.switchedTo.value;
-    if (mode != null && mode != GameMode.donut && mounted) widget.onModeSwitch?.call(context, mode);
   }
 
   void _tick() {

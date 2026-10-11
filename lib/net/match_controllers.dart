@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:ui';
 
-import 'package:donut_game/ai/acrotron.dart';
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
@@ -54,7 +53,7 @@ class MatchHostController extends GameController {
     game.playerDB.clear();
     game.chat.value = [];
     game.targetScore = startingScore;
-    final taken = {acrotronName.toLowerCase()};
+    final taken = <String>{};
     for (final peer in link.peers) {
       final base = peer.name.trim().isEmpty ? 'Player' : peer.name.trim();
       var name = base;
@@ -127,7 +126,7 @@ class MatchHostController extends GameController {
     _lastSent = key;
     _sentAt = now;
     _sentInk = game.inkRevision;
-    link.send({'k': 'snap', 'mode': 'donut', 'players': players, 'game': g}).catchError((_) {});
+    link.send({'k': 'snap', 'players': players, 'game': g}).catchError((_) {});
   }
 
   /// Applies one of this device's own moves, as the host would anyone's.

@@ -80,11 +80,6 @@ void main() {
       expect(labels, contains('Sudden death survivor'));
     });
 
-    test('bad batch pays for rounds', () {
-      final rewards = badBatchRewards(const BadBatchSummary(won: true, roundsWon: 7, players: 4));
-      expect(rewards.xp, 60 + 150 + 70);
-      expect(rewards.crumbs, 40 + 100 + 35);
-    });
   });
 
   group('slot machine', () {

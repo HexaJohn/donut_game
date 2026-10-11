@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:donut_game/ai/acrotron.dart';
 import 'package:donut_game/audio/sfx.dart';
 import 'package:donut_game/campaign/backdrops.dart';
 import 'package:donut_game/data/model/chat_message.dart';
@@ -18,7 +17,6 @@ import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:donut_game/ui/game/announcer.dart';
 import 'package:donut_game/ui/game/game_controller.dart';
-import 'package:donut_game/ui/widget/fable_mark.dart';
 import 'package:donut_game/ui/widget/playing_card.dart';
 import 'package:donut_game/ui/widget/rasterized_paint.dart';
 import 'package:donut_game/ui/widget/revolver.dart';
@@ -1400,22 +1398,16 @@ class PlayerAvatar extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          if (player.agent && player.name == fableName)
-            FableMark(size: size)
-          else if (player.human && (player.id == 'local' || player.name == Settings.instance.nickname))
+          if (player.human && (player.id == 'local' || player.name == Settings.instance.nickname))
             EmblemWidget(emblem: PlayerProfile.instance.emblem, size: size)
           else
             CircleAvatar(
               radius: size / 2,
               backgroundColor: background,
-              child: player.name == acrotronName
-                  ? Icon(Icons.memory_rounded, color: Colors.white, size: size * 0.6)
-                  : player.agent
-                      ? Icon(Icons.auto_awesome_rounded, color: Colors.white, size: size * 0.55)
-                      : player.human || player.character
-                          ? Text(player.name.isEmpty ? '?' : player.name.characters.first.toUpperCase(),
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: size * 0.42))
-                          : Icon(Icons.smart_toy_rounded, color: Colors.white, size: size * 0.55),
+              child: player.human || player.character
+                  ? Text(player.name.isEmpty ? '?' : player.name.characters.first.toUpperCase(),
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: size * 0.42))
+                  : Icon(Icons.smart_toy_rounded, color: Colors.white, size: size * 0.55),
             ),
           if (dealer)
             Positioned(

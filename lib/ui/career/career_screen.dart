@@ -208,8 +208,6 @@ class _RankTab extends StatelessWidget {
                 _Stat('Tricks taken', formatAmount(stats.tricks)),
                 _Stat('Donuts eaten', '${stats.donuts}'),
                 _Stat('Hands played', formatAmount(stats.handsPlayed)),
-                _Stat('Bad Batch games', '${stats.badBatchGames}'),
-                _Stat('Bad Batch wins', '${stats.badBatchWins}'),
                 _Stat('Bonus spins', '${stats.slotPulls}'),
                 _Stat('Jackpots', '${stats.jackpots}'),
               ],

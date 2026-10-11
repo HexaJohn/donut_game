@@ -11,10 +11,6 @@ import 'package:donut_game/ui/career/career_screen.dart';
 import 'package:donut_game/ui/game/game_controller.dart';
 import 'package:donut_game/ui/game/game_screen.dart';
 import 'package:donut_game/ui/home/routes.dart';
-import 'package:donut_game/modes/bad_batch/bb_controller.dart';
-import 'package:donut_game/modes/bad_batch/bb_options.dart';
-import 'package:donut_game/modes/bad_batch/bb_screen.dart';
-import 'package:donut_game/modes/game_mode.dart';
 import 'package:donut_game/ui/widget/dialogs.dart';
 import 'package:donut_game/ui/widget/donut_logo.dart';
 import 'package:donut_game/ui/widget/suit_icon.dart';
@@ -86,17 +82,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     }
   }
 
-  GameMode _offlineMode = GameMode.donut;
-
   Future<void> _playOffline() async {
     _save();
-    if (_offlineMode == GameMode.badBatch) {
-      if (!await confirmAdultContent(context) || !mounted) return;
-      Navigator.of(context).push(gameRoute(
-        BbScreen(controller: OfflineBbController(nickname: settings.nickname, bots: settings.bots)),
-      ));
-      return;
-    }
     Navigator.of(context).push(gameRoute(
       GameScreen(controller: OfflineGameController(nickname: settings.nickname, bots: settings.bots)),
     ));
@@ -114,14 +101,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     });
     try {
       await OnlineGameController.join(settings.serverHost, settings.serverPort, settings.nickname);
-      // Open whichever game the server is running
-      final mode = await fetchServerMode(settings.serverHost, settings.serverPort);
       if (!mounted) return;
       setState(() => _joining = false);
-      if (mode.adult && !await confirmAdultContent(context)) return;
-      if (!mounted) return;
       await Navigator.of(context).push(onlineRoute(
-        mode,
         host: settings.serverHost,
         port: settings.serverPort,
         username: settings.nickname,
@@ -326,29 +308,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       key: const ValueKey('offline'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Game', style: theme.textTheme.labelLarge),
-        const SizedBox(height: 8),
-        SegmentedButton<GameMode>(
-          segments: [
-            for (final mode in GameMode.values)
-              ButtonSegment(
-                value: mode,
-                label: Text(mode.adult ? '${mode.label} 18+' : mode.label),
-                icon: Icon(mode == GameMode.donut ? Icons.donut_large_rounded : Icons.style_rounded),
-              ),
-          ],
-          selected: {_offlineMode},
-          onSelectionChanged: (value) => setState(() => _offlineMode = value.first),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: 6, bottom: 14),
-          child: Text(_offlineMode.tagline,
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
-        ),
-        if (_offlineMode == GameMode.badBatch) ...[
-          const BadBatchOptions(),
-          const SizedBox(height: 12),
-        ],
         Row(
           children: [
             Text('Opponents', style: theme.textTheme.labelLarge),
@@ -359,23 +318,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 child: Icon(Icons.smart_toy_rounded, size: 18, color: theme.colorScheme.primary),
               ),
           ],
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-          value: settings.seatAcrotronOffline,
-          onChanged: (value) => setState(() {
-            settings
-              ..seatAcrotronOffline = value
-              ..saveAcrotron();
-          }),
-          secondary: IconButton(
-            tooltip: 'Acrotron settings',
-            icon: const Icon(Icons.tune_rounded),
-            onPressed: () => showAcrotronSettings(context),
-          ),
-          title: const Text('Seat Acrotron'),
-          subtitle: const Text('AI player on your local Ollama. Takes one bot seat.'),
         ),
         Slider(
           value: settings.bots.toDouble(),
@@ -393,15 +335,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           icon: const Icon(Icons.play_arrow_rounded),
           label: const Text('Start game', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         ),
-        if (_offlineMode == GameMode.donut) ...[
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-            onPressed: () => showCampaign(context),
-            icon: const Icon(Icons.flag_rounded),
-            label: const Text('Campaign', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-          ),
-        ],
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+          onPressed: () => showCampaign(context),
+          icon: const Icon(Icons.flag_rounded),
+          label: const Text('Campaign', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        ),
       ],
     );
   }

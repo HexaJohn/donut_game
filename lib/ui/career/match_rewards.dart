@@ -59,12 +59,6 @@ class MatchOutcome {
     return _bank(profile, rewards, random, () => profile.recordDonutMatch(match, rewards));
   }
 
-  /// Banks a finished offline Bad Batch game and rolls the slots.
-  static MatchOutcome awardBadBatch(PlayerProfile profile, BadBatchSummary game, {Random? random}) {
-    final rewards = badBatchRewards(game);
-    return _bank(profile, rewards, random, () => profile.recordBadBatch(game, rewards));
-  }
-
   static MatchOutcome _bank(PlayerProfile profile, MatchRewards rewards, Random? random, List<Rank> Function() record) {
     final xpBefore = profile.xp;
     final rankUps = record();

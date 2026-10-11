@@ -2,9 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:donut_game/data/settings.dart';
-import 'package:donut_game/modes/bad_batch/bb_game.dart';
-import 'package:donut_game/modes/bad_batch/deck_library.dart';
-import 'package:donut_game/modes/game_mode.dart';
 import 'package:donut_game/net/table_host.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/data/model/game/game.dart';
@@ -21,20 +18,7 @@ import 'package:window_manager/window_manager.dart';
 Game serverGame = Game();
 
 /// Seats players and applies their moves; shared with Game Center matches.
-final TableHost tableHost = TableHost(onAllReady: _allReady);
-
-/// What the table is playing. Switched from the server window between games.
-GameMode serverMode = GameMode.donut;
-final BadBatchGame badBatch = BadBatchGame(serverGame);
-
-/// Loads the server's Bad Batch settings and decks into [badBatch].
-void configureBadBatch() {
-  final settings = Settings.instance;
-  badBatch
-    ..decks = DeckLibrary.instance.activeDecks
-    ..pointsToWin = settings.bbPointsToWin
-    ..blankCards = settings.bbBlankCards;
-}
+final TableHost tableHost = TableHost();
 
 Future main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,12 +27,8 @@ Future main() async {
     await windowManager.ensureInitialized();
     await windowManager.setTitle('Donut Server');
   }
-  // Decks and Bad Batch options are shared with the game app on this machine
+  // Settings are shared with the game app on this machine
   await Settings.instance.load();
-  DeckLibrary.instance.load();
-  // DONUT_MODE (e.g. badBatch) overrides the mode saved from the server window
-  const definedMode = String.fromEnvironment('DONUT_MODE');
-  serverMode = GameModeInfo.fromName(definedMode.isNotEmpty ? definedMode : Settings.instance.serverMode);
   serverGame.addBot();
   serverGame.addBot();
   // DONUT_PORT (environment variable or --dart-define) runs a second server
@@ -157,8 +137,6 @@ final _router = shelf_router.Router()
   ..post('/shoot', (Request request) => _act(request, 'shoot'))
   ..post('/draw', (Request request) => _act(request, 'draw'))
   ..post('/flashbang', (Request request) => _act(request, 'flashbang'))
-  ..post('/bb/submit', _bbSubmit)
-  ..post('/bb/judge', _bbJudge)
   ..get('/reset', _executeReset)
   ..get(
     '/time',
@@ -171,13 +149,10 @@ Response _helloWorldHandler(Request request) => Response.ok('Hello, World!');
 Future<Response> _newConnectionHandler(Request request) async {
   final playerJson = jsonDecode(await request.readAsString());
   final id = '${playerJson['id']}${playerJson['username']}';
-  final rejoining = serverGame.playerDB.containsKey(id);
   final result = tableHost.join(id, '${playerJson['username']}',
       back: playerJson['back'] is String ? playerJson['back'] : null,
-      face: playerJson['face'] is String ? playerJson['face'] : null,
-      agent: playerJson['agent'] == true);
+      face: playerJson['face'] is String ? playerJson['face'] : null);
   if (!result.ok) return _respond(result);
-  if (!rejoining) badBatch.rosterChanged();
   return Response.ok('{"topic": "generic", "error": "", "data": "Welcome, ${playerJson['username']}"}');
 }
 
@@ -199,14 +174,10 @@ Future<Response> _activeConnection(Request request) async {
   if (serverGame.playerDB.length > 2 && serverGame.state.value == GameState.waitingForPlayers) {
     serverGame.state.value = GameState.waitingToDeal;
   }
-  // Bad Batch hands are private: only the asking player's is sent
-  final viewer = serverGame.playerDB[request.url.queryParameters['id']]?.name;
   var scores = [
     {
-      'mode': serverMode.name,
       'players': _playersToJson(),
       'game': _gameToJson(inkRevision: int.tryParse(request.url.queryParameters['ink_rev'] ?? '')),
-      if (serverMode == GameMode.badBatch) 'bb': badBatch.toJson(viewer: viewer),
     }
   ];
 
@@ -219,45 +190,6 @@ List<Map<String, dynamic>> _playersToJson() => tableHost.playersJson();
 Future<Response> _executeReset(Request request) async {
   Game.reset();
   return Response.ok('');
-}
-
-/// Bad Batch answer: {"id", "cards": [hand indexes in blank order],
-/// "written": {"<index>": "text for a blank card"}}.
-Future<Response> _bbSubmit(Request request) async {
-  final body = jsonDecode(await request.readAsString());
-  final player = serverGame.playerDB[body['id']];
-  if (player == null || body['cards'] is! List) return Response.badRequest();
-  final written = <int, String>{
-    for (final entry in (body['written'] as Map? ?? {}).entries)
-      if (int.tryParse('${entry.key}') != null) int.parse('${entry.key}'): '${entry.value}',
-  };
-  final problem = badBatch.submit(player.name, List<int>.from(body['cards']), written: written);
-  return problem == null ? Response.ok('') : Response(409, body: problem);
-}
-
-/// Bad Batch judging: {"id", "index"} of the winning answer, in reveal order.
-Future<Response> _bbJudge(Request request) async {
-  final body = jsonDecode(await request.readAsString());
-  final player = serverGame.playerDB[body['id']];
-  if (player == null || body['index'] is! int) return Response.badRequest();
-  final problem = badBatch.judge(player.name, body['index']);
-  return problem == null ? Response.ok('') : Response(409, body: problem);
-}
-
-/// Everyone's ready: deal Donut, or start a game of Bad Batch.
-void _allReady() {
-  if (serverMode == GameMode.donut) {
-    serverGame.deal(shuffle: true);
-    return;
-  }
-  // Bad Batch: everyone's ready, so start a game
-  if (badBatch.running) return;
-  configureBadBatch();
-  final problem = badBatch.start();
-  if (problem != null) serverGame.say('', problem, system: true);
-  for (final player in serverGame.players) {
-    if (player.human) player.voteToDeal = false;
-  }
 }
 
 Response _sumHandler(request, String a, String b) {

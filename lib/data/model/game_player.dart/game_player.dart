@@ -40,10 +40,6 @@ class GamePlayer {
   /// card. Plays at any other moment are refused.
   bool awaitingCard = false;
 
-  /// An AI agent playing through the MCP harness (e.g. Fable). Plays like a
-  /// human, but gets its own avatar and Acrotron rations its replies to it.
-  bool agent = false;
-
   /// The deck this player's cards are drawn with, as catalog ids. Humans
   /// bring their own; bots get one picked from their name.
   late String cardBack = human ? 'pattern.classic' : botDeck(name).back;

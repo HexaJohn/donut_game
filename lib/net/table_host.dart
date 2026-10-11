@@ -1,6 +1,5 @@
 import 'dart:ui';
 
-import 'package:donut_game/ai/acrotron.dart';
 import 'package:donut_game/ai/bot_brain.dart';
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
@@ -38,12 +37,8 @@ class TableHost {
 
   GamePlayer? player(String id) => game.playerDB[id];
 
-  /// Seats a human, or updates their deck if they're back. Refuses
-  /// Acrotron's name, which belongs to the house AI.
-  ActionResult join(String id, String name, {String? back, String? face, bool agent = false}) {
-    if (name.trim().toLowerCase() == acrotronName.toLowerCase()) {
-      return const ActionResult.refused(409, 'That name belongs to the house AI. Pick another.');
-    }
+  /// Seats a human, or updates their deck if they're back.
+  ActionResult join(String id, String name, {String? back, String? face}) {
     final existing = game.playerDB[id];
     if (existing != null) {
       // Reconnecting keeps the seat, wearing whatever deck it brought
@@ -51,9 +46,7 @@ class TableHost {
       if (face != null) existing.cardFace = face;
       return const ActionResult.ok();
     }
-    final player = GamePlayer(name, 0, true)
-      ..id = id
-      ..agent = agent;
+    final player = GamePlayer(name, 0, true)..id = id;
     if (back != null) player.cardBack = back;
     if (face != null) player.cardFace = face;
     game.addLocalPlayer(player);
@@ -227,7 +220,6 @@ class TableHost {
             'tricks': player.tricks,
             'skip': player.skip.toString(),
             'awaitingCard': player.awaitingCard.toString(),
-            'agent': player.agent,
             'back': player.cardBack,
             'face': player.cardFace,
           }
