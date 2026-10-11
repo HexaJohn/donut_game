@@ -23,10 +23,16 @@ class GameClock extends StatefulWidget {
 class _GameClockState extends State<GameClock> {
   late final Timer _timer;
 
+  /// What's on screen now.
+  String? _shown;
+
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(milliseconds: 500), (_) => setState(() {}));
+    // Redraws only when the time shown changes, and not at all while stopped
+    _timer = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      if (formatDuration(widget.elapsed()) != _shown) setState(() {});
+    });
   }
 
   @override
@@ -52,7 +58,7 @@ class _GameClockState extends State<GameClock> {
             Icon(Icons.timer_outlined, size: 15, color: scheme.onSurface.withValues(alpha: 0.7)),
             const SizedBox(width: 6),
             Text(
-              formatDuration(widget.elapsed()),
+              _shown = formatDuration(widget.elapsed()),
               style: TextStyle(
                 fontFeatures: const [FontFeature.tabularFigures()],
                 fontWeight: FontWeight.w600,

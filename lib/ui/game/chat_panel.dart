@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:donut_game/data/model/chat_message.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:flutter/foundation.dart';
@@ -13,7 +15,11 @@ class ChatPanel extends StatefulWidget {
     required this.onSend,
     required this.open,
     required this.onClose,
+    this.width = 320,
   });
+
+  /// Width when open.
+  final double width;
 
   /// The table's messages; shared by every game mode.
   final ValueListenable<List<ChatMessage>> chat;
@@ -54,7 +60,7 @@ class _ChatPanelState extends State<ChatPanel> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 280),
       curve: Curves.easeOutCubic,
-      width: widget.open ? 320 : 0,
+      width: widget.open ? widget.width : 0,
       decoration: BoxDecoration(
         color: colors.chrome,
         border: Border(left: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08))),
@@ -62,8 +68,8 @@ class _ChatPanelState extends State<ChatPanel> {
       clipBehavior: Clip.hardEdge,
       child: OverflowBox(
         alignment: Alignment.topLeft,
-        minWidth: 320,
-        maxWidth: 320,
+        minWidth: widget.width,
+        maxWidth: widget.width,
         child: Column(
           children: [
             Padding(
@@ -189,5 +195,34 @@ class _MessageTile extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Puts the chat panel beside [table] on wide screens, and over it on narrow
+/// ones, where a side panel would squeeze the table to nothing.
+class ChatLayout extends StatelessWidget {
+  const ChatLayout({super.key, required this.table, required this.panel});
+
+  /// Below this width the panel slides over the table.
+  static const double overlayBelow = 760;
+
+  final Widget table;
+
+  /// Builds the panel at the given width.
+  final Widget Function(double width) panel;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      if (constraints.maxWidth >= overlayBelow) {
+        return Row(children: [Expanded(child: table), panel(320)]);
+      }
+      return Stack(
+        children: [
+          Positioned.fill(child: table),
+          Positioned(top: 0, bottom: 0, right: 0, child: panel(min(320, constraints.maxWidth))),
+        ],
+      );
+    });
   }
 }

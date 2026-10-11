@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:donut_game/ai/acrotron.dart';
 import 'package:donut_game/audio/music_player.dart';
 import 'package:donut_game/data/settings.dart';
@@ -94,13 +96,15 @@ Future<void> showRulesDialog(BuildContext context) {
 }
 
 Future<void> showThemePicker(BuildContext context) {
+  final narrow = MediaQuery.sizeOf(context).width < 500;
   return showDialog(
     context: context,
     builder: (context) => Dialog(
+      insetPadding: narrow ? const EdgeInsets.symmetric(horizontal: 16, vertical: 24) : null,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 640),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(narrow ? 16 : 24),
           child: ValueListenableBuilder(
             valueListenable: Settings.instance.theme,
             builder: (context, ThemePreset selected, _) => Column(
@@ -109,19 +113,48 @@ Future<void> showThemePicker(BuildContext context) {
               children: [
                 Text('Theme', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 16),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    for (final preset in ThemePreset.values)
-                      _ThemeTile(
-                        preset: preset,
-                        selected: preset == selected,
-                        onTap: () => Settings.instance.setTheme(preset),
-                      ),
-                  ],
+                // The tiles scroll; the title and Done stay put
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        LayoutBuilder(builder: (context, constraints) {
+                          // As many columns as fit, tiles stretched to fill them
+                          const gap = 12.0;
+                          final columns = max(1, ((constraints.maxWidth + gap) / (130 + gap)).floor());
+                          final tileWidth = min(184.0, (constraints.maxWidth - gap * (columns - 1)) / columns);
+                          return Wrap(
+                            spacing: gap,
+                            runSpacing: gap,
+                            children: [
+                              for (final preset in ThemePreset.values)
+                                _ThemeTile(
+                                  preset: preset,
+                                  selected: preset == selected,
+                                  width: tileWidth,
+                                  onTap: () => Settings.instance.setTheme(preset),
+                                ),
+                            ],
+                          );
+                        }),
+                        const SizedBox(height: 8),
+                        ValueListenableBuilder(
+                          valueListenable: Settings.instance.venueScenery,
+                          builder: (context, bool on, _) => SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            value: on,
+                            onChanged: Settings.instance.setVenueScenery,
+                            title: const Text('Campaign scenery'),
+                            subtitle: const Text(
+                                'Play each venue in its own scene and on its own table. Off, your theme and table are used.'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerRight,
                   child: FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Done')),
@@ -136,11 +169,12 @@ Future<void> showThemePicker(BuildContext context) {
 }
 
 class _ThemeTile extends StatelessWidget {
-  const _ThemeTile({required this.preset, required this.selected, required this.onTap});
+  const _ThemeTile({required this.preset, required this.selected, required this.onTap, this.width = 184});
 
   final ThemePreset preset;
   final bool selected;
   final VoidCallback onTap;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
@@ -163,7 +197,7 @@ class _ThemeTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        width: 184,
+        width: width,
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: preset.background,

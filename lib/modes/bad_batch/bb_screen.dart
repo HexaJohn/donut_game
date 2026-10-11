@@ -250,6 +250,17 @@ class _BbScreenState extends State<BbScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // The system back button asks first, like Leave in the menu
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _leave();
+      },
+      child: _scaffold(context),
+    );
+  }
+
+  Widget _scaffold(BuildContext context) {
     final view = controller.view.value;
     return Scaffold(
       body: Column(
@@ -270,17 +281,16 @@ class _BbScreenState extends State<BbScreen> {
                   ),
           ),
           Expanded(
-            child: Row(
-              children: [
-                Expanded(child: view == null ? const Center(child: CircularProgressIndicator()) : _table(view)),
-                ChatPanel(
-                  chat: controller.chat,
-                  localName: controller.localName,
-                  onSend: controller.sendChat,
-                  open: _chatOpen,
-                  onClose: () => setState(() => _chatOpen = false),
-                ),
-              ],
+            child: ChatLayout(
+              table: view == null ? const Center(child: CircularProgressIndicator()) : _table(view),
+              panel: (width) => ChatPanel(
+                chat: controller.chat,
+                localName: controller.localName,
+                onSend: controller.sendChat,
+                open: _chatOpen,
+                onClose: () => setState(() => _chatOpen = false),
+                width: width,
+              ),
             ),
           ),
           _actionBar(view),

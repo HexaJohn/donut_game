@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:donut_game/ai/acrotron.dart';
 import 'package:donut_game/audio/sfx.dart';
+import 'package:donut_game/campaign/backdrops.dart';
 import 'package:donut_game/data/model/chat_message.dart';
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
@@ -19,6 +20,7 @@ import 'package:donut_game/ui/game/announcer.dart';
 import 'package:donut_game/ui/game/game_controller.dart';
 import 'package:donut_game/ui/widget/fable_mark.dart';
 import 'package:donut_game/ui/widget/playing_card.dart';
+import 'package:donut_game/ui/widget/rasterized_paint.dart';
 import 'package:donut_game/ui/widget/revolver.dart';
 import 'package:donut_game/ui/widget/suit_icon.dart';
 import 'package:donut_game/ui/widget/table_tools.dart';
@@ -255,41 +257,85 @@ class _GameBoardState extends State<GameBoard> {
     final opponents = _opponentsInOrder(players, local);
     final n = max(opponents.length, 1);
 
-    // Sizing
-    final cw = (min(size.width / 11, (size.height - 200) / 5.1)).clamp(44.0, 104.0);
+    // Sizing. A tall screen (a phone held upright) sizes cards by width so
+    // the hand fills it, stacks the seats in rows of three, and moves the
+    // piles into the felt's top corners so the trick gets the full width.
+    final portrait = size.height > size.width * 1.15;
+    // A short, wide screen (a phone on its side) seats opponents in columns
+    // either side of the felt, so the felt gets the full height
+    final sideSeats = !portrait && size.height < 340 && size.width >= 560;
+    final cw = portrait
+        ? (size.width / 6.2).clamp(44.0, 104.0)
+        : sideSeats
+            ? (size.height / 5.2).clamp(44.0, 104.0)
+            : (min(size.width / 11, (size.height - 200) / 5.1)).clamp(44.0, 104.0);
     final ch = cw * 1.4;
-    const seatH = 70.0;
     const seatTop = 12.0;
-    const seatGap = 12.0;
-    final seatW = min(210.0, (size.width - 32 - (n - 1) * seatGap) / n);
-    final seatsWidth = n * seatW + (n - 1) * seatGap;
-    final seatsLeft = (size.width - seatsWidth) / 2;
+    final seatGap = portrait ? 8.0 : 12.0;
+    final perRow = portrait ? min(n, 3) : n;
+    final seatRows = (n / perRow).ceil();
+    final seatW = sideSeats ? 128.0 : min(210.0, (size.width - 32 - (perRow - 1) * seatGap) / perRow);
+    // Narrow placards put the name under the avatar instead of beside it
+    final compactSeats = seatW < 150;
+    final seatH = compactSeats ? 72.0 : 70.0;
     final miniW = min(cw * 0.5, seatW / 4);
     final miniH = miniW * 1.4;
-    final miniTop = seatTop + seatH + 6;
+    // Each row of seats has its players' face-down hands under it
+    final seatStride = seatH + 6 + miniH + 8;
 
     final handW = cw * 1.12;
     final handH = handW * 1.4;
-    final feltTop = miniTop + miniH + 14;
-    final feltBottom = size.height - handH - 30;
-    final felt = Rect.fromLTRB(16, feltTop, size.width - 16, max(feltBottom, feltTop + ch * 2));
-    final pileW = cw * 0.9;
+    final feltTop = sideSeats ? 8.0 : seatTop + seatRows * seatStride + 6;
+    final feltBottom = size.height - handH - (sideSeats ? 18 : 30);
+    final feltInset = sideSeats ? seatW + 20 : 16.0;
+    final felt = Rect.fromLTRB(feltInset, feltTop, size.width - feltInset, max(feltBottom, feltTop + ch * 2));
+    final pileW = cw * (portrait ? 0.75 : 0.9);
     final pileH = pileW * 1.4;
-    final deckPos = Offset(felt.left + 28, felt.center.dy - pileH / 2);
-    final discardPos = Offset(felt.right - 28 - pileW, felt.center.dy - pileH / 2);
+    final deckPos =
+        portrait ? Offset(felt.left + 14, felt.top + 14) : Offset(felt.left + 28, felt.center.dy - pileH / 2);
+    final discardPos = portrait
+        ? Offset(felt.right - 14 - pileW, felt.top + 14)
+        : Offset(felt.right - 28 - pileW, felt.center.dy - pileH / 2);
     final tableW = cw * 0.95;
     final tableH = tableW * 1.4;
-    final playLeft = deckPos.dx + pileW + 24;
-    final playRight = discardPos.dx - 24;
+    final playLeft = portrait ? felt.left + 12 : deckPos.dx + pileW + 24;
+    final playRight = portrait ? felt.right - 12 : discardPos.dx - 24;
 
-    Rect seatRect(int i) => Rect.fromLTWH(seatsLeft + i * (seatW + seatGap), seatTop, seatW, seatH);
+    // Side columns: the first half on the left, the rest on the right, with
+    // room between seats for the hands tucked under them
+    final leftCount = (n + 1) ~/ 2;
+    Rect sideSeatRect(int i) {
+      final right = i >= leftCount;
+      final index = right ? i - leftCount : i;
+      final count = right ? n - leftCount : leftCount;
+      final gap = miniH * 0.45 + 6;
+      final total = count * seatH + (count - 1) * gap;
+      final top = max(8.0, (size.height - total) / 2 - miniH * 0.2);
+      return Rect.fromLTWH(right ? size.width - 12 - seatW : 12, top + index * (seatH + gap), seatW, seatH);
+    }
 
-    final children = <Widget>[];
+    Rect seatRect(int i) {
+      if (sideSeats) return sideSeatRect(i);
+      final row = i ~/ perRow;
+      final inRow = row == seatRows - 1 ? n - row * perRow : perRow;
+      final rowWidth = inRow * seatW + (inRow - 1) * seatGap;
+      final left = (size.width - rowWidth) / 2;
+      return Rect.fromLTWH(left + (i % perRow) * (seatW + seatGap), seatTop + row * seatStride, seatW, seatH);
+    }
+
+    final children = <Widget>[
+      if (controller.backdrop != null)
+        Positioned.fill(key: const ValueKey('backdrop'), child: Backdrop(id: controller.backdrop!)),
+    ];
     final cards = <Widget>[];
     final overlays = <Widget>[];
     final used = <String>{};
 
     final now = DateTime.now();
+
+    // Every player's cards come in their own deck; undealt cards are the
+    // dealer's
+    final dealer = game.players.isEmpty ? null : game.dealer.value;
 
     void addCard(GameCard card, Rect rect,
         {required String zone,
@@ -308,12 +354,15 @@ class _GameBoardState extends State<GameBoard> {
       final throwing = now.difference(movedAt) < _throw + const Duration(milliseconds: 150);
       final duration = throwing ? _throw : _shuffle;
       final curve = throwing ? _throwCurve : _shuffleCurve;
+      final deckOf = zone == 'deck' ? dealer : card.belongsTo ?? dealer;
+      final back = deckOf?.cardBack ?? 'pattern.classic';
+      final face = deckOf?.cardFace ?? 'face.classic';
       Widget child = _FlipCard(
         faceUp: faceUp,
         // Turn face up as the card lands rather than mid-air
         delay: throwing && faceUp ? _throw * 0.55 : Duration.zero,
-        front: RepaintBoundary(child: PlayingCardWidget(card: card, trump: trump)),
-        back: RepaintBoundary(child: PlayingCardWidget(card: card, faceUp: false)),
+        front: RepaintBoundary(child: PlayingCardWidget(card: card, trump: trump, back: back, face: face)),
+        back: RepaintBoundary(child: PlayingCardWidget(card: card, faceUp: false, back: back, face: face)),
       );
       if (wrap != null) child = wrap(child);
       // Every card is laid out at hand size and scaled with a transform, so a
@@ -340,9 +389,9 @@ class _GameBoardState extends State<GameBoard> {
       ));
     }
 
-    // Felt, in whatever environment the player has equipped
+    // Felt, in whatever environment the game or the player picked
     final profile = PlayerProfile.instance;
-    final environment = TableEnvironment.byId(profile.environment);
+    final environment = TableEnvironment.byId(controller.environment ?? profile.environment);
     final feltColor = environment.feltColor(colors);
     final feltEdge = environment.edgeColor(colors);
     final texture = environment.texture;
@@ -372,7 +421,10 @@ class _GameBoardState extends State<GameBoard> {
                       ),
                     ),
                   ),
-                  if (texture != null) CustomPaint(key: ValueKey(environment.id), painter: texture(feltColor)),
+                  // Painted to an image once, not shape by shape every frame
+                  if (texture != null)
+                    RasterizedPaint(
+                        key: ValueKey(environment.id), painter: texture(feltColor), cacheKey: (environment.id, feltColor)),
                 ],
               ),
             ),
@@ -424,9 +476,10 @@ class _GameBoardState extends State<GameBoard> {
         );
     children.add(Positioned(
       key: const ValueKey('tool-tray'),
-      // Left of the discard pile, so its label stays readable
-      right: size.width - discardPos.dx + 20,
-      bottom: size.height - felt.bottom + 18,
+      // Left of the discard pile, so its label stays readable; upright, the
+      // pile is up top, so the tray takes the felt's bottom corner
+      right: portrait ? size.width - felt.right + 12 : size.width - discardPos.dx + 20,
+      bottom: size.height - felt.bottom + (portrait ? 12 : 18),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -456,33 +509,38 @@ class _GameBoardState extends State<GameBoard> {
             ),
             SizedBox(width: cw * 0.08),
           ],
-          SizedBox(width: cw * 0.17),
-          Opacity(
-            opacity: _held == _Tool.eraser ? 0 : 1,
-            child: trayItem(
-              'Eraser',
-              _Tool.eraser,
-              SizedBox.fromSize(
-                size: eraserSize * toolScale,
-                child: Transform.rotate(angle: 0.12, child: const FittedBox(child: EraserBlock())),
-              ),
-            ),
-          ),
-          SizedBox(width: cw * 0.25),
-          Opacity(
-            opacity: _held == _Tool.flashbang ? 0 : (controller.flashReady ? 1 : 0.35),
-            child: IgnorePointer(
-              ignoring: !controller.flashReady,
+          // The eraser comes with the Marker Set
+          if (profile.owns('gadget.markers')) ...[
+            SizedBox(width: cw * 0.17),
+            Opacity(
+              opacity: _held == _Tool.eraser ? 0 : 1,
               child: trayItem(
-                controller.flashReady ? 'Flashbang' : 'Flashbang (cooling down)',
-                _Tool.flashbang,
+                'Eraser',
+                _Tool.eraser,
                 SizedBox.fromSize(
-                  size: flashbangSize * toolScale * 0.9,
-                  child: Transform.rotate(angle: 0.3, child: const FittedBox(child: FlashbangGrenade())),
+                  size: eraserSize * toolScale,
+                  child: Transform.rotate(angle: 0.12, child: const FittedBox(child: EraserBlock())),
                 ),
               ),
             ),
-          ),
+          ],
+          if (profile.owns('gadget.flashbang')) ...[
+            SizedBox(width: cw * 0.25),
+            Opacity(
+              opacity: _held == _Tool.flashbang ? 0 : (controller.flashReady ? 1 : 0.35),
+              child: IgnorePointer(
+                ignoring: !controller.flashReady,
+                child: trayItem(
+                  controller.flashReady ? 'Flashbang' : 'Flashbang (cooling down)',
+                  _Tool.flashbang,
+                  SizedBox.fromSize(
+                    size: flashbangSize * toolScale * 0.9,
+                    child: Transform.rotate(angle: 0.3, child: const FittedBox(child: FlashbangGrenade())),
+                  ),
+                ),
+              ),
+            ),
+          ],
           if (profile.owns('gadget.stamp')) ...[
             SizedBox(width: cw * 0.25),
             Opacity(
@@ -505,18 +563,20 @@ class _GameBoardState extends State<GameBoard> {
               ),
             ),
           ],
-          SizedBox(width: cw * 0.25),
-          Opacity(
-            opacity: _held == _Tool.revolver ? 0 : 1,
-            child: trayItem(
-              'Revolver',
-              _Tool.revolver,
-              SizedBox.fromSize(
-                size: revolverSize * gunScale,
-                child: Transform.rotate(angle: -0.25, child: const FittedBox(child: Revolver())),
+          if (profile.owns('gadget.revolver')) ...[
+            SizedBox(width: cw * 0.25),
+            Opacity(
+              opacity: _held == _Tool.revolver ? 0 : 1,
+              child: trayItem(
+                'Revolver',
+                _Tool.revolver,
+                SizedBox.fromSize(
+                  size: revolverSize * gunScale,
+                  child: Transform.rotate(angle: -0.25, child: const FittedBox(child: Revolver())),
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     ));
@@ -541,16 +601,21 @@ class _GameBoardState extends State<GameBoard> {
         game.state.value != GameState.waitingForPlayers &&
         game.state.value != GameState.dealing &&
         game.state.value != GameState.gameOver;
-    children.add(Positioned(
-      key: const ValueKey('trump'),
-      left: felt.left + 20,
-      top: felt.top + 16,
-      child: AnimatedOpacity(
-        opacity: showTrump ? 1 : 0,
-        duration: const Duration(milliseconds: 300),
-        child: _TrumpChip(suit: game.trumpSuit.value),
-      ),
-    ));
+    final trumpChip = AnimatedOpacity(
+      opacity: showTrump ? 1 : 0,
+      duration: const Duration(milliseconds: 300),
+      child: _TrumpChip(suit: game.trumpSuit.value),
+    );
+    children.add(portrait
+        // Between the two piles
+        ? Positioned(
+            key: const ValueKey('trump'),
+            left: deckPos.dx + pileW,
+            right: size.width - discardPos.dx,
+            top: felt.top + 16,
+            child: Center(child: trumpChip),
+          )
+        : Positioned(key: const ValueKey('trump'), left: felt.left + 20, top: felt.top + 16, child: trumpChip));
 
     // Deck: only the top card is a real card. The thickness below it is
     // static, so dealing never nudges the cards underneath before they fly.
@@ -562,7 +627,10 @@ class _GameBoardState extends State<GameBoard> {
         top: deckPos.dy + i * 1.5,
         width: pileW,
         height: pileH,
-        child: const RepaintBoundary(child: FittedBox(child: SizedBox(width: 100, height: 140, child: CardBack()))),
+        child: RepaintBoundary(
+            child: FittedBox(
+                child: SizedBox(
+                    width: 100, height: 140, child: CardBack(pattern: dealer?.cardBack ?? 'pattern.classic')))),
       ));
     }
     if (deck.isNotEmpty) addCard(deck.first, Rect.fromLTWH(deckPos.dx, deckPos.dy, pileW, pileH), zone: 'deck');
@@ -584,7 +652,8 @@ class _GameBoardState extends State<GameBoard> {
       final total = spacing * (slots - 1) + miniW;
       for (var j = 0; j < hand.length; j++) {
         final x = seat.center.dx - total / 2 + j * spacing;
-        addCard(hand[j], Rect.fromLTWH(x, miniTop, miniW, miniH),
+        // Beside the felt they peek out from under the placard instead
+        addCard(hand[j], Rect.fromLTWH(x, sideSeats ? seat.bottom - miniH * 0.55 : seat.bottom + 6, miniW, miniH),
             zone: 'hand:${opponents[i].name}', angle: (j - (slots - 1) / 2) * 0.06);
       }
     }
@@ -605,7 +674,8 @@ class _GameBoardState extends State<GameBoard> {
       final hand = filling ? local.hand.cards.value : _sortedHand(local.hand.cards.value);
       final count = hand.length;
       final slots = filling ? max(count, cardsPerHand) : count;
-      final spacing = slots <= 1 ? 0.0 : min(handW * 0.92, (size.width * 0.62 - handW) / (slots - 1));
+      final spread = size.width * (portrait ? 0.92 : 0.62);
+      final spacing = slots <= 1 ? 0.0 : min(handW * 0.92, (spread - handW) / (slots - 1));
       final total = spacing * max(slots - 1, 0) + handW;
       final left = (size.width - total) / 2;
       final base = size.height - handH - 14;
@@ -653,7 +723,15 @@ class _GameBoardState extends State<GameBoard> {
     final trickDone = table.isNotEmpty && table.length >= activeCount && game.lastTrickWinner != null;
     final slot = min(tableW * 1.18, (playRight - playLeft) / max(table.length, 1));
     final rowLeft = felt.center.dx - (slot * (table.length - 1) + tableW) / 2;
-    final rowTop = felt.center.dy - tableH / 2 + 4;
+    // Upright, the trick sits in the space under the piles, leaving room for
+    // the name tags below it
+    final rowTop = portrait
+        ? (() {
+            final top = deckPos.dy + pileH + 10;
+            final room = felt.bottom - top - 34;
+            return top + max(0.0, (room - tableH) / 2);
+          })()
+        : felt.center.dy - tableH / 2 + 4;
     for (var i = 0; i < table.length; i++) {
       final card = table[i];
       final owner = card.belongsTo;
@@ -690,7 +768,8 @@ class _GameBoardState extends State<GameBoard> {
     for (var i = 0; i < opponents.length; i++) {
       final player = opponents[i];
       _seatRects[player.name] = seatRect(i);
-      children.add(Positioned.fromRect(
+      // Over the cards when the hands tuck under the placards
+      (sideSeats ? overlays : children).add(Positioned.fromRect(
         key: ValueKey('seat-${player.name}'),
         rect: seatRect(i),
         child: AnimatedRotation(
@@ -703,6 +782,7 @@ class _GameBoardState extends State<GameBoard> {
               game: game,
               active: _isActive(player),
               dealer: game.players.isNotEmpty && game.dealer.value == player,
+              compact: compactSeats,
             ),
           ),
         ),
@@ -743,13 +823,18 @@ class _GameBoardState extends State<GameBoard> {
       final said = latestFrom(opponents[i].name);
       if (said == null) continue;
       final seat = seatRect(i);
+      // Twice the seat's width, centred under it but kept on screen; beside
+      // the felt, out over the felt next to the seat
+      final bubbleW = sideSeats ? min(260.0, felt.width * 0.6) : min(seat.width * 2 + 40, size.width - 16);
+      final onLeft = seat.center.dx < size.width / 2;
       overlays.add(Positioned(
         // Keyed by message so a new message pops in fresh
         key: ValueKey('bubble-${said.author}-${said.time.microsecondsSinceEpoch}'),
-        // Twice the seat's width, centred under it
-        left: seat.center.dx - (seat.width * 2 + 40) / 2,
-        width: seat.width * 2 + 40,
-        top: seat.bottom + 2,
+        left: sideSeats
+            ? (onLeft ? seat.right + 6 : seat.left - bubbleW - 6)
+            : (seat.center.dx - bubbleW / 2).clamp(8.0, size.width - bubbleW - 8),
+        width: bubbleW,
+        top: sideSeats ? seat.top : seat.bottom + 2,
         child: IgnorePointer(child: _ChatBubble(message: said, pointUp: true)),
       ));
     }
@@ -759,7 +844,7 @@ class _GameBoardState extends State<GameBoard> {
         overlays.add(Positioned(
           key: ValueKey('bubble-${said.author}-${said.time.microsecondsSinceEpoch}'),
           left: 16,
-          width: 560,
+          width: min(560.0, size.width - 32),
           bottom: 4,
           child: IgnorePointer(child: _ChatBubble(message: said, pointUp: false)),
         ));
@@ -1089,39 +1174,43 @@ class _HandCard extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         // Highlight and dimming are painted on top of the card rather than
-        // with blurred shadows or opacity, which would cost an offscreen pass
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          foregroundDecoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(9),
-            color: dimmed ? Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.55) : Colors.transparent,
-            border: Border.all(color: glow || marked ? colors.accent : Colors.transparent, width: 2.5),
-          ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              child,
-              if (marked)
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: FractionallySizedBox(
-                    widthFactor: 1,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 3),
-                      decoration: BoxDecoration(
-                        color: colors.accent,
-                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(9)),
+        // with blurred shadows or opacity, which would cost an offscreen pass.
+        // Corners follow the card's, which scale with its size.
+        child: LayoutBuilder(builder: (context, box) {
+          final radius = cardRadiusFor(box.maxWidth);
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(radius),
+              color: dimmed ? Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.55) : Colors.transparent,
+              border: Border.all(color: glow || marked ? colors.accent : Colors.transparent, width: 2.5),
+            ),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                child,
+                if (marked)
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: FractionallySizedBox(
+                      widthFactor: 1,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        decoration: BoxDecoration(
+                          color: colors.accent,
+                          borderRadius: BorderRadius.vertical(bottom: Radius.circular(radius)),
+                        ),
+                        child: const Text('SWAP',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 1.5)),
                       ),
-                      child: const Text('SWAP',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 1.5)),
                     ),
                   ),
-                ),
-            ],
-          ),
-        ),
+              ],
+            ),
+          );
+        }),
       ),
     );
   }
@@ -1141,35 +1230,49 @@ class _TableCardFrame extends StatelessWidget {
       scale: winning ? 1.1 : 1,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOutBack,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        foregroundDecoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(
-            color: winning ? colors.accent : (lead ? Colors.white.withValues(alpha: 0.6) : Colors.transparent),
-            width: winning ? 3 : 1.5,
+      // Corners follow the card's, which scale with its size
+      child: LayoutBuilder(builder: (context, box) {
+        final radius = BorderRadius.circular(cardRadiusFor(box.maxWidth));
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          foregroundDecoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(
+              color: winning ? colors.accent : (lead ? Colors.white.withValues(alpha: 0.6) : Colors.transparent),
+              width: winning ? 3 : 1.5,
+            ),
           ),
-        ),
-        // Sharp spread instead of a blur: reads as a halo, costs nothing
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(color: winning ? colors.accent.withValues(alpha: 0.35) : Colors.transparent, spreadRadius: 5),
-          ],
-        ),
-        child: child,
-      ),
+          // Sharp spread instead of a blur: reads as a halo, costs nothing.
+          // The spread grows the corners with it.
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            boxShadow: [
+              BoxShadow(color: winning ? colors.accent.withValues(alpha: 0.35) : Colors.transparent, spreadRadius: 5),
+            ],
+          ),
+          child: child,
+        );
+      }),
     );
   }
 }
 
 class SeatPanel extends StatelessWidget {
-  const SeatPanel({super.key, required this.player, required this.game, required this.active, required this.dealer});
+  const SeatPanel(
+      {super.key,
+      required this.player,
+      required this.game,
+      required this.active,
+      required this.dealer,
+      this.compact = false});
 
   final GamePlayer player;
   final Game game;
   final bool active;
   final bool dealer;
+
+  /// Avatar and score on top, name and status underneath, for narrow seats.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -1193,6 +1296,23 @@ class SeatPanel extends StatelessWidget {
       status = 'Ready';
     }
 
+    // What they're doing, or their tricks this hand
+    final details = status != null
+        ? Row(
+            mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
+            children: [
+              if (active) _ThinkingDots(color: colors.accent),
+              Flexible(
+                child: Text(status,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall
+                        ?.copyWith(color: active ? colors.accent : onSeat.withValues(alpha: 0.6))),
+              ),
+            ],
+          )
+        : TrickPips(tricks: player.tricks, donuts: player.donuts.value);
+
     return AnimatedScale(
       scale: player.winner.value ? 1.06 : 1,
       duration: const Duration(milliseconds: 300),
@@ -1202,7 +1322,7 @@ class SeatPanel extends StatelessWidget {
         duration: const Duration(milliseconds: 300),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10, vertical: compact ? 4 : 8),
           decoration: BoxDecoration(
             color: colors.seat,
             borderRadius: BorderRadius.circular(16),
@@ -1215,40 +1335,47 @@ class SeatPanel extends StatelessWidget {
               const BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, 2)),
             ],
           ),
-          child: Row(
-            children: [
-              PlayerAvatar(player: player, dealer: dealer, size: 36),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
+          child: compact
+              ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    Row(
+                      children: [
+                        PlayerAvatar(player: player, dealer: dealer, size: 24),
+                        const Spacer(),
+                        ScoreText(score: player.score.value, size: 18),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
                     Text(player.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 2),
-                    status != null
-                        ? Row(
-                            children: [
-                              if (active) _ThinkingDots(color: colors.accent),
-                              Flexible(
-                                child: Text(status,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.labelSmall
-                                        ?.copyWith(color: active ? colors.accent : onSeat.withValues(alpha: 0.6))),
-                              ),
-                            ],
-                          )
-                        : TrickPips(tricks: player.tricks, donuts: player.donuts.value),
+                        style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+                    SizedBox(height: 12, child: FittedBox(alignment: Alignment.centerLeft, child: details)),
+                  ],
+                )
+              : Row(
+                  children: [
+                    PlayerAvatar(player: player, dealer: dealer, size: 36),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(player.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 2),
+                          details,
+                        ],
+                      ),
+                    ),
+                    ScoreText(score: player.score.value),
                   ],
                 ),
-              ),
-              ScoreText(score: player.score.value),
-            ],
-          ),
         ),
       ),
     );
@@ -1285,7 +1412,7 @@ class PlayerAvatar extends StatelessWidget {
                   ? Icon(Icons.memory_rounded, color: Colors.white, size: size * 0.6)
                   : player.agent
                       ? Icon(Icons.auto_awesome_rounded, color: Colors.white, size: size * 0.55)
-                      : player.human
+                      : player.human || player.character
                           ? Text(player.name.isEmpty ? '?' : player.name.characters.first.toUpperCase(),
                               style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: size * 0.42))
                           : Icon(Icons.smart_toy_rounded, color: Colors.white, size: size * 0.55),

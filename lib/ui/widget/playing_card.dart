@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:donut_game/data/model/game_card/game_card.dart';
+import 'package:donut_game/progression/card_faces.dart';
 import 'package:donut_game/progression/card_patterns.dart';
 import 'package:donut_game/progression/profile.dart';
 import 'package:donut_game/res/resources.dart';
@@ -39,8 +40,15 @@ bool isRed(Suit suit) => suit == Suit.hearts || suit == Suit.diamonds;
 /// Designed at 100x140 and scaled to whatever size it is given.
 const Size cardDesignSize = Size(100, 140);
 
+/// Corner radius at the design size.
+const double cardCornerRadius = 9;
+
+/// The corner radius of a card drawn [width] wide, for anything outlining it.
+double cardRadiusFor(double width) => cardCornerRadius * width / cardDesignSize.width;
+
 class PlayingCardWidget extends StatelessWidget {
-  const PlayingCardWidget({super.key, required this.card, this.faceUp = true, this.trump = false});
+  const PlayingCardWidget(
+      {super.key, required this.card, this.faceUp = true, this.trump = false, this.back, this.face});
 
   final GameCard card;
   final bool faceUp;
@@ -48,12 +56,18 @@ class PlayingCardWidget extends StatelessWidget {
   /// Shows a small trump marker on the face.
   final bool trump;
 
+  /// Catalog ids of the deck it comes from; null uses the equipped ones.
+  final String? back;
+  final String? face;
+
   @override
   Widget build(BuildContext context) {
     return FittedBox(
       child: SizedBox.fromSize(
         size: cardDesignSize,
-        child: faceUp ? _CardFace(card: card, trump: trump) : const CardBack(),
+        child: faceUp
+            ? CardFace(card: card, trump: trump, style: face ?? PlayerProfile.instance.cardFace)
+            : CardBack(pattern: back),
       ),
     );
   }
@@ -62,34 +76,56 @@ class PlayingCardWidget extends StatelessWidget {
 BoxDecoration _cardDecoration(DonutColors colors, Color fill) {
   return BoxDecoration(
     color: fill,
-    borderRadius: BorderRadius.circular(9),
+    borderRadius: BorderRadius.circular(cardCornerRadius),
     border: Border.all(color: colors.cardEdge, width: colors.glow ? 1.5 : 1),
     // Sharp offset shadow: a blur here would run for every card, every frame
     boxShadow: const [BoxShadow(color: Color(0x38000000), offset: Offset(0, 2))],
   );
 }
 
-class _CardFace extends StatelessWidget {
-  const _CardFace({required this.card, required this.trump});
+/// The face of [card], drawn in the face style [style] from the catalog.
+class CardFace extends StatelessWidget {
+  const CardFace({super.key, required this.card, this.trump = false, this.style = 'face.classic'});
 
   final GameCard card;
   final bool trump;
+  final String style;
 
   @override
   Widget build(BuildContext context) {
     final colors = DonutColors.of(context);
-    final ink = isRed(card.suit) ? colors.cardRed : colors.cardInk;
-    final rank = _rank[card.value]!;
+    final look = cardFaceStyle(style);
     final isFace = card.value == Value.jack || card.value == Value.queen || card.value == Value.king;
+    var ink = switch (card.suit) {
+      Suit.clubs when look.fourColour => fourColourClubs,
+      Suit.diamonds when look.fourColour => fourColourDiamonds,
+      _ => isRed(card.suit) ? colors.cardRed : colors.cardInk,
+    };
+    if (isFace && look.trim != null) ink = Color.lerp(ink, look.trim, 0.55)!;
+    final paper = look.paper == null ? colors.cardFace : Color.lerp(colors.cardFace, look.paper, 0.6)!;
+    final rank = _rank[card.value]!;
+    final glow = look.glow
+        ? [Shadow(color: ink, blurRadius: 6), Shadow(color: ink.withValues(alpha: 0.6), blurRadius: 12)]
+        : null;
+    final rankStyle = TextStyle(
+        color: ink, fontWeight: look.rankWeight, height: 1, letterSpacing: -0.5, fontFamily: look.font, shadows: glow);
+
+    Widget suit(double size) {
+      final icon = SuitIcon(card.suit, size: size, color: ink);
+      if (!look.glow) return icon;
+      // A soft halo behind the pip
+      return Container(
+        decoration: BoxDecoration(boxShadow: [BoxShadow(color: ink.withValues(alpha: 0.45), blurRadius: size * 0.6)]),
+        child: icon,
+      );
+    }
 
     Widget corner() => Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(rank,
-                style:
-                    TextStyle(color: ink, fontSize: 19, fontWeight: FontWeight.w700, height: 1, letterSpacing: -0.5)),
+            Text(rank, style: rankStyle.copyWith(fontSize: look.jumbo ? 30 : 19)),
             const SizedBox(height: 1),
-            SuitIcon(card.suit, size: 14, color: ink),
+            suit(look.jumbo ? 18 : 14),
           ],
         );
 
@@ -99,28 +135,44 @@ class _CardFace extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(rank,
-              style:
-                  TextStyle(color: ink, fontSize: 40, fontWeight: FontWeight.w800, height: 1, fontFamily: 'Georgia')),
+              style: rankStyle.copyWith(
+                  fontSize: look.jumbo ? 30 : 40, fontWeight: FontWeight.w800, fontFamily: look.font ?? 'Georgia')),
           const SizedBox(height: 3),
-          SuitIcon(card.suit, size: 20, color: ink),
+          suit(20),
         ],
       );
     } else {
-      centre = SuitIcon(card.suit, size: card.value == Value.ace ? 52 : 40, color: ink);
+      final size = card.value == Value.ace ? 52.0 : 40.0;
+      centre = suit(look.jumbo ? size * 0.6 : size);
     }
 
+    final framed = isFace || look.frame;
+    final edge = look.trim ?? ink;
     return Container(
-      decoration: _cardDecoration(colors, colors.cardFace),
+      decoration: _cardDecoration(colors, paper),
       child: Stack(
         children: [
-          if (isFace)
+          if (look.sprinkles) const Positioned.fill(child: CustomPaint(painter: SprinkleEdgePainter())),
+          if (look.trim != null)
             Positioned.fill(
               child: Container(
-                margin: const EdgeInsets.fromLTRB(22, 14, 22, 14),
+                margin: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(color: look.trim!, width: 1.5),
+                ),
+              ),
+            ),
+          if (framed)
+            Positioned.fill(
+              child: Container(
+                margin:
+                    look.jumbo ? const EdgeInsets.fromLTRB(30, 20, 30, 20) : const EdgeInsets.fromLTRB(22, 14, 22, 14),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(5),
-                  border: Border.all(color: ink.withValues(alpha: 0.25)),
-                  color: ink.withValues(alpha: 0.04),
+                  border: Border.all(color: edge.withValues(alpha: look.trim != null ? 0.7 : 0.25)),
+                  color: isFace ? ink.withValues(alpha: 0.04) : null,
+                  boxShadow: look.glow ? [BoxShadow(color: ink.withValues(alpha: 0.35), blurRadius: 6)] : null,
                 ),
               ),
             ),

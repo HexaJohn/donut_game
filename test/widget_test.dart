@@ -31,6 +31,64 @@ void main() {
     expect(find.text('Join game'), findsOneWidget);
   });
 
+  testWidgets('a table waiting on you stops animating, so the screen can rest', (tester) async {
+    final controller = OfflineGameController(nickname: 'Tester', bots: 3);
+    await tester.pumpWidget(MaterialApp(theme: buildTheme(ThemePreset.donutDark), home: GameScreen(controller: controller)));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('Deal'));
+    await _pumpFor(tester, const Duration(seconds: 8));
+    expect(Game().state.value, GameState.waitingForPlayerToSwap);
+
+    // The status pulses to get your attention, then everything settles. Any
+    // animation still running would redraw the whole screen every frame.
+    await _pumpFor(tester, const Duration(seconds: 8));
+    expect(tester.binding.transientCallbackCount, 0, reason: 'an animation is still running while the table waits');
+
+    await tester.pumpWidget(const SizedBox());
+    await _pumpFor(tester, const Duration(seconds: 3));
+  });
+
+  testWidgets('the back button asks before leaving a match', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      theme: buildTheme(ThemePreset.donutDark),
+      home: Builder(
+        builder: (context) => TextButton(
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => GameScreen(controller: OfflineGameController(nickname: 'Tester', bots: 3)))),
+          child: const Text('Open'),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Open'));
+    await _pumpFor(tester, const Duration(seconds: 1));
+    expect(find.byType(GameScreen), findsOneWidget);
+
+    // Back, then think better of it
+    await tester.binding.handlePopRoute();
+    await _pumpFor(tester, const Duration(milliseconds: 500));
+    expect(find.text('Leave the game?'), findsOneWidget);
+    await tester.tap(find.text('Stay'));
+    await _pumpFor(tester, const Duration(milliseconds: 500));
+    expect(find.byType(GameScreen), findsOneWidget);
+
+    // Back, and mean it
+    await tester.binding.handlePopRoute();
+    await _pumpFor(tester, const Duration(milliseconds: 500));
+    await tester.tap(find.text('Leave'));
+    await _pumpFor(tester, const Duration(seconds: 1));
+    expect(find.byType(GameScreen), findsNothing);
+
+    // Once the match is over, back just leaves
+    await tester.tap(find.text('Open'));
+    await _pumpFor(tester, const Duration(seconds: 1));
+    Game().state.value = GameState.gameOver;
+    await tester.binding.handlePopRoute();
+    await _pumpFor(tester, const Duration(seconds: 1));
+    expect(find.text('Leave the game?'), findsNothing);
+    expect(find.byType(GameScreen), findsNothing);
+    await _pumpFor(tester, const Duration(seconds: 3));
+  });
+
   testWidgets('offline game deals and asks you to swap', (tester) async {
     final controller = OfflineGameController(nickname: 'Tester', bots: 3);
     await tester.pumpWidget(MaterialApp(

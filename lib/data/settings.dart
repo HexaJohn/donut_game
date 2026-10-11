@@ -13,6 +13,10 @@ class Settings {
   SharedPreferences? _prefs;
 
   final ValueNotifier<ThemePreset> theme = ValueNotifier(ThemePreset.donutLight);
+
+  /// Play campaign matches in each venue's scene and on its table. Off, they
+  /// use the theme's background and the player's equipped table.
+  final ValueNotifier<bool> venueScenery = ValueNotifier(true);
   String nickname = '';
   String serverHost = '127.0.0.1';
   int serverPort = defaultPort;
@@ -64,6 +68,7 @@ class Settings {
       (element) => element.name == themeName,
       orElse: () => ThemePreset.donutLight,
     );
+    venueScenery.value = prefs.getBool('venueScenery') ?? true;
     nickname = prefs.getString('nickname') ?? '';
     serverHost = prefs.getString('serverHost') ?? serverHost;
     serverPort = prefs.getInt('serverPort') ?? serverPort;
@@ -122,6 +127,11 @@ class Settings {
   void setTheme(ThemePreset preset) {
     theme.value = preset;
     _prefs?.setString('theme', preset.name);
+  }
+
+  void setVenueScenery(bool on) {
+    venueScenery.value = on;
+    _prefs?.setBool('venueScenery', on);
   }
 
   void save() {

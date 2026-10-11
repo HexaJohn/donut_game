@@ -6,6 +6,7 @@ import 'package:donut_game/data/remote/connectivity.dart';
 import 'package:donut_game/data/settings.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
+import 'package:donut_game/ui/campaign/campaign_screen.dart';
 import 'package:donut_game/ui/career/career_screen.dart';
 import 'package:donut_game/ui/game/game_controller.dart';
 import 'package:donut_game/ui/game/game_screen.dart';
@@ -19,6 +20,7 @@ import 'package:donut_game/ui/widget/donut_logo.dart';
 import 'package:donut_game/ui/widget/suit_icon.dart';
 import 'package:donut_game/ui/widget/title_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:donut_game/net/game_center_lobby.dart';
 
 enum _Mode { offline, online }
 
@@ -150,11 +152,29 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               Expanded(
                 child: LayoutBuilder(builder: (context, constraints) {
                   final wide = constraints.maxWidth > 860;
-                  final hero = _hero(theme, colors, wide);
+                  // A phone on its side: the two halves side by side, each
+                  // scrolling on its own, so Start game is never below the fold
+                  final sideBySide = !wide && constraints.maxHeight < 500 && constraints.maxWidth >= 600;
+                  final hero = _hero(theme, colors, wide || sideBySide, compact: sideBySide);
                   final panel = _panel(theme, colors);
+                  if (sideBySide) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: SingleChildScrollView(padding: const EdgeInsets.fromLTRB(24, 12, 12, 16), child: hero),
+                        ),
+                        SizedBox(
+                          width: min(400, constraints.maxWidth * 0.52),
+                          child:
+                              SingleChildScrollView(padding: const EdgeInsets.fromLTRB(12, 12, 16, 16), child: panel),
+                        ),
+                      ],
+                    );
+                  }
                   return Center(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(32),
+                      padding: EdgeInsets.all(constraints.maxWidth < 500 ? 16 : 32),
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 1000),
                         child: wide
@@ -179,17 +199,26 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _hero(ThemeData theme, DonutColors colors, bool wide) {
+  /// [compact] shrinks the logo and title for short screens.
+  Widget _hero(ThemeData theme, DonutColors colors, bool wide, {bool compact = false}) {
     final align = wide ? CrossAxisAlignment.start : CrossAxisAlignment.center;
+    final title = Text('Donut',
+        style: (compact ? theme.textTheme.displaySmall : theme.textTheme.displayLarge)
+            ?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -1.5));
+    final logo = RotationTransition(
+      turns: _spin,
+      child: DonutLogo(size: compact ? 56 : (wide ? 168 : 120), frosting: colors.accent),
+    );
     return Column(
       crossAxisAlignment: align,
       children: [
-        RotationTransition(
-          turns: _spin,
-          child: DonutLogo(size: wide ? 168 : 120, frosting: colors.accent),
-        ),
-        const SizedBox(height: 20),
-        Text('Donut', style: theme.textTheme.displayLarge?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -1.5)),
+        if (compact)
+          Row(children: [logo, const SizedBox(width: 14), title])
+        else ...[
+          logo,
+          const SizedBox(height: 20),
+          title,
+        ],
         const SizedBox(height: 8),
         Text(
           'A trick-taking card game.\nGet to zero. Avoid the donut.',
@@ -215,7 +244,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ActionChip(
               avatar: const Icon(Icons.storefront_rounded, size: 18),
               label: const Text('Shop'),
-              onPressed: () => showCareer(context, tab: 2),
+              onPressed: () => showCareer(context, tab: 1),
             ),
             ActionChip(
               avatar: const Icon(Icons.menu_book_rounded, size: 18),
@@ -364,6 +393,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           icon: const Icon(Icons.play_arrow_rounded),
           label: const Text('Start game', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         ),
+        if (_offlineMode == GameMode.donut) ...[
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+            onPressed: () => showCampaign(context),
+            icon: const Icon(Icons.flag_rounded),
+            label: const Text('Campaign', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          ),
+        ],
       ],
     );
   }
@@ -378,6 +416,20 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       key: const ValueKey('online'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (GameCenterLobby.instance.supported) ...[
+          // No server needed: friends join through Game Center
+          FilledButton.tonalIcon(
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+            onPressed: GameCenterLobby.instance.findMatch,
+            icon: const Icon(Icons.sports_esports_rounded),
+            label: const Text('Play with friends', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 16),
+            child: Text('Invite up to ${GameCenterLobby.maxPlayers - 1} friends through Game Center. No server needed.',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+          ),
+        ],
         Text('Server', style: theme.textTheme.labelLarge),
         const SizedBox(height: 8),
         Row(

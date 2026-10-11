@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:donut_game/audio/audio_available.dart';
 import 'package:donut_game/data/remote/connectivity.dart';
 import 'package:donut_game/data/settings.dart';
 import 'package:donut_game/ui/home/home_screen.dart';
@@ -31,7 +32,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
   /// The Acro "braam". It swells to its peak about 1.4 s in, which lands as
   /// the bars finish and the words come out, then rings for several seconds.
-  final _sound = AudioPlayer();
+  final _sound = newAudioPlayer();
 
   @override
   void initState() {

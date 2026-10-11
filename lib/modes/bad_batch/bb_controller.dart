@@ -10,7 +10,7 @@ import 'package:donut_game/modes/bad_batch/deck_library.dart';
 import 'package:donut_game/modes/game_mode.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:platform_device_id/platform_device_id.dart';
+import 'package:donut_game/data/device_id.dart';
 
 /// Someone at the table.
 class BbSeat {
@@ -159,7 +159,7 @@ class OnlineBbController extends BbController {
   void dispose() => _running = false;
 
   Future<void> _loop() async {
-    _deviceId = await PlatformDeviceId.getDeviceId ?? 'unknown';
+    _deviceId = await deviceId();
     while (_running) {
       try {
         final response = await http
