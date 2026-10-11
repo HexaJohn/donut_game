@@ -59,6 +59,19 @@ if [[ -n $WINDOWS ]]; then
   fi
   [[ -f content/windows/donut_game.exe && -f content/windows/flutter_windows.dll && -d content/windows/data ]] ||
     { echo "The Windows build needs donut_game.exe, flutter_windows.dll and the data folder" >&2; exit 1; }
+  # Flutter never clears old files out of Release, so DLLs from plugins the
+  # game no longer uses ride along; keep only the ones it lists now
+  KEEP=" flutter_windows.dll "
+  for plugin in $(sed -n '/FLUTTER_PLUGIN_LIST$/,/)/p' ../../windows/flutter/generated_plugins.cmake | grep -v '[()]'); do
+    KEEP+="${plugin}_plugin.dll "
+  done
+  for dll in content/windows/*.dll; do
+    name=$(basename "$dll")
+    if [[ $KEEP != *" $name "* ]]; then
+      echo "Leaving out $name (left over from an older build)"
+      rm "$dll"
+    fi
+  done
   DEPOTS+=$'\n'"    \"$WINDOWS_DEPOT\" { \"FileMapping\" { \"LocalPath\" \"windows/*\" \"DepotPath\" \".\" \"Recursive\" \"1\" } }"
 fi
 
