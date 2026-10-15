@@ -7,7 +7,8 @@
     {
       "name": "donut_game",
       "request": "launch",
-      "type": "dart"
+      "type": "dart",
+      "toolArgs": ["--dart-define=DONUT_TEXT_FILE=${workspaceFolder}/assets/copy/donut_text.txt"]
     },
     {
       "name": "donut_game (profile mode)",
@@ -25,13 +26,13 @@
       "name": "donut_game (Galaxy S8)",
       "request": "launch",
       "type": "dart",
-      "toolArgs": ["--dart-define=DEVICE=galaxy_s8"]
+      "toolArgs": ["--dart-define=DEVICE=galaxy_s8", "--dart-define=DONUT_TEXT_FILE=${workspaceFolder}/assets/copy/donut_text.txt"]
     },
     {
       "name": "donut_game (Galaxy S8 landscape)",
       "request": "launch",
       "type": "dart",
-      "toolArgs": ["--dart-define=DEVICE=galaxy_s8_landscape"]
+      "toolArgs": ["--dart-define=DEVICE=galaxy_s8_landscape", "--dart-define=DONUT_TEXT_FILE=${workspaceFolder}/assets/copy/donut_text.txt"]
     },
     {
       "name": "Donut Admin",
