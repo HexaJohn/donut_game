@@ -37,6 +37,20 @@ Future<void> showSteamDebug(BuildContext context) {
                   subtitle: const Text('Outlines AI-made text (cyan) and art (magenta), and shows AI sounds and music'),
                 ),
               ),
+              ListenableBuilder(
+                listenable: Listenable.merge([AiAudit.instance.enabled, AiAudit.instance.textMode]),
+                builder: (context, _) => AiAudit.instance.enabled.value
+                    ? SegmentedButton<AuditTextMode>(
+                        segments: const [
+                          ButtonSegment(value: AuditTextMode.outline, label: Text('Outline')),
+                          ButtonSegment(value: AuditTextMode.blocks, label: Text('Blocks')),
+                          ButtonSegment(value: AuditTextMode.flow, label: Text('Flow')),
+                        ],
+                        selected: {AiAudit.instance.textMode.value},
+                        onSelectionChanged: (mode) => AiAudit.instance.setTextMode(mode.single),
+                      )
+                    : const SizedBox.shrink(),
+              ),
               const Divider(),
               Text('Steam', style: theme.textTheme.titleSmall),
               const SizedBox(height: 4),

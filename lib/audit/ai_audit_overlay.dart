@@ -105,7 +105,9 @@ class _AiAuditOverlayState extends State<AiAuditOverlay> {
   @override
   Widget build(BuildContext context) {
     // Above the app's pages, so its labels take the theme's font by hand
-    final font = Theme.of(context).textTheme.bodySmall?.fontFamily;
+    // (but not Flow Block: the audit's own labels must stay readable)
+    final themeFont = Theme.of(context).textTheme.bodySmall?.fontFamily;
+    final font = themeFont == 'FlowBlock' ? null : themeFont;
     return ValueListenableBuilder(
       valueListenable: _audit.enabled,
       builder: (context, bool on, _) => Stack(
@@ -113,7 +115,15 @@ class _AiAuditOverlayState extends State<AiAuditOverlay> {
         children: [
           KeyedSubtree(key: _app, child: widget.child),
           if (on) ...[
-            Positioned.fill(child: IgnorePointer(child: CustomPaint(painter: _MarksPainter(_marks, font)))),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ValueListenableBuilder(
+                  valueListenable: _audit.textMode,
+                  builder: (context, AuditTextMode mode, _) =>
+                      CustomPaint(painter: _MarksPainter(_marks, font, blocks: mode == AuditTextMode.blocks)),
+                ),
+              ),
+            ),
             Positioned(
               left: 8,
               bottom: 8,
@@ -132,10 +142,13 @@ class _AiAuditOverlayState extends State<AiAuditOverlay> {
 }
 
 class _MarksPainter extends CustomPainter {
-  _MarksPainter(this.marks, this.font);
+  _MarksPainter(this.marks, this.font, {required this.blocks});
 
   final List<_Mark> marks;
   final String? font;
+
+  /// Covers text with solid blocks instead of outlining it.
+  final bool blocks;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -147,8 +160,13 @@ class _MarksPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..color = _artColor;
+    final block = Paint()..color = _textColor;
     for (final mark in marks.where((m) => !m.art)) {
-      canvas.drawRect(mark.rect.inflate(1), text);
+      if (blocks) {
+        canvas.drawRRect(RRect.fromRectAndRadius(mark.rect, const Radius.circular(3)), block);
+      } else {
+        canvas.drawRect(mark.rect.inflate(1), text);
+      }
     }
     for (final mark in marks.where((m) => m.art)) {
       canvas.drawRect(mark.rect, art);
@@ -159,12 +177,13 @@ class _MarksPainter extends CustomPainter {
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      label.paint(canvas, mark.rect.topLeft.translate(0, -label.height).clamp(Offset.zero, size.bottomRight(Offset.zero)));
+      label.paint(
+          canvas, mark.rect.topLeft.translate(0, -label.height).clamp(Offset.zero, size.bottomRight(Offset.zero)));
     }
   }
 
   @override
-  bool shouldRepaint(_MarksPainter old) => old.marks != marks;
+  bool shouldRepaint(_MarksPainter old) => old.marks != marks || old.blocks != blocks;
 }
 
 extension on Offset {

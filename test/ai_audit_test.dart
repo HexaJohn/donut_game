@@ -9,6 +9,7 @@ import 'package:donut_game/ui/game/game_screen.dart';
 import 'package:donut_game/ui/home/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'layout_test.dart' show loadRealFonts, pumpFor;
@@ -16,22 +17,33 @@ import 'layout_test.dart' show loadRealFonts, pumpFor;
 /// The AI audit finds text and art on real screens. Set AUDIT_SHOTS to a
 /// folder to see it.
 void main() {
-  setUpAll(loadRealFonts);
-  tearDown(() => AiAudit.instance.enabled.value = false);
+  setUpAll(() async {
+    await loadRealFonts();
+    await (FontLoader('FlowBlock')
+          ..addFont(Future.value(ByteData.sublistView(File('assets/fonts/FlowBlock-Regular.ttf').readAsBytesSync()))))
+        .load();
+  });
+  tearDown(() {
+    AiAudit.instance.enabled.value = false;
+    AiAudit.instance.textMode.value = AuditTextMode.outline;
+  });
 
-  for (final (name, screen) in [
-    ('home', () => const HomeScreen()),
-    ('game', () => GameScreen(controller: OfflineGameController(nickname: 'You', bots: 3))),
+  for (final (name, screen, mode) in [
+    ('home', () => const HomeScreen(), AuditTextMode.outline),
+    ('game', () => GameScreen(controller: OfflineGameController(nickname: 'You', bots: 3)), AuditTextMode.outline),
+    ('home_blocks', () => const HomeScreen(), AuditTextMode.blocks),
+    ('home_flow', () => const HomeScreen(), AuditTextMode.flow),
   ]) {
-    testWidgets('the AI audit outlines text and art on the $name screen', (tester) async {
+    testWidgets('the AI audit marks text and art on $name', (tester) async {
       tester.view.physicalSize = const Size(1280, 820);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       AiAudit.instance.enabled.value = true;
+      AiAudit.instance.textMode.value = mode;
       final key = GlobalKey();
       await tester.pumpWidget(MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: buildTheme(ThemePreset.midnightCasino),
+        theme: AiAudit.instance.theme(buildTheme(ThemePreset.midnightCasino)),
         builder: (context, child) => RepaintBoundary(key: key, child: AiAuditOverlay(child: child!)),
         home: screen(),
       ));

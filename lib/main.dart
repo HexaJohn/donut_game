@@ -46,9 +46,8 @@ Future<void> main() async {
   // binding, which keeps it alive.
   AppLifecycleListener(
     onStateChange: (state) {
-      final away = state == AppLifecycleState.paused ||
-          state == AppLifecycleState.hidden ||
-          state == AppLifecycleState.detached;
+      final away =
+          state == AppLifecycleState.paused || state == AppLifecycleState.hidden || state == AppLifecycleState.detached;
       MusicPlayer.instance.setBackgrounded(away);
       // Save to the cloud on the way out; closing waits for it before
       // letting go of Steam
@@ -67,6 +66,9 @@ Future<void> main() async {
   CloudSave.start();
   await Settings.instance.load();
   await AiAudit.instance.load();
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks(['Flow Block'], await rootBundle.loadString('assets/fonts/FlowBlock-OFL.txt'));
+  });
   final steam = SteamService.instance;
   if (steam.running && (steam.personaName ?? '').isNotEmpty) Settings.instance.useSteamName(steam.personaName!);
   unawaited(Usage.instance.start());
@@ -109,28 +111,31 @@ class DonutApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder(
       valueListenable: Settings.instance.theme,
-      builder: (context, ThemePreset preset, _) => MaterialApp(
-        title: 'Donut',
-        debugShowCheckedModeBanner: false,
-        // Lets a Game Center match open from anywhere, invites included
-        navigatorKey: GameCenterLobby.instance.navigatorKey,
-        scaffoldMessengerKey: GameCenterLobby.instance.messengerKey,
-        theme: buildTheme(preset),
-        // Clear of camera cutouts on phones that have them
-        builder: (context, child) {
-          // Highlights everything AI-made, when switched on (developer panel)
-          final app = AiAuditOverlay(child: isMobile ? SafeArea(child: child!) : child!);
-          if (!kIsWeb) return app;
-          // The first click or tap lets the browser play sound
-          return Listener(
-            onPointerDown: (_) {
-              WebAudio.instance.unlock();
-              MusicPlayer.instance.unlockAudio();
-            },
-            child: app,
-          );
-        },
-        home: const SplashScreen(),
+      builder: (context, ThemePreset preset, _) => ListenableBuilder(
+        listenable: Listenable.merge([AiAudit.instance.enabled, AiAudit.instance.textMode]),
+        builder: (context, _) => MaterialApp(
+          title: 'Donut',
+          debugShowCheckedModeBanner: false,
+          // Lets a Game Center match open from anywhere, invites included
+          navigatorKey: GameCenterLobby.instance.navigatorKey,
+          scaffoldMessengerKey: GameCenterLobby.instance.messengerKey,
+          theme: AiAudit.instance.theme(buildTheme(preset)),
+          // Clear of camera cutouts on phones that have them
+          builder: (context, child) {
+            // Highlights everything AI-made, when switched on (developer panel)
+            final app = AiAuditOverlay(child: isMobile ? SafeArea(child: child!) : child!);
+            if (!kIsWeb) return app;
+            // The first click or tap lets the browser play sound
+            return Listener(
+              onPointerDown: (_) {
+                WebAudio.instance.unlock();
+                MusicPlayer.instance.unlockAudio();
+              },
+              child: app,
+            );
+          },
+          home: const SplashScreen(),
+        ),
       ),
     );
   }
