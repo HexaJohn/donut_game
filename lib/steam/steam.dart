@@ -1,5 +1,6 @@
 import 'package:donut_game/steam/steam_start_stub.dart'
     if (dart.library.io) 'package:donut_game/steam/steam_start_io.dart' as platform;
+
 import 'package:flutter/foundation.dart';
 
 /// Donut's app on Steam.
@@ -31,6 +32,18 @@ class SteamService {
     log.value = lines.length > 200 ? lines.sublist(lines.length - 200) : lines;
     debugPrint('Steam: $line');
   }
+
+  /// Whether Steam Cloud is on for this player and game.
+  bool get cloudEnabled => false;
+
+  /// The Steam Cloud file [name], or null if there isn't one.
+  Uint8List? readCloudFile(String name) => null;
+
+  /// Bytes of Steam Cloud space left for this game, or null if unknown.
+  int? get cloudSpaceLeft => null;
+
+  /// Saves [data] to Steam Cloud as [name]. Returns whether it worked.
+  bool writeCloudFile(String name, Uint8List data) => false;
 
   void shutdown() {}
 }

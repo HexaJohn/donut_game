@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:donut_game/steam/cloud_save.dart';
 import 'package:donut_game/steam/steam.dart';
 import 'package:donut_game/audio/web_audio.dart';
 import 'package:donut_game/analytics/usage.dart';
@@ -47,12 +48,22 @@ Future<void> main() async {
           state == AppLifecycleState.hidden ||
           state == AppLifecycleState.detached;
       MusicPlayer.instance.setBackgrounded(away);
-      if (state == AppLifecycleState.detached) SteamService.instance.shutdown();
+      // Save to the cloud on the way out; closing waits for it before
+      // letting go of Steam
+      if (state == AppLifecycleState.detached) {
+        unawaited(CloudSave.upload().whenComplete(SteamService.instance.shutdown));
+      } else if (away) {
+        unawaited(CloudSave.upload());
+      }
       if (state == AppLifecycleState.resumed) _goFullscreen();
     },
   );
-  await Settings.instance.load();
+  // Steam first: a newer save in Steam Cloud replaces this computer's before
+  // anything reads it
   await startSteam();
+  await CloudSave.restore();
+  CloudSave.start();
+  await Settings.instance.load();
   final steam = SteamService.instance;
   if (steam.running && (steam.personaName ?? '').isNotEmpty) Settings.instance.useSteamName(steam.personaName!);
   unawaited(Usage.instance.start());

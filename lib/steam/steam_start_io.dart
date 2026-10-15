@@ -126,6 +126,57 @@ class Steamworks extends SteamService {
   }
 
   @override
+  bool get cloudEnabled {
+    final storage = ISteamRemoteStorage.userInstance;
+    return storage.isCloudEnabledForAccount() && storage.isCloudEnabledForApp();
+  }
+
+  @override
+  int? get cloudSpaceLeft {
+    final total = calloc<UnsignedLongLong>(), available = calloc<UnsignedLongLong>();
+    try {
+      return ISteamRemoteStorage.userInstance.getQuota(total, available) ? available.value : 0;
+    } finally {
+      calloc
+        ..free(total)
+        ..free(available);
+    }
+  }
+
+  @override
+  Uint8List? readCloudFile(String name) {
+    final storage = ISteamRemoteStorage.userInstance;
+    final file = name.toNativeUtf8();
+    try {
+      if (!storage.fileExists(file)) return null;
+      final size = storage.getFileSize(file);
+      final buffer = calloc<Uint8>(size);
+      try {
+        final read = storage.fileRead(file, buffer.cast(), size);
+        return read == size ? Uint8List.fromList(buffer.asTypedList(size)) : null;
+      } finally {
+        calloc.free(buffer);
+      }
+    } finally {
+      calloc.free(file);
+    }
+  }
+
+  @override
+  bool writeCloudFile(String name, Uint8List data) {
+    final file = name.toNativeUtf8();
+    final buffer = calloc<Uint8>(data.length);
+    try {
+      buffer.asTypedList(data.length).setAll(0, data);
+      return ISteamRemoteStorage.userInstance.fileWrite(file, buffer.cast(), data.length);
+    } finally {
+      calloc
+        ..free(file)
+        ..free(buffer);
+    }
+  }
+
+  @override
   void shutdown() {
     _pump.cancel();
     SteamApi.shutdown();
