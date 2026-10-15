@@ -1,3 +1,4 @@
+import 'package:donut_copy/donut_copy.dart';
 import 'dart:async';
 
 import 'package:donut_game/audit/ai_audit.dart';
@@ -89,7 +90,7 @@ class _AiAuditOverlayState extends State<AiAuditOverlay> {
           final text = node.text.toPlainText().trim();
           final font = node.text.style?.fontFamily ?? '';
           final icon = font.contains('Icons') || font == 'FluentIcons';
-          if (text.isNotEmpty && !icon && AiInventory.isAi(text)) marks.add(_Mark(_rectOf(node, root), false, null));
+          if (text.isNotEmpty && !icon && _isAiText(text)) marks.add(_Mark(_rectOf(node, root), false, null));
         }
       }
       node.visitChildren((child) => visit(child, inArt: art));
@@ -98,6 +99,15 @@ class _AiAuditOverlayState extends State<AiAuditOverlay> {
     visit(root, inArt: false);
     setState(() => _marks = marks);
   }
+
+  /// Unwritten text: with codes showing, whatever shows a code; otherwise
+  /// anything the text file hasn't written.
+  bool _isAiText(String text) {
+    if (Copy.showCodes) return _code.hasMatch(text);
+    return !Copy.written.values.contains(text);
+  }
+
+  static final _code = RegExp(r'\[[A-Z]\d+\]');
 
   Rect _rectOf(RenderBox box, RenderBox root) =>
       MatrixUtils.transformRect(box.getTransformTo(root), Offset.zero & box.size);

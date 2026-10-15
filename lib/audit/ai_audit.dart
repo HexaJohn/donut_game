@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/audit/ai_inventory.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/material.dart';
@@ -33,6 +34,10 @@ class RenderAiMarked extends RenderProxyBox {
 
 /// How the AI audit shows text.
 enum AuditTextMode {
+  /// Unwritten lines show their code from the game's text file instead of
+  /// the AI original, so it isn't read.
+  codes,
+
   /// Outlined, still readable.
   outline,
 
@@ -45,7 +50,13 @@ enum AuditTextMode {
 
 /// The AI audit: whether the overlay is on, and the sounds just heard.
 class AiAudit {
-  AiAudit._();
+  AiAudit._() {
+    enabled.addListener(_syncCopy);
+    textMode.addListener(_syncCopy);
+    _syncCopy();
+  }
+
+  void _syncCopy() => Copy.showCodes = enabled.value && textMode.value == AuditTextMode.codes;
   static final AiAudit instance = AiAudit._();
 
   static const _prefsKey = 'dev.aiAudit';
@@ -54,7 +65,7 @@ class AiAudit {
   /// On with --dart-define=AI_AUDIT=true, or from the developer panel.
   final ValueNotifier<bool> enabled = ValueNotifier(const bool.fromEnvironment('AI_AUDIT'));
 
-  final ValueNotifier<AuditTextMode> textMode = ValueNotifier(AuditTextMode.outline);
+  final ValueNotifier<AuditTextMode> textMode = ValueNotifier(AuditTextMode.codes);
 
   /// Whether text should be set in Flow Block right now.
   bool get flowText => enabled.value && textMode.value == AuditTextMode.flow;

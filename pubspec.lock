@@ -297,6 +297,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.1"
+  donut_copy:
+    dependency: "direct main"
+    description:
+      path: "packages/donut_copy"
+      relative: true
+    source: path
+    version: "1.0.0"
   donut_engine:
     dependency: "direct main"
     description:

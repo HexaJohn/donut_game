@@ -42,6 +42,7 @@ Future<void> showSteamDebug(BuildContext context) {
                 builder: (context, _) => AiAudit.instance.enabled.value
                     ? SegmentedButton<AuditTextMode>(
                         segments: const [
+                          ButtonSegment(value: AuditTextMode.codes, label: Text('Codes')),
                           ButtonSegment(value: AuditTextMode.outline, label: Text('Outline')),
                           ButtonSegment(value: AuditTextMode.blocks, label: Text('Blocks')),
                           ButtonSegment(value: AuditTextMode.flow, label: Text('Flow')),

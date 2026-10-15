@@ -1,0 +1,10 @@
+name: donut_copy
+description: Every piece of text players see in Donut, each with a code, overridable from assets/copy/donut_text.txt.
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: ^3.5.0
+
+dev_dependencies:
+  test: ^1.25.0

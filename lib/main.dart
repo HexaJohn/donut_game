@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/audit/ai_audit_overlay.dart';
 import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/steam/cloud_save.dart';
@@ -64,6 +65,10 @@ Future<void> main() async {
   await startSteam();
   await CloudSave.restore();
   CloudSave.start();
+  // The game's text: what's been written over the AI originals
+  try {
+    Copy.load(await rootBundle.loadString('assets/copy/donut_text.txt'));
+  } catch (_) {}
   await Settings.instance.load();
   await AiAudit.instance.load();
   LicenseRegistry.addLicense(() async* {

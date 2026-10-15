@@ -7,4 +7,6 @@ environment:
   sdk: ^3.5.0
 
 dev_dependencies:
+  donut_copy:
+    path: ../donut_copy
   test: ^1.25.0
