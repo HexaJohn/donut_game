@@ -5,102 +5,102 @@
 # number) to see each code where it appears.
 
 # App and home
-A1 |
-A2 |
-A3 |
-A4 |
-A5 |
-A6 |
+A1 | Donut
+A2 | It's basically sheepshead.
+A3 | Rank
+A4 | Shop
+A5 | Tutorial
+A6 | Settings
 A7 |
 A8 |
-A9 |
+A9 | Welcome back,
 A10 |
-A11 |
-A12 |
-A13 |
-A14 |
+A11 | Is that really what they call you?
+A12 | Offline
+A13 | Online
+A14 | Bots
 A15 {n} |
-A16 |
-A17 |
+A16 | Quick Match
+A17 | Story Mode
 A18 |
 A19 |
-A20 |
-A21 |
-A22 |
-A23 |
-A24 |
-A25 |
+A20 | No response.
+A21 | Play now
+A22 | Matchmaking
+A23 | Private Match
+A24 | CODE
+A25 | Join
 A26 {n} |
-A27 |
-A28 {n} |
+A27 | Apple Game Center
+A28 {n} | Play with {n} friends
 A29 {version} |
-A30 |
-A31 |
+A30 | Copyright © 2026 Acro Visuals, L.L.C.
+A31 | Online
 A32 |
-A33 |
-A34 |
-A35 |
-A36 |
-A37 {host} |
-A38 |
+A33 | Wasting time
+A34 | Doing things
+A35 | Spinning plates
+A36 | Loading preferences
+A37 {host} | Looking for {host}
+A38 | Reticulating splines
 A39 |
 A40 |
-A41 |
-A42 |
-A43 |
-A44 |
-A45 |
-A46 |
+A41 | Difficulty
+A42 | Starting score
+A43 | The more points you start with, the longer the game.
+A44 | Match settings
+A45 | Cancel
+A46 | Confirm
 
 # The game table
 G1 |
 G2 |
 G3 |
 G4 |
-G5 |
-G6 |
-G7 |
-G8 |
-G9 |
-G10 |
+G5 | Tutorial
+G6 | Theme
+G7 | Settings
+G8 | Match
+G9 | Add Bot
+G10 | Kick Bot
 G11 |
-G12 |
-G13 |
-G14 |
-G15 |
-G16 |
-G17 {target} |
-G18 |
-G19 |
+G12 | Restart
+G13 | Quit
+G14 | Restart Server?
+G15 | Restart?
+G16 | Match progress will be lost!
+G17 {target} | Match progress will be lost!
+G18 | Nevermind
+G19 | Do it
 G20 |
-G21 |
+G21 | Ready?
 G22 {seconds} {ready} {total} |
 G23 {ready} {total} |
-G24 {ready} {total} |
+G24 {ready} {total} | {ready}/{total} players ready
 G25 |
 G26 |
-G27 {max} {picked} |
+G27 {max} {picked} | Swapping {picked}/{max} cards
 G28 {name} |
 G29 {name} |
 G30 {name} |
 G31 {name} {n} |
-G32 |
-G33 |
+G32 | You're up!
+G33 | Your turn!
 G34 |
-G35 {name} |
+G35 {name} | Waiting on {name}
 G36 |
 G37 |
 G38 {name} |
-G39 |
+G39 | Deal
 G40 |
-G41 |
-G42 |
+G41 | Ready.
+G42 | Ready?
 G43 |
 G44 {n} |
 G45 |
-G46 |
-G47 |
-G48 {n} |
+G46 | Fold
+G47 | Play
+G48 {n} | Swap
 G49 |
 G50 |
 G51 |
@@ -109,9 +109,9 @@ G53 |
 G54 |
 G55 |
 G56 |
-G57 {n} |
-G58 {n} |
-G59 |
+G57 {n} | Deck
+G58 {n} | Discard
+G59 | you
 G60 |
 G61 |
 G62 |
@@ -125,14 +125,14 @@ G69 {name} |
 G70 |
 G71 |
 G72 |
-G73 |
-G74 |
-G75 |
-G76 |
-G77 |
-G78 |
-G79 |
-G80 |
+G73 | Folded
+G74 | Swapping
+G75 | Hmm
+G76 | Swapped
+G77 | Next up
+G78 | Waiting
+G79 | Ready
+G80 | Dealer
 G81 |
 G82 |
 G83 {n} |
@@ -140,34 +140,34 @@ G84 {n} |
 G85 {n} |
 G86 {n} |
 G87 |
-G88 |
-G89 |
+G88 | LEADING
+G89 | TRUMP
 G90 |
 G91 {action} |
 G92 |
-G93 {n} |
-G94 |
-G95 {name} |
-G96 {suit} |
+G93 {n} | there is {n} of something?
+G94 | wtf is G94
+G95 {name} | {name}
+G96 {suit} | {suit}
 G97 |
-G98 |
-G99 |
+G98 | Round over.
+G99 | No donuts... this time.
 G100 {names} |
 G101 |
 G102 {players} |
 G103 |
-G104 |
-G105 {name} |
+G104 | Trick taken!
+G105 {name} | {name} is doing something
 G106 |
 G107 {max} |
 G108 |
 G109 |
 G110 {suit} |
-G111 |
+G111 | Leave match?
 G112 |
-G113 |
-G114 |
-G115 |
+G113 | Match progress will be lost!
+G114 | Stay
+G115 | Adios!
 G116 |
 G117 {name} |
 G118 {time} |
@@ -180,10 +180,10 @@ G124 {stage} {difficulty} |
 G125 |
 G126 |
 G127 |
-G128 |
+G128 | Code:
 G129 |
 G130 |
-G131 |
+G131 | Copy
 G132 |
 G133 |
 G134 |
@@ -207,13 +207,13 @@ G151 |
 G152 |
 G153 |
 G154 |
-G155 |
-G156 |
-G157 |
+G155 | gg
+G156 | This is Donut!
+G157 | Chat
 G158 |
 G159 |
 G160 |
-G161 |
+G161 | Playing against bots
 G162 {host} {port} |
 G163 {host} {port} |
 G164 {host} {port} |
@@ -224,7 +224,7 @@ G168 |
 
 # Online play
 O1 |
-O2 |
+O2 | Playing online matchmaking
 O3 |
 O4 {code} |
 O5 |
@@ -307,28 +307,28 @@ N56 {name} |
 N57 {name} {target} |
 N58 |
 N59 |
-N60 |
-N61 |
-N62 |
-N63 |
-N64 |
-N65 |
-N66 |
-N67 |
-N68 |
-N69 |
-N70 |
-N71 |
-N72 |
-N73 |
-N74 |
-N75 |
-N76 |
-N77 |
-N78 |
-N79 |
+N60 | Mr. Crime
+N61 | Joe Schmoe
+N62 | Clanker
+N63 | Sprinkles
+N64 | Miami
+N65 | Lambert
+N66 | Dill
+N67 | Robert
+N68 | Jimbo
+N69 | Mrs. Crime
+N70 | Idiot
+N71 | Bad
+N72 | Decent
+N73 | Good
+N74 | Oh No
+N75 | He didn't read the rules. Mostly because he can't read.
+N76 | Be nice, its his first time playing.
+N77 | Ok, this guy knows whats up.
+N78 | A worthy opponent!
+N79 | Uh... good luck?
 N80 |
-N81 |
+N81 | Say something
 N82 |
 N83 |
 N84 |
@@ -505,8 +505,8 @@ S7 |
 S8 |
 S9 |
 S10 |
-S11 |
-S12 |
+S11 | CR
+S12 | H2O
 S13 |
 S14 |
 S15 |
@@ -595,26 +595,26 @@ S97 |
 S98 |
 S99 |
 S100 |
-S101 |
-S102 |
-S103 |
-S104 |
-S105 |
-S106 |
-S107 |
-S108 |
-S109 |
-S110 |
-S111 |
-S112 |
-S113 |
-S114 |
-S115 |
-S116 |
-S117 |
-S118 |
-S119 |
-S120 {rank} {grade} |
+S101 | Freshly Baked
+S102 | Day Old Bread
+S103 | Frosted Donut
+S104 | Cake Donut
+S105 | Glazer Donut
+S106 | Bagel
+S107 | Everything Bagel
+S108 | Apple Pie
+S109 | Pecan Pie
+S110 | Chicken Pot Pie
+S111 | Pie Flavored
+S112 | Pie Filling
+S113 | Filled Donut
+S114 | Deep Fried
+S115 | Clever Pun
+S116 | One Dozen
+S117 | Bakers Dozen
+S118 | Donut Master
+S119 | Donut Master Supreme
+S120 {rank} {grade} | {rank} {grade}
 S121 |
 S122 |
 S123 |
@@ -653,25 +653,25 @@ S155 |
 S156 |
 S157 |
 S158 |
-S159 |
-S160 |
-S161 |
-S162 |
+S159 | Hello, World!
+S160 | Rank
+S161 | Shop
+S162 | Emblem
 S163 {xp} |
 S164 {xp} {next} {rank} |
 S165 {n} {total} |
 S166 |
-S167 |
-S168 |
-S169 |
-S170 {n} |
-S171 |
-S172 |
-S173 |
-S174 |
-S175 |
-S176 |
-S177 |
+S167 | Games Played
+S168 | Wins
+S169 | Odds
+S170 {n} | {n}%
+S171 | Tricks won
+S172 | Donuts taken
+S173 | Hands played
+S174 | Spins
+S175 | Jackpots
+S176 | XP and Progression
+S177 | You've played video games before. I hope. If not, it's pretty simple - playing matches earns you XP (Experience), CR (Credi- uh, Crumbs), and H2O (The Premium Currency mobile games make you pay for). XP earns you levels, Crumbs are used to buy cosmetics, and H2O is used for getting the coolest stuff on the market. But wait, there's more! Leveling up also awards you with some Crumbs and H2O, as well as unlocking new things for purchase in the shop. I'd say don't spend it all in once place, but this shop is the one and only.
 S178 |
 S179 |
 S180 |
@@ -679,22 +679,22 @@ S181 |
 S182 |
 S183 |
 S184 {items} |
-S185 {xp} |
+S185 {xp} | {xp} XP
 S186 |
-S187 {prefix} {amount} {unit} |
+S187 {prefix} {amount} {unit} | {prefix} {amount} {unit}
 S188 |
 S189 |
 S190 |
-S191 |
-S192 |
-S193 |
+S191 | Background
+S192 | Foreground
+S193 | Colors
 S194 |
 S195 |
 S196 |
-S197 |
-S198 |
-S199 |
-S200 |
+S197 | Stroke
+S198 | Hue
+S199 | Saturation
+S200 | Brightness
 S201 |
 S202 |
 S203 |
@@ -745,34 +745,34 @@ D19 |
 D20 |
 D21 |
 D22 |
-D23 |
-D24 |
-D25 |
-D26 |
-D27 {track} |
-D28 |
-D29 |
-D30 |
-D31 |
-D32 |
+D23 | Done
+D24 | Settings
+D25 | Audio
+D26 | Music
+D27 {track} | You're listening to {track}
+D28 | Skip
+D29 | Effects
+D30 | Data
+D31 | Share match statistics
+D32 | This helps us make the game better. We don't sell your data. People who do are evil.
 D33 {sound} |
 D34 {sound} |
 D35 |
-D36 {n} |
-D37 |
-D38 |
-D39 |
-D40 |
-D41 |
-D42 |
-D43 |
-D44 |
-D45 |
-D46 |
-D47 |
-D48 |
-D49 |
-D50 |
+D36 {n} | {n}%
+D37 | Classic
+D38 | The original look
+D39 | Fresh
+D40 | New and improved
+D41 | Dark Mode
+D42 | Easy on the eyes
+D43 | Hot Shot
+D44 | Our favorite
+D45 | Vaporwave
+D46 | If you like neon
+D47 | Strawberry
+D48 | Its pretty sweet
+D49 | Hackerman
+D50 | H3110, W0R1D!
 D51 |
 D52 |
 D53 |
