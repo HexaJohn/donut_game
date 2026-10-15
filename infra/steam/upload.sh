@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Uploads Donut to Steam with SteamPipe, from this Mac.
 #
-#   ./upload.sh BUILD_ACCOUNT [--windows PATH] [--beta BRANCH] [--preview]
+#   ./upload.sh BUILD_ACCOUNT [--windows PATH] [--no-mac] [--beta BRANCH] [--preview]
 #
 # BUILD_ACCOUNT  the Steam account with build permissions (asks for its
 #                password and Steam Guard code the first time)
 # --windows PATH the Windows build: the contents of
 #                build\windows\x64\runner\Release, as a folder or a .zip.
 #                Without it, only the macOS depot is uploaded.
+# --no-mac       leave the macOS depot out (Windows-only releases)
 # --beta BRANCH  also set the build live on this beta branch (it must exist
 #                in Steamworks). The default branch is set live by hand.
 # --preview      check everything without uploading
@@ -24,28 +25,32 @@ BUILDER=sdk/sdk/tools/ContentBuilder/builder_osx/steamcmd.sh
 
 ACCOUNT=${1:?usage: upload.sh BUILD_ACCOUNT [--windows PATH] [--beta BRANCH] [--preview]}
 shift
-WINDOWS="" BETA="" PREVIEW=0
+WINDOWS="" BETA="" PREVIEW=0 MAC=1
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --windows) WINDOWS=$2; shift 2 ;;
     --beta) BETA=$2; shift 2 ;;
     --preview) PREVIEW=1; shift ;;
+    --no-mac) MAC=0; shift ;;
     *) echo "Unknown option $1" >&2; exit 1 ;;
   esac
 done
+((MAC)) || [[ -n $WINDOWS ]] || { echo "Nothing to upload: --no-mac needs --windows" >&2; exit 1; }
 [[ -x $BUILDER ]] || { echo "No Steam uploader at $BUILDER; unzip the Steamworks SDK into infra/steam/sdk" >&2; exit 1; }
 
 VERSION=$(grep '^version:' ../../pubspec.yaml | awk '{print $2}')
 COMMIT=$(git rev-parse --short HEAD)
-rm -rf content && mkdir -p content/macos output
+rm -rf content && mkdir -p content output
 
-echo "Building macOS..."
-(cd ../.. && flutter build macos --release >/dev/null)
-# ditto keeps the app's symlinks and permissions
-ditto ../../build/macos/Build/Products/Release/Donut.app content/macos/Donut.app
-codesign --verify --deep --strict content/macos/Donut.app
-
-DEPOTS="    \"$MAC_DEPOT\" { \"FileMapping\" { \"LocalPath\" \"macos/*\" \"DepotPath\" \".\" \"Recursive\" \"1\" } }"
+DEPOTS=""
+if ((MAC)); then
+  echo "Building macOS..."
+  (cd ../.. && flutter build macos --release >/dev/null)
+  # ditto keeps the app's symlinks and permissions
+  ditto ../../build/macos/Build/Products/Release/Donut.app content/macos/Donut.app
+  codesign --verify --deep --strict content/macos/Donut.app
+  DEPOTS="    \"$MAC_DEPOT\" { \"FileMapping\" { \"LocalPath\" \"macos/*\" \"DepotPath\" \".\" \"Recursive\" \"1\" } }"
+fi
 if [[ -n $WINDOWS ]]; then
   mkdir -p content/windows
   if [[ $WINDOWS == *.zip ]]; then
@@ -72,7 +77,8 @@ if [[ -n $WINDOWS ]]; then
       rm "$dll"
     fi
   done
-  DEPOTS+=$'\n'"    \"$WINDOWS_DEPOT\" { \"FileMapping\" { \"LocalPath\" \"windows/*\" \"DepotPath\" \".\" \"Recursive\" \"1\" } }"
+  [[ -n $DEPOTS ]] && DEPOTS+=$'\n'
+  DEPOTS+="    \"$WINDOWS_DEPOT\" { \"FileMapping\" { \"LocalPath\" \"windows/*\" \"DepotPath\" \".\" \"Recursive\" \"1\" } }"
 fi
 
 cat > app_build.vdf <<VDF
@@ -91,5 +97,6 @@ $DEPOTS
 }
 VDF
 
-echo "Uploading Donut $VERSION ($COMMIT) to app $APP_ID: macOS${WINDOWS:+ and Windows}${BETA:+, live on $BETA}$( ((PREVIEW)) && echo ' (preview, nothing uploaded)')"
+PLATFORMS=$( ((MAC)) && echo "macOS${WINDOWS:+ and Windows}" || echo "Windows" )
+echo "Uploading Donut $VERSION ($COMMIT) to app $APP_ID: $PLATFORMS${BETA:+, live on $BETA}$( ((PREVIEW)) && echo ' (preview, nothing uploaded)')"
 "$BUILDER" +login "$ACCOUNT" +run_app_build "$PWD/app_build.vdf" +quit
