@@ -45,10 +45,13 @@ rm -rf content && mkdir -p content output
 DEPOTS=""
 if ((MAC)); then
   echo "Building macOS..."
-  (cd ../.. && flutter build macos --release >/dev/null)
+  # Launched outside Steam, a Steam build relaunches through it
+  (cd ../.. && flutter build macos --release --dart-define=STEAM_RESTART=true >/dev/null)
   # ditto keeps the app's symlinks and permissions
   ditto ../../build/macos/Build/Products/Release/Donut.app content/macos/Donut.app
   codesign --verify --deep --strict content/macos/Donut.app
+  [[ -f content/macos/Donut.app/Contents/Frameworks/libsteam_api.dylib ]] ||
+    { echo "The Mac build has no Steam library: is the Steamworks SDK in infra/steam/sdk?" >&2; exit 1; }
   DEPOTS="    \"$MAC_DEPOT\" { \"FileMapping\" { \"LocalPath\" \"macos/*\" \"DepotPath\" \".\" \"Recursive\" \"1\" } }"
 fi
 if [[ -n $WINDOWS ]]; then
@@ -66,7 +69,7 @@ if [[ -n $WINDOWS ]]; then
     { echo "The Windows build needs donut_game.exe, flutter_windows.dll and the data folder" >&2; exit 1; }
   # Flutter never clears old files out of Release, so DLLs from plugins the
   # game no longer uses ride along; keep only the ones it lists now
-  KEEP=" flutter_windows.dll "
+  KEEP=" flutter_windows.dll steam_api64.dll "
   for plugin in $(sed -n '/FLUTTER_PLUGIN_LIST$/,/)/p' ../../windows/flutter/generated_plugins.cmake | grep -v '[()]'); do
     KEEP+="${plugin}_plugin.dll "
   done
@@ -77,6 +80,8 @@ if [[ -n $WINDOWS ]]; then
       rm "$dll"
     fi
   done
+  # Valve's Steam library, which the game loads from beside its .exe
+  cp sdk/sdk/redistributable_bin/win64/steam_api64.dll content/windows/
   [[ -n $DEPOTS ]] && DEPOTS+=$'\n'
   DEPOTS+="    \"$WINDOWS_DEPOT\" { \"FileMapping\" { \"LocalPath\" \"windows/*\" \"DepotPath\" \".\" \"Recursive\" \"1\" } }"
 fi

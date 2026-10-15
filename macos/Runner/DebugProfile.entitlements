@@ -10,5 +10,8 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 <true/>
+	<!-- Lets the app load Valve's Steam library, which Valve signs -->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
 </dict>
 </plist>

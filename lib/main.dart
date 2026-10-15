@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:donut_game/steam/steam.dart';
 import 'package:donut_game/audio/web_audio.dart';
 import 'package:donut_game/analytics/usage.dart';
 import 'package:donut_game/audio/music_player.dart';
@@ -46,10 +47,14 @@ Future<void> main() async {
           state == AppLifecycleState.hidden ||
           state == AppLifecycleState.detached;
       MusicPlayer.instance.setBackgrounded(away);
+      if (state == AppLifecycleState.detached) SteamService.instance.shutdown();
       if (state == AppLifecycleState.resumed) _goFullscreen();
     },
   );
   await Settings.instance.load();
+  await startSteam();
+  final steam = SteamService.instance;
+  if (steam.running && (steam.personaName ?? '').isNotEmpty) Settings.instance.useSteamName(steam.personaName!);
   unawaited(Usage.instance.start());
   await PlayerProfile.instance.load();
 

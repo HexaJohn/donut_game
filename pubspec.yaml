@@ -15,7 +15,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # In iOS, build-name is used as CFBundleShortVersionString while build-number used as CFBundleVersion.
 # Read more about iOS versioning at
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
-version: 2.2.1+2
+version: 2.3.0+3
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -49,6 +49,9 @@ dependencies:
   # The rules, bots and step-by-step table, shared with the server
   donut_engine:
     path: packages/donut_engine
+  steam_api:
+    path: packages/steam_api
+  ffi: ^2.1.0
   # Game Center sign-in and matches (iOS, macOS)
   game_center:
     path: packages/game_center

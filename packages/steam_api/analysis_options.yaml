@@ -1,0 +1,4 @@
+analyzer:
+  errors:
+    # Generated code
+    lines_longer_than_80_chars: ignore

@@ -1,0 +1,34 @@
+// ignore_for_file: public_member_api_docs, always_specify_types, avoid_positional_boolean_parameters, avoid_classes_with_only_static_members, unreachable_switch_case
+import "dart:ffi";
+import "../unknown_enum_value_exception.dart";
+
+typedef ESteamNetworkingConfigScopeAliasDart = int;
+typedef ESteamNetworkingConfigScopeAliasC = Int32;
+
+enum ESteamNetworkingConfigScope {
+  global(1),
+  socketsInterface(2),
+  listenSocket(3),
+  connection(4),
+  ;
+
+  final int value;
+
+  const ESteamNetworkingConfigScope(this.value);
+
+  factory ESteamNetworkingConfigScope.fromValue(int value) {
+    switch (value) {
+      case 1:
+        return ESteamNetworkingConfigScope.global;
+      case 2:
+        return ESteamNetworkingConfigScope.socketsInterface;
+      case 3:
+        return ESteamNetworkingConfigScope.listenSocket;
+      case 4:
+        return ESteamNetworkingConfigScope.connection;
+      default:
+        throw UnknownEnumValueException(
+            "Unknown value for 'ESteamNetworkingConfigScope'. The value was: '$value'");
+    }
+  }
+}

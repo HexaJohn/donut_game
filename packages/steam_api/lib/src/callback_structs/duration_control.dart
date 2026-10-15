@@ -1,0 +1,55 @@
+// ignore_for_file: public_member_api_docs, always_specify_types, avoid_positional_boolean_parameters, avoid_classes_with_only_static_members
+import "dart:ffi";
+import "../enums/eresult.dart";
+import "../enums/eduration_control_progress.dart";
+import "../enums/eduration_control_notification.dart";
+import "../typedefs.dart";
+
+@Packed(4)
+final class DurationControl extends Struct {
+  static int get callbackId => 167;
+
+  @Int32()
+  external EResultAliasDart result;
+
+  @UnsignedInt()
+  external AppId appid;
+
+  @Bool()
+  external bool applicable;
+
+  @Int()
+  external int csecsLast5h;
+
+  @Int32()
+  external EDurationControlProgressAliasDart progress;
+
+  @Int32()
+  external EDurationControlNotificationAliasDart notification;
+
+  @Int()
+  external int csecsToday;
+
+  @Int()
+  external int csecsRemaining;
+}
+
+extension DurationControlExtensions on Pointer<DurationControl> {
+  EResult get result => EResult.fromValue(ref.result);
+
+  AppId get appid => ref.appid;
+
+  bool get applicable => ref.applicable;
+
+  int get csecsLast5h => ref.csecsLast5h;
+
+  EDurationControlProgress get progress =>
+      EDurationControlProgress.fromValue(ref.progress);
+
+  EDurationControlNotification get notification =>
+      EDurationControlNotification.fromValue(ref.notification);
+
+  int get csecsToday => ref.csecsToday;
+
+  int get csecsRemaining => ref.csecsRemaining;
+}

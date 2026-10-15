@@ -5,7 +5,7 @@ import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const String appVersion = '2.2.1';
+const String appVersion = '2.3.0';
 const int defaultPort = 27960;
 
 /// User preferences that survive restarts.
@@ -21,6 +21,15 @@ class Settings {
   /// use the theme's background and the player's equipped table.
   final ValueNotifier<bool> venueScenery = ValueNotifier(true);
   String nickname = '';
+
+  /// On Steam, players are known by their Steam name, which they change in
+  /// Steam rather than here.
+  bool nicknameLocked = false;
+
+  void useSteamName(String name) {
+    nickname = name;
+    nicknameLocked = true;
+  }
   String serverHost = '127.0.0.1';
   int serverPort = defaultPort;
   int bots = 3;

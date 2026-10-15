@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_game/steam/steam_debug.dart';
 import 'package:donut_game/ui/widget/table_options.dart';
 import 'package:donut_game/analytics/usage.dart';
 import 'package:donut_game/audio/music_player.dart';
@@ -298,11 +299,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             const SizedBox(height: 8),
             TextField(
               controller: _nickname,
-              maxLength: 16,
-              decoration: const InputDecoration(
+              maxLength: settings.nicknameLocked ? null : 16,
+              // Steam players go by their Steam name
+              enabled: !settings.nicknameLocked,
+              decoration: InputDecoration(
                 hintText: 'Nickname',
-                prefixIcon: Icon(Icons.person_rounded),
+                prefixIcon: const Icon(Icons.person_rounded),
                 counterText: '',
+                helperText: settings.nicknameLocked ? 'Your Steam name' : null,
               ),
               onChanged: (_) => setState(() => _error = null),
             ),
@@ -540,8 +544,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
       child: Row(
         children: [
-          Text('v$appVersion',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.4))),
+          // Long-press for the Steam status, when checking a Steam build
+          GestureDetector(
+            onLongPress: () => showSteamDebug(context),
+            child: Text('v$appVersion',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.4))),
+          ),
           const Spacer(),
           Text('Acro Visuals',
               style: theme.textTheme.bodySmall?.copyWith(
