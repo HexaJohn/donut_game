@@ -1,11 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_server/donut_server.dart';
 
 /// A Lambda custom runtime: asks the runtime API for each event, handles it
 /// and reports back. Compiled to a native Linux binary named bootstrap.
 Future<void> main() async {
+  // The game's text file, shipped beside this binary, so announcements
+  // use what's been written over the AI originals
+  final text = File('${File(Platform.resolvedExecutable).parent.path}/donut_text.txt');
+  if (text.existsSync()) Copy.load(text.readAsStringSync());
   final api = Platform.environment['AWS_LAMBDA_RUNTIME_API']!;
   final region = Platform.environment['AWS_REGION']!;
   final credentials = AwsCredentials.fromEnvironment();

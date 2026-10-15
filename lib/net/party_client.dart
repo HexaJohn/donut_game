@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_engine/donut_engine.dart' show BotSkill;
 import 'package:donut_game/data/device_id.dart';
 import 'package:donut_game/data/settings.dart';
@@ -49,7 +50,7 @@ class PartyController extends RemoteTableController with WidgetsBindingObserver 
   bool _draining = false;
 
   @override
-  String get label => matchmake ? 'Public game' : (_code == null ? 'Party' : 'Party $_code');
+  String get label => matchmake ? onlinePublicGame() : (_code == null ? onlineParty() : onlinePartyCode.of('code', _code));
 
   @override
   bool get publicParty => _public;
@@ -81,7 +82,7 @@ class PartyController extends RemoteTableController with WidgetsBindingObserver 
   @override
   Future<String?> report(GamePlayer player, String reason, {String note = ''}) async {
     final sent = await send('report', {'player': player.id, 'reason': reason, if (note.isNotEmpty) 'note': note});
-    return sent ? null : (error.value ?? 'The report didn\'t go through. Try again.');
+    return sent ? null : (error.value ?? onlineReportFailed());
   }
 
   @override
@@ -174,7 +175,7 @@ class PartyController extends RemoteTableController with WidgetsBindingObserver 
     _pending.clear();
     if (!_running) return;
     _attempts++;
-    if (_attempts > 1) error.value = 'Connection lost. Reconnecting...';
+    if (_attempts > 1) error.value = onlineReconnecting();
     Future.delayed(Duration(milliseconds: (500 * _attempts).clamp(500, 5000)), _connect);
   }
 
@@ -209,7 +210,7 @@ class PartyController extends RemoteTableController with WidgetsBindingObserver 
         _running = false;
         _keepAlive?.cancel();
         _channel?.sink.close();
-        error.value = message['message'] as String? ?? 'The party server refused.';
+        error.value = message['message'] as String? ?? onlinePartyRefused();
     }
   }
 

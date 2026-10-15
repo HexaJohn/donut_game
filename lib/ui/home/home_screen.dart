@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/steam/steam_debug.dart';
 import 'package:donut_game/ui/widget/table_options.dart';
 import 'package:donut_game/analytics/usage.dart';
@@ -107,12 +108,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   void _party({bool join = false, bool matchmake = false}) {
     _save();
     if (settings.nickname.isEmpty) {
-      setState(() => _partyError = 'Pick a nickname first.');
+      setState(() => _partyError = appPickNickname());
       return;
     }
     final code = _partyCode.text.trim().toUpperCase();
     if (join && !RegExp(r'^[A-Z0-9]{6}$').hasMatch(code)) {
-      setState(() => _partyError = 'Party codes are six letters and numbers.');
+      setState(() => _partyError = appBadPartyCode());
       return;
     }
     setState(() => _partyError = null);
@@ -123,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   Future<void> _joinOnline() async {
     _save();
     if (settings.nickname.isEmpty) {
-      setState(() => _error = 'Pick a nickname first.');
+      setState(() => _error = appPickNickname());
       return;
     }
     setState(() {
@@ -215,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   /// [compact] shrinks the logo and title for short screens.
   Widget _hero(ThemeData theme, DonutColors colors, bool wide, {bool compact = false}) {
     final align = wide ? CrossAxisAlignment.start : CrossAxisAlignment.center;
-    final title = Text('Donut',
+    final title = Text(appName(),
         style: (compact ? theme.textTheme.displaySmall : theme.textTheme.displayLarge)
             ?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -1.5));
     final logo = RotationTransition(
@@ -234,7 +235,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         ],
         const SizedBox(height: 8),
         Text(
-          'A trick-taking card game.\nGet to zero. Avoid the donut.',
+          appTagline(),
           textAlign: wide ? TextAlign.start : TextAlign.center,
           style: theme.textTheme.titleMedium?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
@@ -251,17 +252,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           children: [
             ActionChip(
               avatar: const Icon(Icons.military_tech_rounded, size: 18),
-              label: const Text('Career'),
+              label: Text(appCareer()),
               onPressed: () => showCareer(context),
             ),
             ActionChip(
               avatar: const Icon(Icons.storefront_rounded, size: 18),
-              label: const Text('Shop'),
+              label: Text(appShop()),
               onPressed: () => showCareer(context, tab: 1),
             ),
             ActionChip(
               avatar: const Icon(Icons.menu_book_rounded, size: 18),
-              label: const Text('How to play'),
+              label: Text(appHowToPlay()),
               onPressed: () => showRulesDialog(context),
             ),
             ActionChip(
@@ -271,7 +272,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ),
             ActionChip(
               avatar: const Icon(Icons.tune_rounded, size: 18),
-              label: const Text('Settings'),
+              label: Text(appSettings()),
               onPressed: () => showSoundSettings(context),
             ),
             _NetworkChip(internet: widget.network.internet),
@@ -295,7 +296,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Your name', style: theme.textTheme.labelLarge),
+            Text(appYourName(), style: theme.textTheme.labelLarge),
             const SizedBox(height: 8),
             TextField(
               controller: _nickname,
@@ -303,18 +304,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               // Steam players go by their Steam name
               enabled: !settings.nicknameLocked,
               decoration: InputDecoration(
-                hintText: 'Nickname',
+                hintText: appNicknameHint(),
                 prefixIcon: const Icon(Icons.person_rounded),
                 counterText: '',
-                helperText: settings.nicknameLocked ? 'Your Steam name' : null,
+                helperText: settings.nicknameLocked ? appSteamNameHelper() : null,
               ),
               onChanged: (_) => setState(() => _error = null),
             ),
             const SizedBox(height: 20),
             SegmentedButton<_Mode>(
-              segments: const [
-                ButtonSegment(value: _Mode.offline, icon: Icon(Icons.smart_toy_rounded), label: Text('Vs bots')),
-                ButtonSegment(value: _Mode.online, icon: Icon(Icons.public_rounded), label: Text('Online')),
+              segments: [
+                ButtonSegment(
+                    value: _Mode.offline, icon: const Icon(Icons.smart_toy_rounded), label: Text(appModeBots())),
+                ButtonSegment(value: _Mode.online, icon: const Icon(Icons.public_rounded), label: Text(appModeOnline())),
               ],
               selected: {_mode},
               onSelectionChanged: (value) => setState(() {
@@ -344,7 +346,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       children: [
         Row(
           children: [
-            Text('Opponents', style: theme.textTheme.labelLarge),
+            Text(appOpponents(), style: theme.textTheme.labelLarge),
             const Spacer(),
             for (var i = 0; i < settings.bots; i++)
               Padding(
@@ -358,7 +360,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           min: 2,
           max: 6,
           divisions: 4,
-          label: '${settings.bots} bots',
+          label: appBotCount.of('n', settings.bots),
           onChanged: (value) => setState(() => settings.bots = value.round()),
           onChangeEnd: (_) => _save(),
         ),
@@ -380,14 +382,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
           onPressed: _playOffline,
           icon: const Icon(Icons.play_arrow_rounded),
-          label: const Text('Start game', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          label: Text(appStartGame(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         ),
         const SizedBox(height: 10),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
           onPressed: () => showCampaign(context),
           icon: const Icon(Icons.flag_rounded),
-          label: const Text('Campaign', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          label: Text(appCampaign(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
         ),
       ],
     );
@@ -395,9 +397,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   Widget _onlineOptions(ThemeData theme, DonutColors colors) {
     final (statusText, statusColor) = switch (_serverReachable) {
-      null => ('Checking...', theme.colorScheme.onSurface.withValues(alpha: 0.5)),
-      true => ('Server is up', Colors.green),
-      false => ('No server answering', theme.colorScheme.error),
+      null => (appServerChecking(), theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+      true => (appServerUp(), Colors.green),
+      false => (appServerDown(), theme.colorScheme.error),
     };
     return Column(
       key: const ValueKey('online'),
@@ -405,20 +407,20 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       children: [
         // Strangers: matchmaking fills public tables. Friends: one hosts,
         // the rest type in the code
-        Text('Play online', style: theme.textTheme.labelLarge),
+        Text(appPlayOnline(), style: theme.textTheme.labelLarge),
         const SizedBox(height: 8),
         FilledButton.icon(
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
           onPressed: () => _party(matchmake: true),
           icon: const Icon(Icons.travel_explore_rounded),
-          label: const Text('Find a game', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          label: Text(appFindGame(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         ),
         const SizedBox(height: 10),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
           onPressed: () => _party(join: false),
           icon: const Icon(Icons.celebration_rounded),
-          label: const Text('Host a party', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          label: Text(appHostParty(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
         ),
         const SizedBox(height: 10),
         Row(
@@ -429,8 +431,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 maxLength: 6,
                 textCapitalization: TextCapitalization.characters,
                 autocorrect: false,
-                decoration:
-                    const InputDecoration(hintText: 'Party code', counterText: '', prefixIcon: Icon(Icons.tag_rounded)),
+                decoration: InputDecoration(
+                    hintText: appPartyCodeHint(), counterText: '', prefixIcon: const Icon(Icons.tag_rounded)),
                 onSubmitted: (_) => _party(join: true),
               ),
             ),
@@ -438,7 +440,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             FilledButton.tonal(
               style: FilledButton.styleFrom(minimumSize: const Size(96, 48)),
               onPressed: () => _party(join: true),
-              child: const Text('Join', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              child: Text(appJoin(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -456,7 +458,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   child: TextButton.icon(
                     onPressed: () => showBlockedPlayers(context),
                     icon: const Icon(Icons.block_rounded, size: 18),
-                    label: Text('Blocked players (${blocked.length})'),
+                    label: Text(appBlockedPlayers.of('n', blocked.length)),
                   ),
                 ),
         ),
@@ -470,11 +472,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               GameCenterLobby.instance.findMatch();
             },
             icon: const Icon(Icons.sports_esports_rounded),
-            label: const Text('Play with friends', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            label: Text(appPlayWithFriends(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           ),
           Padding(
             padding: const EdgeInsets.only(top: 6, bottom: 16),
-            child: Text('Invite up to ${GameCenterLobby.maxPlayers - 1} friends through Game Center. No server needed.',
+            child: Text(appGameCenterInvite.of('n', GameCenterLobby.maxPlayers - 1),
                 style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
           ),
         ],
@@ -547,11 +549,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           // Long-press for the Steam status, when checking a Steam build
           GestureDetector(
             onLongPress: () => showSteamDebug(context),
-            child: Text('v$appVersion',
+            child: Text(appVersionLabel.of('version', appVersion),
                 style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.4))),
           ),
           const Spacer(),
-          Text('Acro Visuals',
+          Text(appStudio(),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                 letterSpacing: 2,
@@ -573,7 +575,7 @@ class _NetworkChip extends StatelessWidget {
     return Chip(
       avatar: Icon(internet! ? Icons.wifi_rounded : Icons.wifi_off_rounded,
           size: 18, color: internet! ? Colors.green : Theme.of(context).colorScheme.error),
-      label: Text(internet! ? 'Online' : 'No internet'),
+      label: Text(internet! ? appNetworkOnline() : appNetworkOffline()),
     );
   }
 }

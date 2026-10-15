@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/audit/ai_audit.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:donut_game/audio/audio_available.dart';
@@ -27,7 +28,7 @@ class _SplashScreenState extends State<SplashScreen> {
   _Stage _stage = _Stage.acro;
   bool _visible = false;
   double _progress = 0;
-  String _step = 'Starting up';
+  String _step = appSplashStarting();
   NetworkStatus _network = const NetworkStatus();
 
   static const _fade = Duration(milliseconds: 650);
@@ -109,7 +110,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
     final settings = Settings.instance;
     _set(() {
-      _step = 'Checking network';
+      _step = appSplashCheckingNetwork();
       _progress = 0.2;
     });
     final internet = checkInternet();
@@ -117,14 +118,14 @@ class _SplashScreenState extends State<SplashScreen> {
     final server = kDebugMode ? checkServer(settings.serverHost, settings.serverPort) : Future.value(false);
     final hasInternet = await internet;
     _set(() {
-      _step = hasInternet == false ? 'No internet, offline play only' : 'Looking for a game server';
+      _step = hasInternet == false ? appSplashNoInternet() : appSplashLookingForServer();
       _progress = 0.6;
     });
     final hasServer = await server;
     await _wait(350);
     _network = NetworkStatus(internet: hasInternet, serverReachable: hasServer);
     _set(() {
-      _step = hasServer ? 'Server found at ${settings.serverHost}' : 'Ready';
+      _step = hasServer ? appSplashServerFound.of('host', settings.serverHost) : appSplashReady();
       _progress = 1;
     });
     await _wait(700);
@@ -201,7 +202,7 @@ class _DonutMark extends StatelessWidget {
           child: const DonutLogo(size: 128),
         ),
         const SizedBox(height: 18),
-        Text('Donut', style: TextStyle(color: color, fontSize: 44, fontWeight: FontWeight.w800, letterSpacing: 1)),
+        Text(appName(), style: TextStyle(color: color, fontSize: 44, fontWeight: FontWeight.w800, letterSpacing: 1)),
         const SizedBox(height: 28),
         SizedBox(
           width: 220,

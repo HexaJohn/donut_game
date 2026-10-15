@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/analytics/usage.dart';
 import 'package:donut_game/audio/sfx.dart';
@@ -499,7 +500,7 @@ class _GameBoardState extends State<GameBoard> {
                       // The marker you're holding leaves an empty slot
                       opacity: _held == _Tool.marker && _markerColor == color ? 0 : 1,
                       child: trayItem(
-                        'Marker',
+                        tableMarker(),
                         _Tool.marker,
                         SizedBox.fromSize(
                           size: markerSize * toolScale,
@@ -519,7 +520,7 @@ class _GameBoardState extends State<GameBoard> {
             Opacity(
               opacity: _held == _Tool.eraser ? 0 : 1,
               child: trayItem(
-                'Eraser',
+                tableEraser(),
                 _Tool.eraser,
                 SizedBox.fromSize(
                   size: eraserSize * toolScale,
@@ -535,7 +536,7 @@ class _GameBoardState extends State<GameBoard> {
               child: IgnorePointer(
                 ignoring: !controller.flashReady,
                 child: trayItem(
-                  controller.flashReady ? 'Flashbang' : 'Flashbang (cooling down)',
+                  controller.flashReady ? tableFlashbang() : tableFlashbangCooling(),
                   _Tool.flashbang,
                   SizedBox.fromSize(
                     size: flashbangSize * toolScale * 0.9,
@@ -550,7 +551,7 @@ class _GameBoardState extends State<GameBoard> {
             Opacity(
               opacity: _held == _Tool.stamp ? 0 : 1,
               child: trayItem(
-                'Donut stamp',
+                tableDonutStamp(),
                 _Tool.stamp,
                 _GadgetIcon(icon: Icons.approval_rounded, size: cw * 0.5, color: _markerColor),
               ),
@@ -561,7 +562,7 @@ class _GameBoardState extends State<GameBoard> {
             Opacity(
               opacity: _held == _Tool.confetti ? 0 : 1,
               child: trayItem(
-                'Confetti cannon',
+                tableConfettiCannon(),
                 _Tool.confetti,
                 _GadgetIcon(icon: Icons.celebration_rounded, size: cw * 0.5, color: const Color(0xFFFFC857)),
               ),
@@ -572,7 +573,7 @@ class _GameBoardState extends State<GameBoard> {
             Opacity(
               opacity: _held == _Tool.revolver ? 0 : 1,
               child: trayItem(
-                'Revolver',
+                tableRevolver(),
                 _Tool.revolver,
                 SizedBox.fromSize(
                   size: revolverSize * gunScale,
@@ -592,14 +593,14 @@ class _GameBoardState extends State<GameBoard> {
       left: deckPos.dx - 8,
       width: pileW + 16,
       top: deckPos.dy + pileH + 10,
-      child: _PileLabel('Deck · ${game.deck.contents.length}', onFelt),
+      child: _PileLabel(tableDeckCount.of('n', game.deck.contents.length), onFelt),
     ));
     children.add(Positioned(
       key: const ValueKey('discard-label'),
       left: discardPos.dx - 8,
       width: pileW + 16,
       top: discardPos.dy + pileH + 10,
-      child: _PileLabel('Discard · ${game.discard.cards.value.length}', onFelt),
+      child: _PileLabel(tableDiscardCount.of('n', game.discard.cards.value.length), onFelt),
     ));
     final showTrump = game.state.value != GameState.waitingToDeal &&
         game.state.value != GameState.waitingForPlayers &&
@@ -766,7 +767,7 @@ class _GameBoardState extends State<GameBoard> {
         width: tableW + 20,
         top: rowTop + tableH + 8,
         child: _PlayedBy(
-          name: owner == null ? '' : (owner.name == local?.name ? 'You' : owner.name),
+          name: owner == null ? '' : (owner.name == local?.name ? tableYou() : owner.name),
           lead: lead,
           winning: winning,
           color: onFelt,
@@ -923,12 +924,12 @@ class _GameBoardState extends State<GameBoard> {
               ammo: held == _Tool.revolver ? _ammo : null,
               chambers: _chambers,
               action: switch (held) {
-                _Tool.revolver => 'Click to shoot',
-                _Tool.marker => 'Drag to draw on the table',
-                _Tool.eraser => 'Drag to rub out ink',
-                _Tool.flashbang => 'Click the table to throw it',
-                _Tool.stamp => 'Click the table to stamp a donut',
-                _Tool.confetti => 'Click the table to fire',
+                _Tool.revolver => tableHintShoot(),
+                _Tool.marker => tableHintDraw(),
+                _Tool.eraser => tableHintErase(),
+                _Tool.flashbang => tableHintFlashbang(),
+                _Tool.stamp => tableHintStamp(),
+                _Tool.confetti => tableHintConfetti(),
               },
             ),
           ),
@@ -1097,13 +1098,14 @@ String? _whyNotNow(GameController controller) {
   final active = game.activePlayerLazy;
   if (_swapRound(game.state.value)) {
     final turns = game.swapTurnsUntil(local);
-    if (turns < 0) return 'You\'ve swapped this hand. Waiting for ${active.name}.';
-    return 'Not your turn to swap yet. ${active.name} is choosing'
-        '${turns == 1 ? ', and you\'re next.' : ', then ${turns - 1} more before you.'}';
+    if (turns < 0) return tableWhySwapped.of('name', active.name);
+    return (turns == 1 ? tableWhyYouNext : tableWhyMoreBefore)({'name': active.name, 'n': turns - 1});
   }
   final state = game.state.value;
-  if ((state == GameState.playing || state == GameState.waitingForPlayer) && !controller.canPlayNow && active != local) {
-    return 'Wait for your turn. ${active.name} is playing.';
+  if ((state == GameState.playing || state == GameState.waitingForPlayer) &&
+      !controller.canPlayNow &&
+      active != local) {
+    return tableWhyPlaying.of('name', active.name);
   }
   return null;
 }
@@ -1242,9 +1244,9 @@ class _HandCard extends StatelessWidget {
                           color: colors.accent,
                           borderRadius: BorderRadius.vertical(bottom: Radius.circular(radius)),
                         ),
-                        child: const Text('SWAP',
+                        child: Text(tableSwapTag(),
                             textAlign: TextAlign.center,
-                            style: TextStyle(
+                            style: const TextStyle(
                                 color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 1.5)),
                       ),
                     ),
@@ -1325,21 +1327,21 @@ class SeatPanel extends StatelessWidget {
 
     String? status;
     if (game.champion.value == player) {
-      status = 'Champion!';
+      status = tableSeatChampion();
     } else if (sittingOut) {
-      status = 'Sitting out';
+      status = tableSeatSittingOut();
     } else if (player.skip && game.state.value != GameState.waitingToDeal && game.state.value != GameState.gameOver) {
-      status = 'Folded';
+      status = tableSeatFolded();
     } else if (active) {
       status = game.state.value == GameState.waitingForPlayerToSwap || game.state.value == GameState.swapping
-          ? 'Choosing swaps'
-          : 'Thinking';
+          ? tableSeatChoosingSwaps()
+          : tableSeatThinking();
     } else if (_swapRound(game.state.value) && game.handNumber > 0) {
       // Everyone can see who's done, who's next and who's waiting
       final turns = game.swapTurnsUntil(player);
-      status = turns < 0 ? 'Swapped' : (turns == 1 ? 'Up next' : 'Waiting to swap');
+      status = turns < 0 ? tableSeatSwapped() : (turns == 1 ? tableSeatUpNext() : tableSeatWaitingToSwap());
     } else if (game.state.value == GameState.waitingToDeal && player.voteToDeal && player.human) {
-      status = 'Ready';
+      status = tableSeatReady();
     }
 
     // What they're doing, or their tricks this hand
@@ -1465,7 +1467,7 @@ class PlayerAvatar extends StatelessWidget {
               right: -4,
               bottom: -4,
               child: Tooltip(
-                message: 'Dealer',
+                message: tableDealer(),
                 child: Container(
                   width: size * 0.5,
                   height: size * 0.5,
@@ -1475,7 +1477,7 @@ class PlayerAvatar extends StatelessWidget {
                     border: Border.all(color: scheme.surface, width: 2),
                   ),
                   alignment: Alignment.center,
-                  child: Text('D',
+                  child: Text(tableDealerBadge(),
                       style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: size * 0.24)),
                 ),
               ),
@@ -1495,7 +1497,7 @@ class ScoreText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: 'Points left',
+      message: tablePointsLeft(),
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 350),
         transitionBuilder: (child, animation) => SlideTransition(
@@ -1532,7 +1534,7 @@ class TrickPips extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Tooltip(
-          message: '$tricks trick${tricks == 1 ? '' : 's'} this hand',
+          message: (tricks == 1 ? tableTricksOne : tableTricksMany).of('n', tricks),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1550,7 +1552,7 @@ class TrickPips extends StatelessWidget {
         if (donuts > 0) ...[
           const SizedBox(width: 6),
           Tooltip(
-            message: '$donuts donut${donuts == 1 ? '' : 's'} this match',
+            message: (donuts == 1 ? tableDonutsOne : tableDonutsMany).of('n', donuts),
             child: Text('\u{1F369}$donuts', style: Theme.of(context).textTheme.labelSmall),
           ),
         ],
@@ -1628,7 +1630,7 @@ class _PlayedBy extends StatelessWidget {
               fontWeight: winning ? FontWeight.w800 : FontWeight.w600,
             )),
         if (lead || winning)
-          Text(winning ? 'WINS' : 'LEAD',
+          Text(winning ? tableWins() : tableLead(),
               style: TextStyle(
                 color: winning ? colors.accent : color.withValues(alpha: 0.5),
                 fontSize: 9,
@@ -1673,7 +1675,7 @@ class _TrumpChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('TRUMP',
+          Text(tableTrumpChip(),
               style: TextStyle(color: colors.accent, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
           const SizedBox(width: 8),
           SuitIcon(suit, size: 16, color: isRed(suit) ? colors.cardRed : colors.cardInk),
@@ -1940,9 +1942,7 @@ class _ToolHint extends StatelessWidget {
             const SizedBox(width: 8),
           ],
           Text(
-            ammo == 0
-                ? 'Empty! Right-click or Esc to put it down and reload'
-                : '$action · Right-click or Esc to put it down',
+            ammo == 0 ? tableToolEmpty() : tableToolHint.of('action', action),
             style: theme.textTheme.bodySmall?.copyWith(color: Colors.white),
           ),
         ],

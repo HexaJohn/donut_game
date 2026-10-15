@@ -2,6 +2,7 @@ import 'package:donut_game/ai/bot_brain.dart';
 import 'package:donut_game/campaign/backdrops.dart';
 import 'package:donut_game/campaign/campaign.dart';
 import 'package:donut_game/campaign/campaign_controller.dart';
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/progression/catalog.dart';
 import 'package:donut_game/progression/profile.dart';
 import 'package:donut_game/ui/career/currency.dart';
@@ -27,7 +28,7 @@ class CampaignScreen extends StatelessWidget {
     return Scaffold(
       body: Column(
         children: [
-          DonutTitleBar(title: 'Campaign', onBack: () => Navigator.pop(context)),
+          DonutTitleBar(title: campaignTitle(), onBack: () => Navigator.pop(context)),
           Expanded(
             child: ListenableBuilder(
               listenable: profile,
@@ -42,10 +43,10 @@ class CampaignScreen extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('The Donut Tour',
+                              Text(campaignTourTitle(),
                                   style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
                               Text(
-                                'Six venues, each tougher than the last. Beat the boss to move on.',
+                                campaignTourBlurb(),
                                 style: theme.textTheme.bodyMedium
                                     ?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.65)),
                               ),
@@ -54,7 +55,7 @@ class CampaignScreen extends StatelessWidget {
                         ),
                         const Icon(Icons.star_rounded, color: _starColor),
                         const SizedBox(width: 4),
-                        Text('${profile.campaignStars} / $maxStars',
+                        Text(campaignStarCount({'stars': profile.campaignStars, 'max': maxStars}),
                             style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                       ],
                     ),
@@ -180,7 +181,7 @@ class _VenueCard extends StatelessWidget {
                   right: 20,
                   bottom: 16,
                   child: Tooltip(
-                    message: 'Played on ${table?.name ?? 'the house felt'}',
+                    message: campaignPlayedOn.of('table', table?.name ?? campaignHouseFelt()),
                     child: EnvironmentSwatch(id: venue.environment, width: 110, height: 62),
                   ),
                 ),
@@ -188,13 +189,13 @@ class _VenueCard extends StatelessWidget {
                   Container(
                     color: Colors.black.withValues(alpha: 0.55),
                     alignment: Alignment.center,
-                    child: const Column(
+                    child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.lock_rounded, color: Colors.white, size: 36),
-                        SizedBox(height: 6),
-                        Text('Beat the boss before to open',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                        const Icon(Icons.lock_rounded, color: Colors.white, size: 36),
+                        const SizedBox(height: 6),
+                        Text(campaignVenueLocked(),
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
                       ],
                     ),
                   ),
@@ -208,7 +209,7 @@ class _VenueCard extends StatelessWidget {
                         color: Colors.black.withValues(alpha: 0.45),
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: Text('$cleared / ${venue.stages.length} cleared',
+                      child: Text(campaignVenueCleared({'cleared': cleared, 'total': venue.stages.length}),
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
                     ),
                   ),
@@ -276,7 +277,7 @@ class _StageTile extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(color: boss, borderRadius: BorderRadius.circular(999)),
-                    child: Text('BOSS',
+                    child: Text(campaignBossBadge(),
                         style: TextStyle(
                             color: theme.colorScheme.onError,
                             fontWeight: FontWeight.w900,
@@ -291,7 +292,7 @@ class _StageTile extends StatelessWidget {
                 StageStars(stars: best?.stars ?? 0),
                 const SizedBox(width: 8),
                 Flexible(
-                  child: Text('From ${stage.target} points',
+                  child: Text(campaignStageTarget.of('target', stage.target),
                       overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall?.copyWith(color: dim)),
                 ),
               ],
@@ -321,7 +322,7 @@ class _StageTile extends StatelessWidget {
                         Icon(Icons.check_circle_rounded, size: 16, color: theme.colorScheme.primary),
                         const SizedBox(width: 6),
                         Flexible(
-                          child: Text('Cleared on ${best!.label}',
+                          child: Text(campaignClearedOn.of('difficulty', best!.label),
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary)),
                         ),
@@ -347,7 +348,7 @@ class _StageTile extends StatelessWidget {
                         gameRoute(GameScreen(controller: CampaignGameController(stage: stage, difficulty: difficulty))))
                     : null,
                 icon: Icon(unlocked ? Icons.play_arrow_rounded : Icons.lock_rounded),
-                label: Text(unlocked ? (best == null ? 'Play' : 'Replay') : 'Clear the stage before'),
+                label: Text(unlocked ? (best == null ? campaignPlay() : campaignReplay()) : campaignStageLocked()),
               ),
             ),
           ],

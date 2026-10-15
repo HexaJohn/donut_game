@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/progression/card_faces.dart';
@@ -187,7 +188,7 @@ class CardFace extends StatelessWidget {
               right: 5,
               top: 5,
               child: Tooltip(
-                message: 'Trump',
+                message: tableTrump(),
                 child: Container(
                   width: 18,
                   height: 18,

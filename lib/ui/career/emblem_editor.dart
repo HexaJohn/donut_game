@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/progression/emblem.dart';
 import 'package:donut_game/progression/profile.dart';
 import 'package:flutter/material.dart';
@@ -103,8 +104,8 @@ class _EmblemEditorState extends State<EmblemEditor> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('You', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
-                    Text('At the table',
+                    Text(shopEmblemYou(), style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(shopEmblemAtTable(),
                         style: theme.textTheme.labelSmall
                             ?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
                   ],
@@ -118,7 +119,7 @@ class _EmblemEditorState extends State<EmblemEditor> {
         OutlinedButton.icon(
           onPressed: _randomise,
           icon: const Icon(Icons.shuffle_rounded),
-          label: const Text('Surprise me'),
+          label: Text(shopEmblemSurprise()),
         ),
       ],
     );
@@ -135,7 +136,7 @@ class _EmblemEditorState extends State<EmblemEditor> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        heading('Shape'),
+        heading(shopEmblemShapeHeading()),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -150,7 +151,7 @@ class _EmblemEditorState extends State<EmblemEditor> {
           ],
         ),
         const SizedBox(height: 20),
-        heading('Icon'),
+        heading(shopEmblemIconHeading()),
         Wrap(
           spacing: 6,
           runSpacing: 6,
@@ -164,17 +165,17 @@ class _EmblemEditorState extends State<EmblemEditor> {
           ],
         ),
         const SizedBox(height: 20),
-        heading('Colours'),
+        heading(shopEmblemColoursHeading()),
         Row(
           children: [
             Expanded(
               child: SegmentedButton<_Layer>(
                 segments: [
                   ButtonSegment(
-                      value: _Layer.background, label: const Text('Shape'), icon: _Swatch(emblem.background)),
+                      value: _Layer.background, label: Text(shopEmblemLayerShape()), icon: _Swatch(emblem.background)),
                   ButtonSegment(
-                      value: _Layer.foreground, label: const Text('Icon'), icon: _Swatch(emblem.foreground)),
-                  ButtonSegment(value: _Layer.accent, label: const Text('Ring'), icon: _Swatch(emblem.accent)),
+                      value: _Layer.foreground, label: Text(shopEmblemLayerIcon()), icon: _Swatch(emblem.foreground)),
+                  ButtonSegment(value: _Layer.accent, label: Text(shopEmblemLayerRing()), icon: _Swatch(emblem.accent)),
                 ],
                 selected: {_layer},
                 onSelectionChanged: (value) => setState(() => _layer = value.first),
@@ -200,7 +201,7 @@ class _EmblemEditorState extends State<EmblemEditor> {
         const SizedBox(height: 8),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Ring around the edge'),
+          title: Text(shopEmblemRingSwitch()),
           value: emblem.ring,
           onChanged: (value) => _update((e) => e.copyWith(ring: value)),
         ),
@@ -363,14 +364,14 @@ class _HslSliders extends StatelessWidget {
     return Column(
       children: [
         row(
-          'Hue',
+          shopEmblemHue(),
           hsl.hue,
           360,
           (v) => onChanged(hsl.withHue(v).withSaturation(max(hsl.saturation, 0.05)).toColor()),
           gradient: LinearGradient(colors: [for (var h = 0; h <= 360; h += 60) HSLColor.fromAHSL(1, h.toDouble(), 1, 0.5).toColor()]),
         ),
-        row('Saturation', hsl.saturation, 1, (v) => onChanged(hsl.withSaturation(v).toColor())),
-        row('Lightness', hsl.lightness, 1, (v) => onChanged(hsl.withLightness(v).toColor())),
+        row(shopEmblemSaturation(), hsl.saturation, 1, (v) => onChanged(hsl.withSaturation(v).toColor())),
+        row(shopEmblemLightness(), hsl.lightness, 1, (v) => onChanged(hsl.withLightness(v).toColor())),
       ],
     );
   }

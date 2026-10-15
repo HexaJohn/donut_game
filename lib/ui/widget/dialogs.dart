@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/audio/music_player.dart';
 import 'package:donut_game/data/settings.dart';
 import 'package:donut_game/res/rules.dart';
@@ -7,41 +8,41 @@ import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:donut_game/ui/widget/donut_logo.dart';
 import 'package:flutter/material.dart';
 
-const _rules = <(String, List<String>)>[
-  (
-    'The goal',
-    [
-      '3 or more players. Everyone starts on $startingScore points.',
-      'Every trick you take knocks a point off. First to 0 wins.',
-      'Take no tricks in a hand and you get a donut: +$donutPenalty points.',
-    ]
-  ),
-  (
-    'Dealing',
-    [
-      'Everyone gets $cardsPerHand cards. The dealer\'s last card sets the trump suit.',
-      'On your turn, swap up to $maxSwaps cards for new ones, or fold.',
-      'You can\'t fold if you folded the last $maxConsecutiveFolds hands.',
-    ]
-  ),
-  (
-    'Playing',
-    [
-      'The player after the dealer leads any card.',
-      'Everyone else must follow the lead suit if they can.',
-      'If you can\'t follow, play anything. A trump beats every other suit.',
-      'Highest card of the lead suit (or highest trump) takes the trick and leads next.',
-    ]
-  ),
-  (
-    'Sudden death',
-    [
-      'If several players reach 0 in the same hand, they play on alone.',
-      'After each sudden death hand, whoever took the fewest tricks is out.',
-      'Last one standing wins.',
-    ]
-  ),
-];
+List<(String, List<String>)> get _rules => [
+      (
+        dialogsRulesGoal(),
+        [
+          dialogsRulesPlayers.of('points', startingScore),
+          dialogsRulesTricks(),
+          dialogsRulesDonut.of('points', donutPenalty),
+        ]
+      ),
+      (
+        dialogsRulesDealing(),
+        [
+          dialogsRulesDeal.of('n', cardsPerHand),
+          dialogsRulesSwap.of('n', maxSwaps),
+          dialogsRulesFoldLimit.of('n', maxConsecutiveFolds),
+        ]
+      ),
+      (
+        dialogsRulesPlaying(),
+        [
+          dialogsRulesLead(),
+          dialogsRulesFollow(),
+          dialogsRulesTrump(),
+          dialogsRulesTakeTrick(),
+        ]
+      ),
+      (
+        dialogsRulesSuddenDeath(),
+        [
+          dialogsRulesPlayOn(),
+          dialogsRulesFewestOut(),
+          dialogsRulesLastStanding(),
+        ]
+      ),
+    ];
 
 Future<void> showRulesDialog(BuildContext context) {
   final theme = Theme.of(context);
@@ -58,7 +59,7 @@ Future<void> showRulesDialog(BuildContext context) {
               children: [
                 DonutLogo(size: 36, frosting: theme.colorScheme.primary),
                 const SizedBox(width: 12),
-                Text('How to play', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+                Text(dialogsHowToPlay(), style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
               ],
             ),
             for (final (title, lines) in _rules) ...[
@@ -85,7 +86,7 @@ Future<void> showRulesDialog(BuildContext context) {
             const SizedBox(height: 20),
             Align(
               alignment: Alignment.centerRight,
-              child: FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Got it')),
+              child: FilledButton(onPressed: () => Navigator.pop(context), child: Text(dialogsGotIt())),
             ),
           ],
         ),
@@ -110,7 +111,8 @@ Future<void> showThemePicker(BuildContext context) {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Theme', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+                Text(dialogsThemeTitle(),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 16),
                 // The tiles scroll; the title and Done stay put
                 Flexible(
@@ -144,9 +146,8 @@ Future<void> showThemePicker(BuildContext context) {
                             contentPadding: EdgeInsets.zero,
                             value: on,
                             onChanged: Settings.instance.setVenueScenery,
-                            title: const Text('Campaign scenery'),
-                            subtitle: const Text(
-                                'Play each venue in its own scene and on its own table. Off, your theme and table are used.'),
+                            title: Text(dialogsCampaignScenery()),
+                            subtitle: Text(dialogsCampaignSceneryInfo()),
                           ),
                         ),
                       ],
@@ -156,7 +157,7 @@ Future<void> showThemePicker(BuildContext context) {
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Done')),
+                  child: FilledButton(onPressed: () => Navigator.pop(context), child: Text(dialogsDone())),
                 ),
               ],
             ),
@@ -269,12 +270,13 @@ Future<void> showSoundSettings(BuildContext context) {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Settings', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+                Text(dialogsSettingsTitle(),
+                    style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 12),
-                Text('Sound', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                Text(dialogsSound(), style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 16),
                 _VolumeRow(
-                  label: 'Music',
+                  label: dialogsMusic(),
                   icon: Icons.music_note_rounded,
                   volume: settings.musicVolume,
                   muted: settings.musicMuted,
@@ -290,7 +292,8 @@ Future<void> showSoundSettings(BuildContext context) {
                               Icon(Icons.graphic_eq_rounded, size: 16, color: theme.colorScheme.primary),
                               const SizedBox(width: 6),
                               Expanded(
-                                child: Text('Now playing: ${MusicPlayer.displayNames[track] ?? track}',
+                                child: Text(
+                                    dialogsNowPlaying.of('track', MusicPlayer.displayNames[track]?.call() ?? track),
                                     style: theme.textTheme.bodySmall
                                         ?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
                               ),
@@ -299,35 +302,34 @@ Future<void> showSoundSettings(BuildContext context) {
                                 TextButton.icon(
                                   onPressed: MusicPlayer.instance.skip,
                                   icon: const Icon(Icons.skip_next_rounded, size: 18),
-                                  label: const Text('Next'),
+                                  label: Text(dialogsNextTrack()),
                                 ),
                             ],
                           ),
                         ),
                 ),
                 _VolumeRow(
-                  label: 'Effects',
+                  label: dialogsEffects(),
                   icon: Icons.graphic_eq_rounded,
                   volume: settings.sfxVolume,
                   muted: settings.sfxMuted,
                 ),
                 const SizedBox(height: 12),
-                Text('Privacy', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                Text(dialogsPrivacy(), style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                 ValueListenableBuilder(
                   valueListenable: settings.shareUsage,
                   builder: (context, bool on, _) => SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     value: on,
                     onChanged: settings.setShareUsage,
-                    title: const Text('Share anonymous gameplay stats'),
-                    subtitle: const Text('Counts like matches played and campaign stages cleared, to help balance '
-                        'the game. Never your name or chat.'),
+                    title: Text(dialogsShareStats()),
+                    subtitle: Text(dialogsShareStatsInfo()),
                   ),
                 ),
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Done')),
+                  child: FilledButton(onPressed: () => Navigator.pop(context), child: Text(dialogsDone())),
                 ),
               ],
             ),
@@ -355,7 +357,7 @@ class _VolumeRow extends StatelessWidget {
         return Row(
           children: [
             IconButton(
-              tooltip: muted.value ? 'Unmute $label' : 'Mute $label',
+              tooltip: muted.value ? dialogsUnmute.of('sound', label) : dialogsMute.of('sound', label),
               onPressed: () => muted.value = !muted.value,
               icon: Icon(off ? Icons.volume_off_rounded : icon),
             ),
@@ -371,7 +373,7 @@ class _VolumeRow extends StatelessWidget {
             ),
             SizedBox(
               width: 40,
-              child: Text(muted.value ? 'Off' : '${(volume.value * 100).round()}%',
+              child: Text(muted.value ? dialogsVolumeOff() : dialogsVolumePercent.of('n', (volume.value * 100).round()),
                   textAlign: TextAlign.end, style: Theme.of(context).textTheme.bodySmall),
             ),
           ],

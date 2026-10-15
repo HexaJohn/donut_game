@@ -1,11 +1,13 @@
 import 'dart:math';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/data/model/chat_message.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-const _quickReactions = ['\u{1F44D}', '\u{1F602}', '\u{1F631}', '\u{1F369}', 'GG', 'Nice one!'];
+List<String> get _quickReactions =>
+    ['\u{1F44D}', '\u{1F602}', '\u{1F631}', '\u{1F369}', tableQuickGg(), tableQuickNiceOne()];
 
 class ChatPanel extends StatefulWidget {
   const ChatPanel({
@@ -80,9 +82,9 @@ class _ChatPanelState extends State<ChatPanel> {
               padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
               child: Row(
                 children: [
-                  Text('Table talk', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  Text(tableTableTalk(), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
                   const Spacer(),
-                  IconButton(tooltip: 'Close', onPressed: widget.onClose, icon: const Icon(Icons.close_rounded)),
+                  IconButton(tooltip: tableClose(), onPressed: widget.onClose, icon: const Icon(Icons.close_rounded)),
                 ],
               ),
             ),
@@ -131,7 +133,7 @@ class _ChatPanelState extends State<ChatPanel> {
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => _send(),
                 decoration: InputDecoration(
-                  hintText: 'Say something...',
+                  hintText: tableSaySomething(),
                   counterText: '',
                   isDense: true,
                   suffixIcon: IconButton(onPressed: _send, icon: const Icon(Icons.send_rounded)),

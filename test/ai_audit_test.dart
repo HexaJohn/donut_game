@@ -66,4 +66,23 @@ void main() {
       await pumpFor(tester, const Duration(seconds: 3));
     });
   }
+
+  testWidgets('in Codes mode the AI text is never shown, only codes', (tester) async {
+    tester.view.physicalSize = const Size(1280, 820);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    AiAudit.instance.enabled.value = true;
+    AiAudit.instance.textMode.value = AuditTextMode.codes;
+    await tester.pumpWidget(MaterialApp(
+      theme: buildTheme(ThemePreset.midnightCasino),
+      builder: (context, child) => AiAuditOverlay(child: child!),
+      home: const HomeScreen(),
+    ));
+    await pumpFor(tester, const Duration(seconds: 2));
+    expect(find.textContaining('trick-taking'), findsNothing);
+    expect(find.text('Start game'), findsNothing);
+    expect(find.text('[A1]'), findsWidgets, reason: 'the title shows its code');
+    await tester.pumpWidget(const SizedBox());
+    await pumpFor(tester, const Duration(seconds: 3));
+  });
 }

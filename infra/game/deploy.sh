@@ -14,6 +14,8 @@ mkdir -p lambda
 (cd ../../packages/donut_server && dart pub get >/dev/null &&
   dart compile exe bin/bootstrap.dart --target-os=linux --target-arch=arm64 -o build/bootstrap >/dev/null)
 cp ../../packages/donut_server/build/bootstrap lambda/bootstrap
+# The game's text, so online announcements match what's been written
+cp ../../assets/copy/donut_text.txt lambda/donut_text.txt
 
 aws cloudformation package --region "$REGION" --template-file template.yaml \
   --s3-bucket "$BUCKET" --s3-prefix game-code --output-template-file packaged.yaml >/dev/null

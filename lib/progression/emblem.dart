@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/audit/ai_audit.dart';
 import 'package:flutter/material.dart';
 
@@ -97,14 +98,14 @@ enum EmblemShape { circle, shield, hexagon, diamond, square, badge, star, heart 
 
 extension EmblemShapeInfo on EmblemShape {
   String get label => switch (this) {
-        EmblemShape.circle => 'Circle',
-        EmblemShape.shield => 'Shield',
-        EmblemShape.hexagon => 'Hexagon',
-        EmblemShape.diamond => 'Diamond',
-        EmblemShape.square => 'Square',
-        EmblemShape.badge => 'Badge',
-        EmblemShape.star => 'Star',
-        EmblemShape.heart => 'Heart',
+        EmblemShape.circle => shopShapeCircle(),
+        EmblemShape.shield => shopShapeShield(),
+        EmblemShape.hexagon => shopShapeHexagon(),
+        EmblemShape.diamond => shopShapeDiamond(),
+        EmblemShape.square => shopShapeSquare(),
+        EmblemShape.badge => shopShapeBadge(),
+        EmblemShape.star => shopShapeStar(),
+        EmblemShape.heart => shopShapeHeart(),
       };
 }
 

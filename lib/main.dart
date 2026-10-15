@@ -83,10 +83,10 @@ Future<void> main() async {
     await windowManager.ensureInitialized();
     final device = devicePresets[simulatedDevice];
     final options = device == null
-        ? const WindowOptions(
-            title: 'Donut',
-            size: Size(1280, 820),
-            minimumSize: Size(960, 680),
+        ? WindowOptions(
+            title: appName(),
+            size: const Size(1280, 820),
+            minimumSize: const Size(960, 680),
             center: true,
             titleBarStyle: TitleBarStyle.hidden,
           )
@@ -119,7 +119,7 @@ class DonutApp extends StatelessWidget {
       builder: (context, ThemePreset preset, _) => ListenableBuilder(
         listenable: Listenable.merge([AiAudit.instance.enabled, AiAudit.instance.textMode]),
         builder: (context, _) => MaterialApp(
-          title: 'Donut',
+          title: appName(),
           debugShowCheckedModeBanner: false,
           // Lets a Game Center match open from anywhere, invites included
           navigatorKey: GameCenterLobby.instance.navigatorKey,

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/net/match_controllers.dart';
 import 'package:donut_game/net/match_link.dart';
 import 'package:donut_game/ui/game/game_screen.dart';
@@ -63,9 +64,9 @@ class GameCenterLobby {
       await GameCenter.authenticate();
       await GameCenter.findMatch(min: 2, max: maxPlayers);
     } on PlatformException catch (e) {
-      _say(e.message ?? 'Game Center isn\'t available right now.');
+      _say(e.message ?? onlineGameCenterUnavailable());
     } on MissingPluginException {
-      _say('Game Center isn\'t available on this device.');
+      _say(onlineGameCenterNoDevice());
     }
   }
 

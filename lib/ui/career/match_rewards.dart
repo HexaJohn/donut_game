@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/audio/sfx.dart';
 import 'package:donut_game/progression/catalog.dart';
 import 'package:donut_game/progression/profile.dart';
@@ -138,7 +139,7 @@ class _MatchOverFlowState extends State<MatchOverFlow> {
                     style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                     onPressed: () => setState(() => _phase = _Phase.rewards),
                     icon: const Icon(Icons.redeem_rounded),
-                    label: const Text('Collect rewards', style: TextStyle(fontWeight: FontWeight.w700)),
+                    label: Text(shopCollectRewards(), style: const TextStyle(fontWeight: FontWeight.w700)),
                   ),
               ],
             ),
@@ -146,7 +147,7 @@ class _MatchOverFlowState extends State<MatchOverFlow> {
               key: const ValueKey('rewards'),
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Match rewards', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+                Text(shopMatchRewards(), style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 16),
                 _RewardsTally(outcome: outcome!),
                 const SizedBox(height: 20),
@@ -154,7 +155,7 @@ class _MatchOverFlowState extends State<MatchOverFlow> {
                   style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                   onPressed: () => setState(() => _phase = _Phase.slots),
                   icon: const Icon(Icons.casino_rounded),
-                  label: const Text('Bonus spin', style: TextStyle(fontWeight: FontWeight.w700)),
+                  label: Text(shopBonusSpin(), style: const TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
@@ -285,7 +286,7 @@ class _RewardsTallyState extends State<_RewardsTally> with SingleTickerProviderS
               child: Row(
                 children: [
                   Expanded(
-                    child: Text('Rank up: ${o.rankUps.last.title}',
+                    child: Text(shopRankUpLine.of('rank', o.rankUps.last.title),
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
                   ),
@@ -302,7 +303,7 @@ class _RewardsTallyState extends State<_RewardsTally> with SingleTickerProviderS
         const Divider(height: 24),
         Row(
           children: [
-            Text('Total', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+            Text(shopTotal(), style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
             const SizedBox(width: 12),
             // Everything banked, rank-ups included; wraps rather than overflowing
             Expanded(
@@ -348,8 +349,8 @@ class _RewardsTallyState extends State<_RewardsTally> with SingleTickerProviderS
                           ),
                           Text(
                             next == null
-                                ? 'Top rank'
-                                : '${formatAmount(xp)} / ${formatAmount(next.xp)} XP to ${next.title}',
+                                ? shopTopRank()
+                                : shopXpToNext({'xp': formatAmount(xp), 'next': formatAmount(next.xp), 'rank': next.title}),
                             style: theme.textTheme.bodySmall?.copyWith(color: dim),
                           ),
                         ],
@@ -362,7 +363,7 @@ class _RewardsTallyState extends State<_RewardsTally> with SingleTickerProviderS
                           color: theme.colorScheme.primary,
                           borderRadius: BorderRadius.circular(999),
                         ),
-                        child: Text('RANK UP',
+                        child: Text(shopRankUpBadge(),
                             style: TextStyle(
                                 color: theme.colorScheme.onPrimary,
                                 fontWeight: FontWeight.w900,
@@ -388,7 +389,7 @@ class _RewardsTallyState extends State<_RewardsTally> with SingleTickerProviderS
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '${item.name} unlocked. ${item.kind == ItemKind.gadget ? 'It\'s on your tool tray.' : 'Equip it from the shop.'}',
+                  (item.kind == ItemKind.gadget ? shopUnlockedGadget : shopUnlockedEquip).of('item', item.name),
                   style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary),
                 ),
               ),
@@ -403,7 +404,7 @@ class _RewardsTallyState extends State<_RewardsTally> with SingleTickerProviderS
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'New in the shop: ${o.newInShop.map((item) => item.name).join(', ')}.',
+                  shopNewInShop.of('items', o.newInShop.map((item) => item.name).join(', ')),
                   style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary),
                 ),
               ),

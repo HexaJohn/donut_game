@@ -1,3 +1,4 @@
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/progression/catalog.dart';
 import 'package:donut_game/progression/emblem.dart';
 import 'package:donut_game/progression/profile.dart';
@@ -44,7 +45,7 @@ class CareerScreen extends StatelessWidget {
       child: Scaffold(
         body: Column(
           children: [
-            DonutTitleBar(title: 'Career', onBack: () => Navigator.pop(context)),
+            DonutTitleBar(title: shopTitle(), onBack: () => Navigator.pop(context)),
             ListenableBuilder(listenable: profile, builder: (context, _) => _Header(profile: profile)),
             Container(
               decoration: BoxDecoration(
@@ -53,10 +54,10 @@ class CareerScreen extends StatelessWidget {
               // Short screens (a phone on its side) get slim, single-line tabs
               child: TabBar(
                 tabs: [
-                  for (final (icon, label) in const [
-                    (Icons.military_tech_rounded, 'Rank'),
-                    (Icons.storefront_rounded, 'Shop'),
-                    (Icons.brush_rounded, 'Emblem'),
+                  for (final (icon, label) in [
+                    (Icons.military_tech_rounded, shopTabRank()),
+                    (Icons.storefront_rounded, shopTabShop()),
+                    (Icons.brush_rounded, shopTabEmblem()),
                   ])
                     _isShort(context)
                         ? Tab(
@@ -133,8 +134,8 @@ class _Header extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 next == null
-                    ? '${formatAmount(profile.xp)} XP. Top of the ladder.'
-                    : '${formatAmount(profile.xp)} / ${formatAmount(next.xp)} XP to ${next.title}',
+                    ? shopXpTopOfLadder.of('xp', formatAmount(profile.xp))
+                    : shopXpToNext({'xp': formatAmount(profile.xp), 'next': formatAmount(next.xp), 'rank': next.title}),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
@@ -183,37 +184,36 @@ class _RankTab extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(profile.rank.title,
                       style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w900)),
-                  Text('Rank ${profile.rank.index + 1} of ${ranks.length}',
+                  Text(shopRankOf({'n': profile.rank.index + 1, 'total': ranks.length}),
                       style: theme.textTheme.bodyMedium
                           ?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
                 ],
               ),
             ),
             const SizedBox(height: 24),
-            _section(theme, 'Career'),
+            _section(theme, shopStatsHeading()),
             Wrap(
               spacing: 10,
               runSpacing: 10,
               children: [
-                _Stat('Matches', '${stats.matches}'),
-                _Stat('Wins', '${stats.wins}'),
-                _Stat('Win rate', '$winRate%'),
-                _Stat('Tricks taken', formatAmount(stats.tricks)),
-                _Stat('Donuts eaten', '${stats.donuts}'),
-                _Stat('Hands played', formatAmount(stats.handsPlayed)),
-                _Stat('Bonus spins', '${stats.slotPulls}'),
-                _Stat('Jackpots', '${stats.jackpots}'),
+                _Stat(shopStatMatches(), '${stats.matches}'),
+                _Stat(shopStatWins(), '${stats.wins}'),
+                _Stat(shopStatWinRate(), shopPercent.of('n', winRate)),
+                _Stat(shopStatTricks(), formatAmount(stats.tricks)),
+                _Stat(shopStatDonuts(), '${stats.donuts}'),
+                _Stat(shopStatHands(), formatAmount(stats.handsPlayed)),
+                _Stat(shopStatSpins(), '${stats.slotPulls}'),
+                _Stat(shopStatJackpots(), '${stats.jackpots}'),
               ],
             ),
             const SizedBox(height: 24),
-            _section(theme, 'How to earn'),
+            _section(theme, shopHowToEarnHeading()),
             Text(
-              'Every offline match pays XP and Crumbs: more for winning, taking tricks and dodging donuts. '
-              'Each match ends with a bonus spin. Every rank-up pays Crumbs and Glaze, the rare stuff, unlocks more of the shop, and some ranks hand over items the shop doesn\'t sell.',
+              shopHowToEarn(),
               style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
             ),
             const SizedBox(height: 24),
-            _section(theme, 'The ladder'),
+            _section(theme, shopLadderHeading()),
             for (final rank in ranks)
               _LadderRow(rank: rank, held: rank.index == profile.rank.index, reached: rank.xp <= profile.xp),
             const SizedBox(height: 32),
@@ -222,7 +222,7 @@ class _RankTab extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: () => _confirmReset(context, profile),
                 icon: Icon(Icons.restart_alt_rounded, color: theme.colorScheme.error),
-                label: Text('Reset career', style: TextStyle(color: theme.colorScheme.error)),
+                label: Text(shopResetCareer(), style: TextStyle(color: theme.colorScheme.error)),
               ),
             ),
           ],
@@ -242,14 +242,14 @@ class _RankTab extends StatelessWidget {
     final yes = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reset your career?'),
-        content: const Text('Rank, currencies, unlocks and emblem all go back to the start. There is no undo.'),
+        title: Text(shopResetTitle()),
+        content: Text(shopResetBody()),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep it')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(shopKeepIt())),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Reset'),
+            child: Text(shopReset()),
           ),
         ],
       ),
@@ -322,7 +322,7 @@ class _LadderRow extends StatelessWidget {
           ),
           if (onSale.isNotEmpty) ...[
             Tooltip(
-              message: 'New in the shop: ${onSale.map((item) => item.name).join(', ')}',
+              message: shopNewInShopTooltip.of('items', onSale.map((item) => item.name).join(', ')),
               child: Row(
                 children: [
                   Icon(Icons.storefront_rounded, size: 16, color: dim),
@@ -348,7 +348,7 @@ class _LadderRow extends StatelessWidget {
           const SizedBox(width: 12),
           SizedBox(
             width: 80,
-            child: Text('${formatAmount(rank.xp)} XP',
+            child: Text(shopLadderXp.of('xp', formatAmount(rank.xp)),
                 textAlign: TextAlign.right, style: theme.textTheme.bodySmall?.copyWith(color: dim)),
           ),
         ],

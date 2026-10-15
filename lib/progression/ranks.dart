@@ -1,16 +1,19 @@
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/progression/catalog.dart';
 
 /// Career ranks, Halo Reach style: a long ladder of named grades climbed with
 /// XP. Spending never costs rank; only XP counts.
 class Rank {
-  const Rank({required this.index, required this.family, required this.name, required this.grade, required this.xp});
+  const Rank({required this.index, required this.family, required this.nameLine, required this.grade, required this.xp});
 
   /// Position on the ladder, 0 for the first rank.
   final int index;
 
   /// Which named family this grade belongs to, 0 for the first.
   final int family;
-  final String name;
+  final Line nameLine;
+
+  String get name => nameLine();
 
   /// 0 when the family has a single grade, else 1..3.
   final int grade;
@@ -18,7 +21,7 @@ class Rank {
   /// Total XP needed to hold this rank.
   final int xp;
 
-  String get title => grade == 0 ? name : '$name ${_roman[grade]}';
+  String get title => grade == 0 ? name : shopRankGraded({'rank': name, 'grade': _roman[grade]});
 
   @override
   String toString() => title;
@@ -27,26 +30,26 @@ class Rank {
 const _roman = ['', 'I', 'II', 'III'];
 
 /// Rank families in order, with how many grades each has.
-const List<(String, int)> rankFamilies = [
-  ('Crumb', 1),
-  ('Sprinkle', 2),
-  ('Glazed', 3),
-  ('Frosted', 3),
-  ('Jelly', 3),
-  ('Cruller', 3),
-  ('Fritter', 3),
-  ('Long John', 3),
-  ('Old Fashioned', 3),
-  ('Boston Cream', 3),
-  ('Beignet', 3),
-  ('Baker', 3),
-  ('Head Baker', 3),
-  ('Pastry Chef', 3),
-  ('Dozen', 2),
-  ('Baker\'s Dozen', 2),
-  ('Legend', 2),
-  ('Mythic', 1),
-  ('Inheritor', 1),
+const List<(Line, int)> rankFamilies = [
+  (shopRankCrumb, 1),
+  (shopRankSprinkle, 2),
+  (shopRankGlazed, 3),
+  (shopRankFrosted, 3),
+  (shopRankJelly, 3),
+  (shopRankCruller, 3),
+  (shopRankFritter, 3),
+  (shopRankLongJohn, 3),
+  (shopRankOldFashioned, 3),
+  (shopRankBostonCream, 3),
+  (shopRankBeignet, 3),
+  (shopRankBaker, 3),
+  (shopRankHeadBaker, 3),
+  (shopRankPastryChef, 3),
+  (shopRankDozen, 2),
+  (shopRankBakersDozen, 2),
+  (shopRankLegend, 2),
+  (shopRankMythic, 1),
+  (shopRankInheritor, 1),
 ];
 
 /// XP from one rank to the next grows the further up you are.
@@ -60,7 +63,7 @@ final List<Rank> ranks = () {
     for (var grade = 1; grade <= grades; grade++) {
       final index = list.length;
       if (index > 0) xp += _step(index - 1);
-      list.add(Rank(index: index, family: family, name: name, grade: grades == 1 ? 0 : grade, xp: xp));
+      list.add(Rank(index: index, family: family, nameLine: name, grade: grades == 1 ? 0 : grade, xp: xp));
     }
     family++;
   }

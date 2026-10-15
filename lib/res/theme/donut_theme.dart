@@ -1,3 +1,4 @@
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/audio/click_splash.dart';
 import 'package:flutter/material.dart';
 
@@ -118,8 +119,8 @@ class _PresetSpec {
     this.fontFamily,
   });
 
-  final String name;
-  final String description;
+  final Line name;
+  final Line description;
   final Brightness brightness;
   final Color primary;
   final Color background;
@@ -132,8 +133,8 @@ const _monoFonts = ['Consolas', 'Menlo', 'Courier New', 'monospace'];
 
 final Map<ThemePreset, _PresetSpec> _presets = {
   ThemePreset.classic: _PresetSpec(
-    name: 'Classic',
-    description: 'The original v1 look',
+    name: dialogsThemeClassic,
+    description: dialogsThemeClassicInfo,
     brightness: Brightness.light,
     primary: Colors.red,
     background: Colors.grey.shade200,
@@ -153,8 +154,8 @@ final Map<ThemePreset, _PresetSpec> _presets = {
     ),
   ),
   ThemePreset.donutLight: const _PresetSpec(
-    name: 'Donut Light',
-    description: 'Fresh out of the oven',
+    name: dialogsThemeDonutLight,
+    description: dialogsThemeDonutLightInfo,
     brightness: Brightness.light,
     primary: Color(0xFFE0457B),
     background: Color(0xFFFBF6F0),
@@ -174,8 +175,8 @@ final Map<ThemePreset, _PresetSpec> _presets = {
     ),
   ),
   ThemePreset.donutDark: const _PresetSpec(
-    name: 'Donut Dark',
-    description: 'Late-night snack',
+    name: dialogsThemeDonutDark,
+    description: dialogsThemeDonutDarkInfo,
     brightness: Brightness.dark,
     primary: Color(0xFFFF6B9D),
     background: Color(0xFF121216),
@@ -195,8 +196,8 @@ final Map<ThemePreset, _PresetSpec> _presets = {
     ),
   ),
   ThemePreset.midnightCasino: const _PresetSpec(
-    name: 'Midnight Casino',
-    description: 'High rollers only',
+    name: dialogsThemeMidnightCasino,
+    description: dialogsThemeMidnightCasinoInfo,
     brightness: Brightness.dark,
     primary: Color(0xFFD4AF37),
     background: Color(0xFF0E1424),
@@ -216,8 +217,8 @@ final Map<ThemePreset, _PresetSpec> _presets = {
     ),
   ),
   ThemePreset.neonArcade: const _PresetSpec(
-    name: 'Neon Arcade',
-    description: 'Insert coin',
+    name: dialogsThemeNeonArcade,
+    description: dialogsThemeNeonArcadeInfo,
     brightness: Brightness.dark,
     primary: Color(0xFF00F0FF),
     background: Color(0xFF07070C),
@@ -238,8 +239,8 @@ final Map<ThemePreset, _PresetSpec> _presets = {
     ),
   ),
   ThemePreset.strawberrySprinkles: const _PresetSpec(
-    name: 'Strawberry Sprinkles',
-    description: 'Extra frosting',
+    name: dialogsThemeStrawberry,
+    description: dialogsThemeStrawberryInfo,
     brightness: Brightness.light,
     primary: Color(0xFF8B4A2B),
     background: Color(0xFFFFE4EE),
@@ -259,8 +260,8 @@ final Map<ThemePreset, _PresetSpec> _presets = {
     ),
   ),
   ThemePreset.retroTerminal: const _PresetSpec(
-    name: 'Retro Terminal',
-    description: '> donut.exe',
+    name: dialogsThemeRetroTerminal,
+    description: dialogsThemeRetroTerminalInfo,
     brightness: Brightness.dark,
     primary: Color(0xFF33FF66),
     background: Color(0xFF000000),
@@ -284,8 +285,8 @@ final Map<ThemePreset, _PresetSpec> _presets = {
 };
 
 extension ThemePresetInfo on ThemePreset {
-  String get label => _presets[this]!.name;
-  String get description => _presets[this]!.description;
+  String get label => _presets[this]!.name();
+  String get description => _presets[this]!.description();
   Brightness get brightness => _presets[this]!.brightness;
   DonutColors get colors => _presets[this]!.colors;
   Color get primary => _presets[this]!.primary;

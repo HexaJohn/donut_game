@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_engine/donut_engine.dart' show cleanText, isOffensiveName;
 import 'package:donut_game/progression/emblem.dart';
 import 'package:donut_game/ai/bot_brain.dart';
@@ -66,7 +67,7 @@ class TableHost {
   ActionResult join(String id, String name, {String? back, String? face, Emblem? emblem, String? secret}) {
     final existing = game.playerDB[id];
     if (existing != null) {
-      if (!verify(id, secret)) return const ActionResult.refused(409, 'That seat belongs to someone else.');
+      if (!verify(id, secret)) return ActionResult.refused(409, announceSeatTaken());
       // Reconnecting keeps the seat, wearing whatever deck it brought
       if (back != null) existing.cardBack = back;
       if (face != null) existing.cardFace = face;
@@ -74,14 +75,14 @@ class TableHost {
       return const ActionResult.ok();
     }
     if (checkSecrets && (secret == null || secret.length < 16)) {
-      return const ActionResult.refused(400, 'Missing secret');
+      return ActionResult.refused(400, onlineMissingSecret());
     }
     var trimmed = name.trim();
-    if (trimmed.isEmpty) return const ActionResult.refused(400, 'Pick a name');
+    if (trimmed.isEmpty) return ActionResult.refused(400, onlinePickName());
     if (trimmed.length > maxNameLength) trimmed = trimmed.substring(0, maxNameLength);
-    if (isOffensiveName(trimmed)) trimmed = 'Player';
+    if (isOffensiveName(trimmed)) trimmed = announcePlayerName();
     if (game.players.any((player) => player.name.toLowerCase() == trimmed.toLowerCase())) {
-      return const ActionResult.refused(409, 'Someone at the table already has that name.');
+      return ActionResult.refused(409, onlineNameTaken());
     }
     if (secret != null) _secrets[id] = secret;
     final player = GamePlayer(trimmed, 0, true)..id = id;
@@ -89,7 +90,7 @@ class TableHost {
     if (face != null) player.cardFace = face;
     player.emblem = emblem;
     game.addLocalPlayer(player);
-    game.say('', '$trimmed joined the game.', system: true);
+    game.say('', announceJoinedGame.of('name', trimmed), system: true);
     if (game.playerDB.length == 2) {
       game.protectedActive = 1;
       game.protectedDealer = 0;
@@ -102,9 +103,9 @@ class TableHost {
   /// HTTP endpoints take.
   ActionResult act(String id, String action, Map<String, dynamic> body) {
     final player = game.playerDB[id];
-    if (player == null) return const ActionResult.refused(400, 'Not at this table');
-    if (!verify(id, body['secret'])) return const ActionResult.refused(403, 'Not your seat');
-    if (!_allow(id, action)) return const ActionResult.refused(429, 'Slow down');
+    if (player == null) return ActionResult.refused(400, onlineNotAtTable());
+    if (!verify(id, body['secret'])) return ActionResult.refused(403, onlineNotYourSeat());
+    if (!_allow(id, action)) return ActionResult.refused(429, onlineSlowDown());
     switch (action) {
       case 'vote':
         // "vote": "false" takes a ready back
@@ -143,16 +144,16 @@ class TableHost {
       case 'flashbang':
         if (body['x'] is! num || body['y'] is! num) return const ActionResult.refused(400);
         final thrown = game.throwFlashbang(player.name, (body['x'] as num).toDouble(), (body['y'] as num).toDouble());
-        return thrown ? const ActionResult.ok() : const ActionResult.refused(429, 'Flashbang cooling down');
+        return thrown ? const ActionResult.ok() : ActionResult.refused(429, onlineFlashbangCooling());
       case 'draw':
         return _draw(player, body);
       case 'newMatch':
-        if (id != hostId) return const ActionResult.refused(403, 'Only the host can restart');
+        if (id != hostId) return ActionResult.refused(403, onlineOnlyHostRestart());
         game.abort();
         game.newMatch();
         return const ActionResult.ok();
     }
-    return ActionResult.refused(400, 'Unknown action $action');
+    return ActionResult.refused(400, onlineUnknownAction.of('action', action));
   }
 
   ActionResult _swap(GamePlayer player, Object? index) {
@@ -179,10 +180,10 @@ class TableHost {
     final hand = player.hand.cards.value;
     if (index is! int) return const ActionResult.refused(400);
     if (!player.awaitingCard || index < 0 || index >= hand.length) {
-      return const ActionResult.refused(409, 'Not your turn to play');
+      return ActionResult.refused(409, onlineNotYourTurnToPlay());
     }
     if (!BotBrain.legal(hand, game).contains(hand[index])) {
-      return const ActionResult.refused(409, 'You must follow the lead suit');
+      return ActionResult.refused(409, onlineMustFollow());
     }
     player.cardToPlay = hand[index];
     return const ActionResult.ok();
@@ -231,7 +232,7 @@ class TableHost {
     if (player == null || !player.human) return;
     player.human = false;
     player.voteToDeal = true;
-    game.say('', '${player.name} left. A bot takes their seat.', system: true);
+    game.say('', onlineBotTakesSeat.of('name', player.name), system: true);
     // Unstick anything the game was waiting on them for
     if (player.notReady && game.state.value == GameState.waitingForPlayerToSwap) {
       player.botSwap(game.trumpSuit.value);

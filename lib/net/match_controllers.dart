@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/progression/emblem.dart';
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
@@ -48,7 +49,7 @@ class MatchHostController extends GameController {
   bool get online => true;
 
   @override
-  String get label => 'Game Center';
+  String get label => onlineGameCenter();
 
   @override
   String get kind => 'gamecenter';
@@ -62,7 +63,7 @@ class MatchHostController extends GameController {
     game.targetScore = startingScore;
     final taken = <String>{};
     for (final peer in link.peers) {
-      final base = peer.name.trim().isEmpty ? 'Player' : peer.name.trim();
+      final base = peer.name.trim().isEmpty ? announcePlayerName() : peer.name.trim();
       var name = base;
       for (var n = 2; taken.contains(name.toLowerCase()); n++) {
         name = '$base $n';
@@ -221,7 +222,7 @@ class MatchClientController extends RemoteTableController {
   Timer? _hello;
 
   @override
-  String get label => 'Game Center';
+  String get label => onlineGameCenter();
 
   @override
   String get kind => 'gamecenter';
@@ -257,7 +258,7 @@ class MatchClientController extends RemoteTableController {
       await link.send({'k': 'act', 'a': action, 'b': body, 'n': serial}, to: link.hostId);
     } catch (e) {
       _pending.remove(serial);
-      error.value = 'Lost touch with the host.';
+      error.value = onlineLostHost();
       return false;
     }
     return answer.future.timeout(const Duration(seconds: 4), onTimeout: () {
@@ -280,7 +281,7 @@ class MatchClientController extends RemoteTableController {
       case LinkMessage():
         break;
       case LinkPeerLeft(:final id) when id == link.hostId:
-        error.value = 'The host left, so this game is over.';
+        error.value = onlineHostLeft();
       case LinkPeerLeft():
         break;
       case LinkFailed(:final message):

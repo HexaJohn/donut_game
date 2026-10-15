@@ -1,3 +1,4 @@
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:donut_game/ui/widget/donut_logo.dart';
 import 'package:flutter/foundation.dart';
@@ -75,7 +76,7 @@ class _DonutTitleBarState extends State<DonutTitleBar> with WindowListener {
         height: 48,
         color: widget.solid ? colors.chrome : Colors.transparent,
         child: Row(children: [
-          IconButton(tooltip: 'Back', onPressed: back, icon: const Icon(Icons.arrow_back_rounded)),
+          IconButton(tooltip: appBack(), onPressed: back, icon: const Icon(Icons.arrow_back_rounded)),
           if (widget.title != null)
             Expanded(
               child: Text(widget.title!,
@@ -104,7 +105,7 @@ class _DonutTitleBarState extends State<DonutTitleBar> with WindowListener {
         if (!widget.transparent) ...[
           DonutLogo(size: 22, frosting: theme.colorScheme.primary, shadow: false),
           const SizedBox(width: 8),
-          Text('Donut', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: foreground)),
+          Text(appName(), style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: foreground)),
           if (widget.title != null) Text('  ·  ', style: TextStyle(color: foreground.withValues(alpha: 0.4))),
         ],
         // Takes the remaining width so the trailing widget hugs the right edge
@@ -116,7 +117,7 @@ class _DonutTitleBarState extends State<DonutTitleBar> with WindowListener {
         ),
         if (widget.trailing != null) ...[widget.trailing!, const SizedBox(width: 8)],
         if (widget.onBack != null)
-          IconButton(tooltip: 'Back', icon: const Icon(Icons.close_rounded), onPressed: widget.onBack),
+          IconButton(tooltip: appBack(), icon: const Icon(Icons.close_rounded), onPressed: widget.onBack),
       ],
     );
 

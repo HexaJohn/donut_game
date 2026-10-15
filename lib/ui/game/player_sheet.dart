@@ -1,3 +1,4 @@
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/data/model/game_player.dart/game_player.dart';
 import 'package:donut_game/data/settings.dart';
 import 'package:donut_game/ui/game/board.dart';
@@ -27,16 +28,14 @@ Future<void> showPlayerOptions(BuildContext context, GameController controller, 
               if (!blocked)
                 ListTile(
                   leading: Icon(muted ? Icons.volume_up_rounded : Icons.volume_off_rounded),
-                  title: Text(muted ? 'Unmute chat' : 'Mute chat'),
-                  subtitle: const Text('For this game only'),
+                  title: Text(muted ? tableUnmuteChat() : tableMuteChat()),
+                  subtitle: Text(tableThisGameOnly()),
                   onTap: () => controller.setMuted(player, !muted),
                 ),
               ListTile(
                 leading: Icon(blocked ? Icons.check_circle_outline_rounded : Icons.block_rounded),
-                title: Text(blocked ? 'Unblock' : 'Block'),
-                subtitle: Text(blocked
-                    ? 'You\'ll see their chat again'
-                    : 'Hides their chat, and Find a game won\'t seat you with them'),
+                title: Text(blocked ? tableUnblock() : tableBlock()),
+                subtitle: Text(blocked ? tableUnblockHint() : tableBlockHint()),
                 onTap: () {
                   if (blocked) {
                     settings.unblock(player.id);
@@ -49,8 +48,8 @@ Future<void> showPlayerOptions(BuildContext context, GameController controller, 
               if (controller.canReport)
                 ListTile(
                   leading: Icon(Icons.flag_rounded, color: Theme.of(context).colorScheme.error),
-                  title: const Text('Report'),
-                  subtitle: const Text('Sends their recent chat to be reviewed'),
+                  title: Text(tableReport()),
+                  subtitle: Text(tableReportHint()),
                   onTap: () async {
                     Navigator.of(context).pop();
                     await showReportDialog(context, controller, player);
@@ -66,13 +65,13 @@ Future<void> showPlayerOptions(BuildContext context, GameController controller, 
 }
 
 const _reasons = {
-  'harassment': 'Harassment or bullying',
-  'hate': 'Hate speech',
-  'sexual': 'Sexual content',
-  'name': 'Offensive name',
-  'cheating': 'Cheating',
-  'spam': 'Spam',
-  'other': 'Something else',
+  'harassment': tableReasonHarassment,
+  'hate': tableReasonHate,
+  'sexual': tableReasonSexual,
+  'name': tableReasonName,
+  'cheating': tableReasonCheating,
+  'spam': tableReasonSpam,
+  'other': tableReasonOther,
 };
 
 /// Asks why, then sends the report.
@@ -86,7 +85,7 @@ Future<void> showReportDialog(BuildContext context, GameController controller, G
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        title: Text('Report ${player.name}'),
+        title: Text(tableReportTitle.of('name', player.name)),
         content: SizedBox(
           width: 360,
           child: SingleChildScrollView(
@@ -100,14 +99,14 @@ Future<void> showReportDialog(BuildContext context, GameController controller, G
                   child: Column(children: [
                     for (final MapEntry(:key, :value) in _reasons.entries)
                       RadioListTile<String>(
-                          value: key, title: Text(value), dense: true, contentPadding: EdgeInsets.zero),
+                          value: key, title: Text(value()), dense: true, contentPadding: EdgeInsets.zero),
                   ]),
                 ),
                 TextField(
                   controller: note,
                   maxLength: 300,
                   maxLines: 2,
-                  decoration: const InputDecoration(hintText: 'Anything to add? (optional)'),
+                  decoration: InputDecoration(hintText: tableReportNoteHint()),
                 ),
                 if (problem != null) Text(problem!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
               ],
@@ -115,7 +114,7 @@ Future<void> showReportDialog(BuildContext context, GameController controller, G
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(tableCancel())),
           FilledButton(
             onPressed: sending
                 ? null
@@ -125,7 +124,7 @@ Future<void> showReportDialog(BuildContext context, GameController controller, G
                     if (!context.mounted) return;
                     if (failed == null) {
                       Navigator.of(context).pop();
-                      messenger?.showSnackBar(const SnackBar(content: Text('Thanks. Your report was sent.')));
+                      messenger?.showSnackBar(SnackBar(content: Text(tableReportSent())));
                     } else {
                       setState(() {
                         sending = false;
@@ -133,7 +132,7 @@ Future<void> showReportDialog(BuildContext context, GameController controller, G
                       });
                     }
                   },
-            child: const Text('Send report'),
+            child: Text(tableSendReport()),
           ),
         ],
       ),
@@ -147,13 +146,13 @@ Future<void> showBlockedPlayers(BuildContext context) {
   return showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Blocked players'),
+      title: Text(tableBlockedPlayers()),
       content: SizedBox(
         width: 340,
         child: ValueListenableBuilder(
           valueListenable: Settings.instance.blocked,
           builder: (context, Map<String, String> blocked, _) => blocked.isEmpty
-              ? const Text('Nobody. Tap a player at an online table to block them.')
+              ? Text(tableNobodyBlocked())
               : ListView(
                   shrinkWrap: true,
                   children: [
@@ -163,13 +162,13 @@ Future<void> showBlockedPlayers(BuildContext context) {
                         leading: const Icon(Icons.block_rounded),
                         title: Text(name),
                         trailing:
-                            TextButton(onPressed: () => Settings.instance.unblock(id), child: const Text('Unblock')),
+                            TextButton(onPressed: () => Settings.instance.unblock(id), child: Text(tableUnblock())),
                       ),
                   ],
                 ),
         ),
       ),
-      actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Done'))],
+      actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(tableDone()))],
     ),
   );
 }

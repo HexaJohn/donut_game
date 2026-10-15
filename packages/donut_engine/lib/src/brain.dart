@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'package:donut_copy/donut_copy.dart';
+
 import 'cards.dart';
 
 /// How well a bot plays. Rookies throw the game to help a new player win;
@@ -9,19 +11,19 @@ enum BotSkill { rookie, regular, amateur, pro, shark }
 
 extension BotSkillInfo on BotSkill {
   String get label => switch (this) {
-        BotSkill.rookie => 'Rookie',
-        BotSkill.regular => 'Regular',
-        BotSkill.amateur => 'Amateur',
-        BotSkill.pro => 'Pro',
-        BotSkill.shark => 'Shark',
+        BotSkill.rookie => announceSkillRookie(),
+        BotSkill.regular => announceSkillRegular(),
+        BotSkill.amateur => announceSkillAmateur(),
+        BotSkill.pro => announceSkillPro(),
+        BotSkill.shark => announceSkillShark(),
       };
 
   String get blurb => switch (this) {
-        BotSkill.rookie => 'Still learning. Lets you win tricks.',
-        BotSkill.regular => 'Plays whatever comes to hand.',
-        BotSkill.amateur => 'Knows the basics, still slips up.',
-        BotSkill.pro => 'Plays the odds and folds bad hands.',
-        BotSkill.shark => 'Counts every card. Never blinks.',
+        BotSkill.rookie => announceSkillRookieBlurb(),
+        BotSkill.regular => announceSkillRegularBlurb(),
+        BotSkill.amateur => announceSkillAmateurBlurb(),
+        BotSkill.pro => announceSkillProBlurb(),
+        BotSkill.shark => announceSkillSharkBlurb(),
       };
 
   /// Chance of playing a random legal card instead of thinking.

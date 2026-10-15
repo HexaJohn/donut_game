@@ -1,3 +1,4 @@
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/analytics/usage.dart';
 import 'package:donut_game/ui/widget/playing_card.dart';
 import 'package:donut_game/res/resources.dart';
@@ -42,10 +43,10 @@ class ShopTab extends StatelessWidget {
                           color: theme.colorScheme.primary, letterSpacing: 1.2, fontWeight: FontWeight.w700)),
                   Text(
                     switch (kind) {
-                      ItemKind.cardPattern => 'The back of your cards. Everyone at the table sees it.',
-                      ItemKind.cardFace => 'The front of your cards, as everyone sees them in play.',
-                      ItemKind.environment => 'What the table is made of.',
-                      ItemKind.gadget => 'More toys for the tool tray. Always on once you own them.',
+                      ItemKind.cardPattern => shopBlurbPatterns(),
+                      ItemKind.cardFace => shopBlurbFaces(),
+                      ItemKind.environment => shopBlurbEnvironments(),
+                      ItemKind.gadget => shopBlurbGadgets(),
                     },
                     style:
                         theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.55)),
@@ -81,7 +82,7 @@ class ShopCard extends StatelessWidget {
     SoundEffects.instance.play(bought ? Sfx.place : Sfx.click);
     if (!bought && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Not enough ${item.currency.label} for ${item.name}.'),
+        content: Text(shopNotEnough({'currency': item.currency.label, 'item': item.name})),
         behavior: SnackBarBehavior.floating,
         width: 360,
       ));
@@ -98,9 +99,9 @@ class ShopCard extends StatelessWidget {
 
     Widget action;
     if (equipped) {
-      action = const _Status(icon: Icons.check_circle_rounded, text: 'Equipped');
+      action = _Status(icon: Icons.check_circle_rounded, text: shopEquipped());
     } else if (owned && item.kind == ItemKind.gadget) {
-      action = const _Status(icon: Icons.check_circle_rounded, text: 'Owned');
+      action = _Status(icon: Icons.check_circle_rounded, text: shopOwned());
     } else if (owned) {
       action = OutlinedButton(
         onPressed: () {
@@ -108,12 +109,12 @@ class ShopCard extends StatelessWidget {
           SoundEffects.instance.play(Sfx.slide);
         },
         style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(36)),
-        child: const Text('Equip'),
+        child: Text(shopEquip()),
       );
     } else if (!unlocked || item.rankOnly) {
-      action = _Status(icon: Icons.lock_rounded, text: 'Reach ${unlockRank(item).title}');
+      action = _Status(icon: Icons.lock_rounded, text: shopReach.of('rank', unlockRank(item).title));
     } else if (!profile.hasRequirement(item)) {
-      action = _Status(icon: Icons.link_rounded, text: 'Needs ${itemById(item.requires!)?.name}');
+      action = _Status(icon: Icons.link_rounded, text: shopNeeds.of('item', itemById(item.requires!)?.name));
     } else {
       action = FilledButton.tonal(
         onPressed: affordable ? () => _buy(context) : null,
@@ -123,7 +124,7 @@ class ShopCard extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Buy'),
+              Text(shopBuy()),
               const SizedBox(width: 8),
               PriceTag(item: item, affordable: affordable),
             ],
@@ -164,9 +165,9 @@ class ShopCard extends StatelessWidget {
                     style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
               ),
               if (item.rare)
-                const Tooltip(
-                  message: 'Rare: costs Glaze',
-                  child: Icon(Icons.water_drop_rounded, size: 14, color: glazeColor),
+                Tooltip(
+                  message: shopRareTooltip(),
+                  child: const Icon(Icons.water_drop_rounded, size: 14, color: glazeColor),
                 ),
             ],
           ),

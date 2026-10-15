@@ -1,3 +1,4 @@
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/progression/catalog.dart';
 import 'package:flutter/material.dart';
 
@@ -44,7 +45,7 @@ class AmountChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = currency == null ? xpColor : currencyColor(currency!);
     final icon = currency == null ? Icons.auto_awesome_rounded : currencyIcon(currency!);
-    final label = currency == null ? 'XP' : currency!.symbol;
+    final label = currency == null ? shopXpSymbol() : currency!.symbol;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10, vertical: compact ? 3 : 5),
       decoration: BoxDecoration(
@@ -61,7 +62,7 @@ class AmountChip extends StatelessWidget {
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                '$prefix${formatAmount(amount)} $label',
+                shopAmount({'prefix': prefix, 'amount': formatAmount(amount), 'unit': label}),
                 style: TextStyle(
                   color: color,
                   fontWeight: FontWeight.w800,

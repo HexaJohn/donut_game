@@ -9,6 +9,8 @@ environment:
 dependencies:
   donut_engine:
     path: ../donut_engine
+  donut_copy:
+    path: ../donut_copy
   crypto: ^3.0.3
 
 dev_dependencies:

@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:donut_game/campaign/campaign.dart';
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/data/settings.dart';
 import 'package:donut_game/ui/game/game_controller.dart';
 
@@ -23,7 +24,7 @@ class CampaignGameController extends OfflineGameController {
   Venue get venue => venueOf(stage);
 
   @override
-  String get label => '${venue.name} · ${stage.name}';
+  String get label => campaignMatchLabel({'venue': venue.name, 'stage': stage.name});
 
   @override
   String get kind => 'campaign';
@@ -44,8 +45,8 @@ class CampaignGameController extends OfflineGameController {
   }
 
   void _greet() {
-    game.say('', '${stage.boss ? 'Boss stage' : 'Stage'}: ${stage.name}. First to zero from ${stage.target} wins.',
-        system: true);
+    final intro = stage.boss ? campaignBossStageIntro : campaignStageIntro;
+    game.say('', intro({'stage': stage.name, 'target': stage.target}), system: true);
     final random = Random();
     for (final player in game.players) {
       final lines = player.lines?.greet ?? const [];

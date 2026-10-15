@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:flutter/material.dart';
 
 String formatDuration(Duration d) {
@@ -45,7 +46,7 @@ class _GameClockState extends State<GameClock> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Tooltip(
-      message: 'Match time',
+      message: appMatchTime(),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(

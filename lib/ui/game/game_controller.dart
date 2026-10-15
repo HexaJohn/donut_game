@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/ai/bot_brain.dart' show BotSkill;
 import 'package:donut_game/data/model/bullet_hole.dart';
 import 'package:donut_game/data/model/chat_message.dart';
@@ -117,8 +118,7 @@ abstract class GameController {
   bool get canReport => false;
 
   /// Reports [player] for [reason]. Returns null once it's sent, or why not.
-  Future<String?> report(GamePlayer player, String reason, {String note = ''}) async =>
-      'Reporting isn\'t available here.';
+  Future<String?> report(GamePlayer player, String reason, {String note = ''}) async => tableReportingUnavailable();
 
   /// Whether [player]'s chat is hidden: muted this game or blocked.
   bool chatHidden(GamePlayer player) =>
@@ -180,7 +180,7 @@ class OfflineGameController extends GameController {
       List<GamePlayer>? opponents,
       int target = startingScore,
       BotSkill skill = BotSkill.regular})
-      : _local = GamePlayer(nickname.isEmpty ? 'You' : nickname, 0, true)
+      : _local = GamePlayer(nickname.isEmpty ? tableYou() : nickname, 0, true)
           ..id = 'local'
           ..cardBack = PlayerProfile.instance.cardPattern
           ..cardFace = PlayerProfile.instance.cardFace {
@@ -199,7 +199,7 @@ class OfflineGameController extends GameController {
   bool get online => false;
 
   @override
-  String get label => 'Offline vs bots';
+  String get label => tableOfflineLabel();
 
   /// Leaves the game alone if another offline game has already taken over
   /// the table, as when the next campaign stage opens over this one.
@@ -446,7 +446,7 @@ abstract class RemoteTableController extends GameController {
       var message = _chatSeen[key];
       if (message == null) {
         final parsed = ChatMessage.fromJson(raw);
-        message = ChatMessage(parsed.author, parsed.text, system: parsed.system, time: parsed.time.add(skew));
+        message = ChatMessage(parsed.author, _shown(parsed), system: parsed.system, time: parsed.time.add(skew));
         changed = true;
       }
       seen[key] = message;
@@ -457,6 +457,16 @@ abstract class RemoteTableController extends GameController {
       refilterChat();
     }
     _checkAutoReady();
+  }
+
+  /// The table's own messages arrive already written; with the AI audit
+  /// showing codes, they're shown as the code of the line they came from.
+  /// Players' own chat is left alone.
+  String _shown(ChatMessage message) {
+    if (!Copy.showCodes) return message.text;
+    final fromPlayer = !message.system && (game.playerDB.values.any((p) => p.human && p.name == message.author));
+    if (fromPlayer) return message.text;
+    return Copy.recognize(message.text, allLines)?.call() ?? message.text;
   }
 
   int _indexOf(GameCard card) => localPlayer?.hand.cards.value.indexOf(card) ?? -1;
@@ -587,7 +597,7 @@ class OnlineGameController extends RemoteTableController {
   }
 
   @override
-  String get label => 'Online at $host:$port';
+  String get label => tableOnlineAtLabel({'host': host, 'port': port});
 
   @override
   String get kind => 'server';
@@ -611,11 +621,11 @@ class OnlineGameController extends RemoteTableController {
               }))
           .timeout(const Duration(seconds: 5));
     } on TimeoutException {
-      throw 'The server at $host:$port did not answer.';
+      throw tableServerNoAnswer({'host': host, 'port': port});
     } catch (e) {
-      throw 'Could not reach $host:$port.';
+      throw tableCouldNotReachHost({'host': host, 'port': port});
     }
-    if (response.statusCode != 200) throw 'The server refused to let you in (${response.statusCode}).';
+    if (response.statusCode != 200) throw tableServerRefused.of('status', response.statusCode);
   }
 
   @override
@@ -644,7 +654,7 @@ class OnlineGameController extends RemoteTableController {
         error.value = null;
       } catch (e) {
         _failures++;
-        if (_failures > 2) error.value = 'Connection lost. Reconnecting...';
+        if (_failures > 2) error.value = tableConnectionLost();
       }
       await Future.delayed(const Duration(milliseconds: 250));
     }
@@ -659,7 +669,7 @@ class OnlineGameController extends RemoteTableController {
           .timeout(const Duration(seconds: 3));
       return response.statusCode == 200;
     } catch (e) {
-      error.value = 'Could not reach the server.';
+      error.value = tableCouldNotReachServer();
       return false;
     }
   }

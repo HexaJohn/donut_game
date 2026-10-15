@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/analytics/usage.dart';
 import 'package:donut_game/audio/flashbang.dart';
 import 'package:donut_game/audio/music_player.dart';
@@ -214,8 +215,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         SoundEffects.instance.play(Sfx.shuffle);
         final dealer = game.players.isEmpty ? null : game.dealer.value;
         _announcer.announce(Announcement(
-          game.suddenDeath.isNotEmpty ? 'Sudden death' : 'Hand ${game.handNumber}',
-          subtitle: dealer == null ? null : (dealer == local ? 'You deal' : '${dealer.name} deals'),
+          game.suddenDeath.isNotEmpty ? tableSuddenDeath() : tableHandNumber.of('n', game.handNumber),
+          subtitle: dealer == null ? null : (dealer == local ? tableYouDeal() : tableDeals.of('name', dealer.name)),
           icon: DonutLogo(size: 34, frosting: DonutColors.of(context).accent, shadow: false),
         ));
       }
@@ -226,8 +227,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         final suit = game.trumpSuit.value;
         final colors = DonutColors.of(context);
         _announcer.announce(Announcement(
-          'Trump is ${_capitalise(suitToString[suit]!)}',
-          subtitle: 'Beats every other suit this hand',
+          tableTrumpIs.of('suit', _capitalise(suitToString[suit]!)),
+          subtitle: tableTrumpBeats(),
           icon: SuitIcon(suit, size: 32, color: isRed(suit) ? colors.cardRed : colors.cardInk),
         ));
       }
@@ -238,10 +239,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           _lastState != GameState.gameOver) {
         final donuts = game.players.where((element) => element.donuts.value > (_lastDonuts[element.name] ?? 0));
         _announcer.announce(Announcement(
-          'Hand over',
+          tableHandOver(),
           subtitle: donuts.isEmpty
-              ? 'No donuts this hand'
-              : '\u{1F369} ${donuts.map((e) => e == local ? 'You' : e.name).join(', ')} got a donut',
+              ? tableNoDonuts()
+              : tableGotADonut.of('names', donuts.map((e) => e == local ? tableYou() : e.name).join(', ')),
         ));
       }
       if (state == GameState.dealing || state == GameState.waitingToDeal) {
@@ -252,14 +253,15 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
     final suddenDeath = game.suddenDeath.isNotEmpty;
     if (suddenDeath && !_lastSuddenDeath) {
-      _announcer.announce(Announcement('Sudden death!',
-          subtitle: '${game.suddenDeath.join(' vs ')}. Fewest tricks is out.', urgent: true));
+      _announcer.announce(Announcement(tableSuddenDeathBang(),
+          subtitle: tableSuddenDeathSubtitle.of('players', game.suddenDeath.join(' ${tableVersus()} ')), urgent: true));
     }
     _lastSuddenDeath = suddenDeath;
 
     if (game.trickSerial > _lastTrick && game.lastTrickWinner != null) {
       final winner = game.lastTrickWinner!;
-      _announcer.announce(Announcement(winner.name == local?.name ? 'You take the trick!' : '${winner.name} takes it'));
+      _announcer.announce(
+          Announcement(winner.name == local?.name ? tableYouTakeTrick() : tableTakesIt.of('name', winner.name)));
     }
     _lastTrick = game.trickSerial;
 
@@ -268,7 +270,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     if (swapTurn && !_lastSwapTurn) {
       SoundEffects.instance.play(Sfx.yourMove);
       _announcer
-          .announce(Announcement('Your move', subtitle: 'Tap up to $maxSwaps cards to swap, or fold', urgent: true));
+          .announce(Announcement(tableYourMove(), subtitle: tableYourMoveSubtitle.of('max', maxSwaps), urgent: true));
     }
     _lastSwapTurn = swapTurn;
 
@@ -276,8 +278,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     if (playTurn && !_lastPlayTurn) {
       SoundEffects.instance.play(Sfx.yourTurn);
       final lead = game.leadingCard?.suit;
-      _announcer.announce(Announcement('Your turn',
-          subtitle: lead == null ? 'Lead with any card' : 'Follow ${suitToString[lead]} if you can', urgent: true));
+      _announcer.announce(Announcement(tableYourTurn(),
+          subtitle: lead == null ? tableLeadAny() : tableFollowSuit.of('suit', suitToString[lead]), urgent: true));
     }
     _lastPlayTurn = playTurn;
   }
@@ -413,12 +415,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         await showDialog<bool>(
               context: context,
               builder: (context) => AlertDialog(
-                title: const Text('Leave the game?'),
-                content:
-                    Text(controller.online ? 'You can rejoin with the same nickname.' : 'This match will be lost.'),
+                title: Text(tableLeaveTitle()),
+                content: Text(controller.online ? tableLeaveOnline() : tableLeaveOffline()),
                 actions: [
-                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Stay')),
-                  FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Leave')),
+                  TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tableStay())),
+                  FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tableLeave())),
                 ],
               ),
             ) ==
@@ -592,7 +593,7 @@ class _MatchOverOverlay extends StatelessWidget {
                 children: [
                   DonutLogo(size: 84, frosting: colors.accent),
                   const SizedBox(height: 12),
-                  Text(youWon ? 'You win!' : '${champion.name} wins!',
+                  Text(youWon ? tableYouWin() : tablePlayerWins.of('name', champion.name),
                       textAlign: TextAlign.center,
                       style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
                   const SizedBox(height: 4),
@@ -600,7 +601,7 @@ class _MatchOverOverlay extends StatelessWidget {
                     _StageResult(campaign: campaign, cleared: youWon),
                     const SizedBox(height: 4),
                   ],
-                  Text('Match time ${formatDuration(game.matchElapsed)}',
+                  Text(tableMatchTime.of('time', formatDuration(game.matchElapsed)),
                       style: theme.textTheme.bodyMedium
                           ?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
                 ],
@@ -614,7 +615,7 @@ class _MatchOverOverlay extends StatelessWidget {
                         children: [
                           SizedBox(
                             width: 28,
-                            child: Text('${i + 1}.',
+                            child: Text(tablePlace.of('n', i + 1),
                                 style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
                           ),
                           PlayerAvatar(player: standings[i], size: 28),
@@ -643,13 +644,13 @@ class _MatchOverOverlay extends StatelessWidget {
                         Expanded(
                           child: OutlinedButton(
                             onPressed: () => Navigator.pop(context),
-                            child: const Text('Main menu'),
+                            child: Text(tableMainMenu()),
                           ),
                         ),
                         if (!controller.online) ...[
                           const SizedBox(width: 12),
                           Expanded(
-                            child: FilledButton(onPressed: controller.newMatch, child: const Text('Play again')),
+                            child: FilledButton(onPressed: controller.newMatch, child: Text(tablePlayAgain())),
                           ),
                         ],
                       ],
@@ -678,8 +679,8 @@ class _StageResult extends StatelessWidget {
       children: [
         Text(
           cleared
-              ? '${campaign.stage.boss ? 'Boss defeated' : 'Stage cleared'} on ${difficulty.label}'
-              : '${campaign.stage.name} on ${difficulty.label}',
+              ? (campaign.stage.boss ? tableBossDefeated : tableStageCleared).of('difficulty', difficulty.label)
+              : tableStageOn({'stage': campaign.stage.name, 'difficulty': difficulty.label}),
           style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: theme.colorScheme.primary),
         ),
         if (cleared) ...[
@@ -710,21 +711,21 @@ class _StageActions extends StatelessWidget {
       children: [
         Expanded(
           child: OutlinedButton(
-              style: OutlinedButton.styleFrom(padding: padding), onPressed: onCampaign, child: label('Campaign')),
+              style: OutlinedButton.styleFrom(padding: padding), onPressed: onCampaign, child: label(tableCampaign())),
         ),
         const SizedBox(width: 8),
         Expanded(
           child: onNext != null
               ? OutlinedButton(
-                  style: OutlinedButton.styleFrom(padding: padding), onPressed: onRetry, child: label('Retry'))
+                  style: OutlinedButton.styleFrom(padding: padding), onPressed: onRetry, child: label(tableRetry()))
               : FilledButton(
-                  style: FilledButton.styleFrom(padding: padding), onPressed: onRetry, child: label('Retry')),
+                  style: FilledButton.styleFrom(padding: padding), onPressed: onRetry, child: label(tableRetry())),
         ),
         if (onNext != null) ...[
           const SizedBox(width: 8),
           Expanded(
             child: FilledButton(
-                style: FilledButton.styleFrom(padding: padding), onPressed: onNext, child: label('Next stage')),
+                style: FilledButton.styleFrom(padding: padding), onPressed: onNext, child: label(tableNextStage())),
           ),
         ],
       ],
@@ -758,7 +759,7 @@ class PartyCodeBanner extends StatelessWidget {
                   child: Row(
                     children: [
                       Flexible(
-                        child: Text(controller.publicParty ? 'Public game' : 'Party code',
+                        child: Text(controller.publicParty ? tablePublicGame() : tablePartyCode(),
                             maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelLarge),
                       ),
                       const SizedBox(width: 10),
@@ -771,11 +772,10 @@ class PartyCodeBanner extends StatelessWidget {
                       TextButton.icon(
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: code));
-                          ScaffoldMessenger.maybeOf(context)
-                              ?.showSnackBar(const SnackBar(content: Text('Copied. Send it to your friends.')));
+                          ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(tableCodeCopied())));
                         },
                         icon: const Icon(Icons.copy_rounded, size: 18),
-                        label: const Text('Copy'),
+                        label: Text(tableCopy()),
                       ),
                     ],
                   ),

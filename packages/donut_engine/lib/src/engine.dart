@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:donut_copy/donut_copy.dart';
+
 import 'brain.dart';
 import 'cards.dart';
 import 'filter.dart';
@@ -29,18 +31,7 @@ class Refusal implements Exception {
   String toString() => 'Refusal($status): $message';
 }
 
-const _botNames = [
-  'Glazed Gary',
-  'Sprinkles',
-  'Boston Creme',
-  'Cruller',
-  'Maple Bar',
-  'Jelly Jo',
-  'Old Fashioned',
-  'Bear Claw',
-  'Cinnamon Sue',
-  'Powdered Pete',
-];
+List<String> get _botNames => [for (final line in announceBotNames) line()];
 
 /// Runs a Donut table one move at a time, the way a server needs: each call
 /// takes the saved table, applies a move, plays any bots' turns until a
@@ -109,7 +100,7 @@ class DonutEngine {
     final frames = <Frame>[];
     final existing = table.seat(id);
     if (existing != null) {
-      if (existing.secret != secret) throw const Refusal(403, 'That seat belongs to someone else.');
+      if (existing.secret != secret) throw Refusal(403, announceSeatTaken());
       // Reopening the app reconnects without ever having been missed
       final wasGone = !existing.connected;
       existing
@@ -117,18 +108,18 @@ class DonutEngine {
         ..back = back ?? existing.back
         ..face = face ?? existing.face
         ..emblem = cleanEmblem(emblem) ?? existing.emblem;
-      if (wasGone) _say(table, '', '${existing.name} is back.', now, system: true);
+      if (wasGone) _say(table, '', announceBack.of('name', existing.name), now, system: true);
       _frame(table, frames, 0, now);
       return frames;
     }
-    if (secret.length < 16) throw const Refusal(400, 'Missing secret.');
-    if (!_canChangeSeats(table)) throw const Refusal(409, 'That game has already started.');
-    if (table.seats.length >= maxSeats) throw const Refusal(409, 'That table is full.');
+    if (secret.length < 16) throw Refusal(400, announceMissingSecret());
+    if (!_canChangeSeats(table)) throw Refusal(409, announceAlreadyStarted());
+    if (table.seats.length >= maxSeats) throw Refusal(409, announceThatTableFull());
     var trimmed = name.trim();
-    if (trimmed.isEmpty) throw const Refusal(400, 'Pick a name first.');
+    if (trimmed.isEmpty) throw Refusal(400, announcePickName());
     if (trimmed.length > maxNameLength) trimmed = trimmed.substring(0, maxNameLength);
     // Strangers see this name, so an offensive one is replaced
-    if (isOffensiveName(trimmed)) trimmed = 'Player';
+    if (isOffensiveName(trimmed)) trimmed = announcePlayerName();
     final base = trimmed;
     for (var n = 2; table.seats.any((seat) => seat.name.toLowerCase() == trimmed.toLowerCase()); n++) {
       trimmed = '$base $n';
@@ -136,7 +127,7 @@ class DonutEngine {
     table.seats.add(
         Seat(id: id, name: trimmed, human: true, back: back, face: face, emblem: cleanEmblem(emblem), secret: secret)
           ..score = table.target);
-    _say(table, '', '$trimmed joined the game.', now, system: true);
+    _say(table, '', announceJoinedGame.of('name', trimmed), now, system: true);
     _frame(table, frames, 0, now);
     return frames;
   }
@@ -150,14 +141,14 @@ class DonutEngine {
     final frames = <Frame>[];
     if (table.phase == Phase.lobby || table.phase == Phase.over) {
       _removeSeat(table, seat);
-      _say(table, '', '${seat.name} left the table.', now, system: true);
+      _say(table, '', announceLeftTable.of('name', seat.name), now, system: true);
       _frame(table, frames, 0, now);
       // Everyone left may now be ready
       _advance(table, frames, now);
       return frames;
     }
     seat.connected = false;
-    _say(table, '', '${seat.name} lost connection. A bot plays for them until they\'re back.', now, system: true);
+    _say(table, '', announceLostConnection.of('name', seat.name), now, system: true);
     _frame(table, frames, 0, now);
     _advance(table, frames, now);
     return frames;
@@ -192,18 +183,18 @@ class DonutEngine {
   /// Bodies match the app's online moves. Throws [Refusal] if not allowed.
   List<Frame> act(TableState table, String id, String action, Map<String, dynamic> body, {required int now}) {
     final seat = table.seat(id);
-    if (seat == null) throw const Refusal(403, 'Not at this table.');
+    if (seat == null) throw Refusal(403, announceNotAtTable());
     final frames = <Frame>[];
     switch (action) {
       case 'vote':
-        if (table.phase != Phase.lobby && table.phase != Phase.over) throw const Refusal(409, 'A hand is in play.');
-        if (table.phase == Phase.over) throw const Refusal(409, 'The match is over. The host can start another.');
+        if (table.phase != Phase.lobby && table.phase != Phase.over) throw Refusal(409, announceHandInPlay());
+        if (table.phase == Phase.over) throw Refusal(409, announceMatchOver());
         seat.voteToDeal = '${body['vote']}' != 'false';
         _frame(table, frames, 0, now);
       case 'swap':
         _requireSwapTurn(table, seat);
         final index = body['swap'];
-        if (index is! int || index < 0 || index >= seat.hand.length) throw const Refusal(400, 'No such card.');
+        if (index is! int || index < 0 || index >= seat.hand.length) throw Refusal(400, announceNoSuchCard());
         final card = seat.hand[index];
         if (card.state == CardState.swap) {
           card.state = CardState.held;
@@ -212,7 +203,7 @@ class DonutEngine {
           card.state = CardState.swap;
           seat.swaps--;
         } else {
-          throw const Refusal(409, 'No swaps left.');
+          throw Refusal(409, announceNoSwapsLeft());
         }
         _frame(table, frames, 0, now);
         return frames;
@@ -221,33 +212,33 @@ class DonutEngine {
         seat.notReady = false;
       case 'fold':
         _requireSwapTurn(table, seat);
-        if (!_canFold(table, seat)) throw const Refusal(409, 'You can\'t fold this hand.');
+        if (!_canFold(table, seat)) throw Refusal(409, announceCantFold());
         _fold(table, seat, now);
       case 'play':
-        if (!_awaitingCard(table, seat)) throw const Refusal(409, 'Not your turn to play.');
+        if (!_awaitingCard(table, seat)) throw Refusal(409, announceNotYourTurnToPlay());
         final index = body['card'];
-        if (index is! int || index < 0 || index >= seat.hand.length) throw const Refusal(400, 'No such card.');
+        if (index is! int || index < 0 || index >= seat.hand.length) throw Refusal(400, announceNoSuchCard());
         final card = seat.hand[index];
         if (!legalPlays(seat.hand, table.trick.isEmpty ? null : table.lead).contains(card)) {
-          throw const Refusal(409, 'You must follow the lead suit.');
+          throw Refusal(409, announceMustFollow());
         }
         _play(table, seat, card, frames, now);
       case 'chat':
         final text = '${body['text'] ?? ''}'.trim();
-        if (text.isEmpty) throw const Refusal(400, 'Nothing to say.');
-        if (!_allow(seat.recentChat, now, count: 5, perMs: 10000)) throw const Refusal(429, 'Slow down.');
+        if (text.isEmpty) throw Refusal(400, announceNothingToSay());
+        if (!_allow(seat.recentChat, now, count: 5, perMs: 10000)) throw Refusal(429, announceSlowDown());
         _say(table, seat.name, cleanText(text.length > 280 ? text.substring(0, 280) : text), now);
         _frame(table, frames, 0, now);
         return frames;
       case 'shoot':
-        if (!_allow(seat.recentShots, now, count: 6, perMs: 6000)) throw const Refusal(429, 'Slow down.');
+        if (!_allow(seat.recentShots, now, count: 6, perMs: 6000)) throw Refusal(429, announceSlowDown());
         _shoot(table, seat, body, now);
         _frame(table, frames, 0, now);
         return frames;
       case 'flashbang':
-        if (body['x'] is! num || body['y'] is! num) throw const Refusal(400, 'Throw it somewhere.');
+        if (body['x'] is! num || body['y'] is! num) throw Refusal(400, announceThrowSomewhere());
         if (table.lastFlashAt != null && now - table.lastFlashAt! < flashCooldownMs) {
-          throw const Refusal(429, 'Flashbang cooling down.');
+          throw Refusal(429, announceFlashbangCooling());
         }
         table
           ..lastFlashAt = now
@@ -255,7 +246,7 @@ class DonutEngine {
           ..flashY = (body['y'] as num).toDouble().clamp(0.0, 1.0)
           ..flashBy = seat.name
           ..flashSerial += 1;
-        _say(table, '', '${seat.name} threw a flashbang!', now, system: true);
+        _say(table, '', announceThrewFlashbang.of('name', seat.name), now, system: true);
         _frame(table, frames, 0, now);
         return frames;
       case 'draw':
@@ -263,13 +254,13 @@ class DonutEngine {
         _frame(table, frames, 0, now);
         return frames;
       case 'newMatch':
-        if (id != table.hostId) throw const Refusal(403, 'Only the host can start a new match.');
+        if (id != table.hostId) throw Refusal(403, announceOnlyHostNewMatch());
         _newMatch(table, now);
         _frame(table, frames, 0, now);
         return frames;
       case 'settings':
-        if (id != table.hostId) throw const Refusal(403, 'Only the host can change the table.');
-        if (!_canChangeSeats(table)) throw const Refusal(409, 'The table can change between matches.');
+        if (id != table.hostId) throw Refusal(403, announceOnlyHostSettings());
+        if (!_canChangeSeats(table)) throw Refusal(409, announceSettingsBetweenMatches());
         final skill = BotSkill.values.where((skill) => skill.name == body['skill']).firstOrNull;
         final target = body['target'];
         if (skill != null && skill != table.botSkill) {
@@ -277,7 +268,7 @@ class DonutEngine {
           for (final seat in table.seats.where((seat) => !seat.human)) {
             seat.skill = skill;
           }
-          _say(table, '', 'Bots are now ${skill.label}.', now, system: true);
+          _say(table, '', announceBotsNow.of('skill', skill.label), now, system: true);
         }
         if (target is int && startingScoreChoices.contains(target) && target != table.target) {
           table.target = target;
@@ -288,27 +279,27 @@ class DonutEngine {
               seat.score = target;
             }
           }
-          _say(table, '', 'Everyone starts on $target.', now, system: true);
+          _say(table, '', announceEveryoneStartsOn.of('n', target), now, system: true);
         }
         _frame(table, frames, 0, now);
         return frames;
       case 'addBot':
-        if (id != table.hostId) throw const Refusal(403, 'Only the host can add bots.');
-        if (!_canChangeSeats(table)) throw const Refusal(409, 'Bots can join between matches.');
-        if (table.seats.length >= maxSeats) throw const Refusal(409, 'The table is full.');
+        if (id != table.hostId) throw Refusal(403, announceOnlyHostAddBots());
+        if (!_canChangeSeats(table)) throw Refusal(409, announceBotsJoinBetween());
+        if (table.seats.length >= maxSeats) throw Refusal(409, announceTableFull());
         _addBot(table, now);
         _frame(table, frames, 0, now);
         return frames;
       case 'removeBot':
-        if (id != table.hostId) throw const Refusal(403, 'Only the host can remove bots.');
-        if (!_canChangeSeats(table)) throw const Refusal(409, 'Bots can leave between matches.');
-        final bot = table.seats.lastWhere((seat) => !seat.human, orElse: () => throw const Refusal(409, 'No bots.'));
+        if (id != table.hostId) throw Refusal(403, announceOnlyHostRemoveBots());
+        if (!_canChangeSeats(table)) throw Refusal(409, announceBotsLeaveBetween());
+        final bot = table.seats.lastWhere((seat) => !seat.human, orElse: () => throw Refusal(409, announceNoBots()));
         table.seats.remove(bot);
-        _say(table, '', '${bot.name} left the table.', now, system: true);
+        _say(table, '', announceLeftTable.of('name', bot.name), now, system: true);
         _frame(table, frames, 0, now);
         return frames;
       default:
-        throw Refusal(400, 'Unknown move $action.');
+        throw Refusal(400, announceUnknownMove.of('action', action));
     }
     _advance(table, frames, now);
     return frames;
@@ -316,7 +307,7 @@ class DonutEngine {
 
   void _requireSwapTurn(TableState table, Seat seat) {
     final turn = table.phase == Phase.swap && table.seats[table.active] == seat && seat.notReady && !seat.skip;
-    if (!turn) throw const Refusal(409, 'Not your turn to swap.');
+    if (!turn) throw Refusal(409, announceNotYourTurnToSwap());
   }
 
   bool _canFold(TableState table, Seat seat) => table.suddenDeath.isEmpty && seat.folds < maxConsecutiveFolds;
@@ -334,11 +325,11 @@ class DonutEngine {
   List<Map<String, dynamic>> report(TableState table, String reporterId, String targetId, {required int now}) {
     final reporter = table.seat(reporterId);
     final target = table.seat(targetId);
-    if (reporter == null) throw const Refusal(403, 'Not at this table.');
-    if (target == null || !target.human) throw const Refusal(404, 'That player isn\'t at this table.');
-    if (target == reporter) throw const Refusal(400, 'You can\'t report yourself.');
+    if (reporter == null) throw Refusal(403, announceNotAtTable());
+    if (target == null || !target.human) throw Refusal(404, announceReportedNotHere());
+    if (target == reporter) throw Refusal(400, announceReportSelf());
     if (!_allow(reporter.recentReports, now, count: 3, perMs: 600000)) {
-      throw const Refusal(429, 'You\'ve sent a few reports already. Thanks, they\'re being looked at.');
+      throw Refusal(429, announceReportsLimit());
     }
     return [
       for (final line in table.chat.skip(table.chat.length > 30 ? table.chat.length - 30 : 0))
@@ -414,8 +405,8 @@ class DonutEngine {
         table,
         '',
         table.suddenDeath.isEmpty
-            ? 'Hand ${table.handNumber}: ${dealer.name} deals.'
-            : 'Sudden death hand: ${_seated(table).map((s) => s.name).join(', ')}.',
+            ? announceHandDeals({'n': table.handNumber, 'name': dealer.name})
+            : announceSuddenDeathHand.of('names', _seated(table).map((s) => s.name).join(', ')),
         now,
         system: true);
     _shuffle(table.deck);
@@ -452,7 +443,7 @@ class DonutEngine {
     table
       ..trump = last!.suit
       ..status = GameState.waitingToSwap;
-    _say(table, '', 'Trump is ${suitToString[table.trump]}.', now, system: true);
+    _say(table, '', announceTrump.of('suit', suitToString[table.trump]), now, system: true);
     _frame(table, frames, 600, now);
     table
       ..phase = Phase.swap
@@ -538,7 +529,7 @@ class DonutEngine {
       ..skip = true
       ..donut = false
       ..notReady = false;
-    _say(table, '', '${seat.name} folds.', now, system: true);
+    _say(table, '', announceFolds.of('name', seat.name), now, system: true);
   }
 
   void _resolveSwap(TableState table, Seat seat, int now) {
@@ -558,8 +549,10 @@ class DonutEngine {
         table,
         '',
         swapped.isEmpty
-            ? '${seat.name} keeps their hand.'
-            : '${seat.name} swaps ${swapped.length} card${swapped.length == 1 ? '' : 's'}.',
+            ? announceKeepsHand.of('name', seat.name)
+            : swapped.length == 1
+                ? announceSwapsOne.of('name', seat.name)
+                : announceSwapsMany({'n': swapped.length, 'name': seat.name}),
         now,
         system: true);
     for (final card in swapped) {
@@ -636,7 +629,7 @@ class DonutEngine {
       ..trickWinner = seat.id
       ..trickSerial += 1
       ..status = GameState.waitingForNextRound;
-    _say(table, '', '${seat.name} is the only one left in and takes all $tricks tricks.', now, system: true);
+    _say(table, '', announceOnlyOneLeft({'n': tricks, 'name': seat.name}), now, system: true);
     _frame(table, frames, trickMs, now);
   }
 
@@ -661,7 +654,7 @@ class DonutEngine {
       ..trickSerial += 1
       ..tricksLeft -= 1
       ..status = GameState.waitingForNextRound;
-    _say(table, '', '${winner.name} takes the trick.', now, system: true);
+    _say(table, '', announceTakesTrick.of('name', winner.name), now, system: true);
     _frame(table, frames, 0, now);
     table.discard.addAll(table.trick);
     table
@@ -677,7 +670,7 @@ class DonutEngine {
       seat
         ..score += donutPenalty
         ..donuts += 1;
-      _say(table, '', '${seat.name} got a donut! +$donutPenalty', now, system: true);
+      _say(table, '', announceDonut({'n': donutPenalty, 'name': seat.name}), now, system: true);
     }
     for (final seat in table.seats) {
       seat
@@ -695,13 +688,13 @@ class DonutEngine {
         ..phase = Phase.over
         ..matchEndedAt = now
         ..status = GameState.gameOver;
-      _say(table, '', '${champion.name} wins the match!', now, system: true);
+      _say(table, '', announceWinsMatch.of('name', champion.name), now, system: true);
       _frame(table, frames, 400, now);
       return;
     }
     if (table.suddenDeath.isNotEmpty && !wasSuddenDeath) {
       final names = table.suddenDeath.map((id) => table.seat(id)!.name).join(', ');
-      _say(table, '', 'Tie! Sudden death between $names.', now, system: true);
+      _say(table, '', announceTieSuddenDeath.of('names', names), now, system: true);
     }
     final n = table.seats.length;
     table
@@ -769,7 +762,7 @@ class DonutEngine {
       ..revealed = {}
       ..phase = Phase.lobby
       ..status = GameState.waitingToDeal;
-    _say(table, '', 'New match! Everyone starts on ${table.target}.', now, system: true);
+    _say(table, '', announceNewMatch.of('n', table.target), now, system: true);
   }
 
   List<TableCard> _freshDeck() {
@@ -784,13 +777,13 @@ class DonutEngine {
   void _addBot(TableState table, int now) {
     final taken = table.seats.map((seat) => seat.name).toSet();
     final free = _botNames.where((name) => !taken.contains(name)).toList()..shuffle(_random);
-    final name = free.isNotEmpty ? free.first : 'Bot ${table.seats.length + 1}';
+    final name = free.isNotEmpty ? free.first : announceBotNumbered.of('n', table.seats.length + 1);
     var id = 'bot:${table.seats.length}';
     for (var n = 0; table.seat(id) != null; n++) {
       id = 'bot:${table.seats.length}-$n';
     }
     table.seats.add(Seat(id: id, name: name, human: false, skill: table.botSkill, score: table.target));
-    _say(table, '', '$name joined the table.', now, system: true);
+    _say(table, '', announceJoinedTable.of('name', name), now, system: true);
   }
 
   // --- The fun stuff -----------------------------------------------------------
@@ -803,10 +796,13 @@ class DonutEngine {
   void _shoot(TableState table, Seat seat, Map<String, dynamic> body, int now) {
     if (body['seat'] is String) {
       final target = body['seat'] as String;
-      if (!table.seats.any((s) => s.name == target)) throw const Refusal(400, 'Nobody by that name.');
+      if (!table.seats.any((s) => s.name == target)) throw Refusal(400, announceNobodyByName());
       table.spins[target] = (table.spins[target] ?? 0) + 1;
       _say(table, '',
-          seat.name == target ? '${seat.name} shot their own placard.' : '${seat.name} shot $target\'s placard!', now,
+          seat.name == target
+              ? announceShotOwnPlacard.of('name', seat.name)
+              : announceShotPlacard({'name': seat.name, 'target': target}),
+          now,
           system: true);
     } else if (body['x'] is num && body['y'] is num) {
       table.holes.add({
@@ -817,14 +813,14 @@ class DonutEngine {
       });
       if (table.holes.length > holeLimit) table.holes.removeRange(0, table.holes.length - holeLimit);
     } else {
-      throw const Refusal(400, 'Shoot something.');
+      throw Refusal(400, announceShootSomething());
     }
   }
 
   void _draw(TableState table, Seat seat, Map<String, dynamic> body) {
     final flat = body['points'];
     final id = body['stroke'];
-    if (id is! String || flat is! List) throw const Refusal(400, 'Draw something.');
+    if (id is! String || flat is! List) throw Refusal(400, announceDrawSomething());
     final points = <double>[];
     for (var i = 0; i + 1 < flat.length && points.length < 1000; i += 2) {
       if (flat[i] is num && flat[i + 1] is num) {

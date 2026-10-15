@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:donut_game/audit/ai_audit.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/audio/web_audio.dart';
 import 'package:donut_game/audio/audio_available.dart';
 import 'package:donut_game/audio/flashbang.dart';
@@ -27,7 +28,11 @@ class MusicPlayer {
   static const _trackGain = {'Oscuridad': 0.66, 'Sombra': 0.66};
 
   /// Names shown in the sound settings.
-  static const displayNames = {'menu-1': 'Menu theme'};
+  static const displayNames = {
+    'menu-1': dialogsTrackMenu,
+    'Oscuridad': dialogsTrackOscuridad,
+    'Sombra': dialogsTrackSombra,
+  };
 
   // Created on first use, so merely touching [instance] never starts the plugin
   late final AudioPlayer _player = newAudioPlayer(playerId: 'music');

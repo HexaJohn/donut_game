@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'package:donut_copy/donut_copy.dart';
+
 import 'package:donut_game/ai/bot_brain.dart' show BotSkill;
 import 'package:donut_game/data/model/game_card/game_card_deck.dart';
 import 'package:donut_game/data/model/game_card/game_card_stack.dart';
@@ -23,21 +25,10 @@ extension _LastWhereOrNull<T> on List<T> {
 /// Thrown inside the game loop when the game is reset mid-hand.
 class _GameAborted implements Exception {}
 
-const _botNames = [
-  'Glazed Gary',
-  'Sprinkles',
-  'Boston Creme',
-  'Cruller',
-  'Maple Bar',
-  'Jelly Jo',
-  'Old Fashioned',
-  'Bear Claw',
-  'Cinnamon Sue',
-  'Powdered Pete',
-];
+List<String> get _botNames => [for (final line in announceBotNames) line()];
 
-const _botTrickLines = ['Mine!', 'Thank you very much.', 'Too easy.', 'Yoink.', 'Called it.', 'Nom.'];
-const _botDonutLines = ['Ouch.', 'Not again...', 'I was saving those cards.', 'Rigged deck.', 'Hmph.'];
+List<String> get _botTrickLines => [for (final line in announceBotTrickQuips) line()];
+List<String> get _botDonutLines => [for (final line in announceBotDonutQuips) line()];
 
 class Game {
   static final Game _singleton = Game._internal();
@@ -153,14 +144,16 @@ class Game {
     flashAt = Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
     flashBy = thrower;
     flashSerial++;
-    _announce('$thrower threw a flashbang!');
+    _announce(announceThrewFlashbang.of('name', thrower));
     return true;
   }
 
   void shootSeat(String shooter, String target) {
     if (!playerDB.values.any((player) => player.name == target)) return;
     spins.value = {...spins.value, target: (spins.value[target] ?? 0) + 1};
-    _announce(shooter == target ? '$shooter shot their own placard.' : '$shooter shot $target\'s placard!');
+    _announce(shooter == target
+        ? announceShotOwnPlacard.of('name', shooter)
+        : announceShotPlacard({'name': shooter, 'target': target}));
   }
 
   static const int _chatLimit = 200;
@@ -240,7 +233,7 @@ class Game {
   /// Folds [player] out of the current hand. Returns false if they may not fold.
   bool fold(GamePlayer player) {
     if (!canFold(player)) return false;
-    if (!player.skip) _announce('${player.name} folds.');
+    if (!player.skip) _announce(announceFolds.of('name', player.name));
     player.skip = true;
     player.donut = false;
     player.notReady = false;
@@ -269,7 +262,7 @@ class Game {
     holes.value = [];
     spins.value = {};
     clearInk();
-    _announce('New match! Everyone starts on $targetScore.');
+    _announce(announceNewMatch.of('n', targetScore));
     state.value = GameState.waitingToDeal;
   }
 
@@ -398,7 +391,7 @@ class Game {
   void addBot() {
     final taken = players.map((element) => element.name).toSet();
     final free = _botNames.where((element) => !taken.contains(element)).toList()..shuffle();
-    var newPlayer = GamePlayer(free.isNotEmpty ? free.first : 'Bot ${Random().nextInt(9999)}', players.length, false);
+    var newPlayer = GamePlayer(free.isNotEmpty ? free.first : announceBotNumbered.of('n', Random().nextInt(9999)), players.length, false);
     playerDB.addEntries([MapEntry(newPlayer.hashCode.toString(), newPlayer)]);
   }
 
@@ -416,7 +409,7 @@ class Game {
   bool addBotToTable() {
     if (!canChangeBots || players.length >= maxPlayers) return false;
     addBot();
-    _announce('${players.last.name} joined the table.');
+    _announce(announceJoinedTable.of('name', players.last.name));
     if (players.length > 2 && state.value == GameState.waitingForPlayers) state.value = GameState.waitingToDeal;
     return true;
   }
@@ -430,7 +423,7 @@ class Game {
     if (leaving == null || leaving.human) return false;
     playerDB.removeWhere((key, value) => identical(value, leaving));
     spins.value = {...spins.value}..remove(leaving.name);
-    _announce('${leaving.name} left the table.');
+    _announce(announceLeftTable.of('name', leaving.name));
     if (players.isNotEmpty) {
       // Keep dealer and turn pointing at real seats
       protectedDealer = protectedDealer % players.length;
@@ -456,8 +449,8 @@ class Game {
       matchStarted ??= DateTime.now();
       handNumber++;
       _announce(suddenDeath.isEmpty
-          ? 'Hand $handNumber: ${dealer.value.name} deals.'
-          : 'Sudden death hand: ${suddenDeath.join(', ')}.');
+          ? announceHandDeals({'n': handNumber, 'name': dealer.value.name})
+          : announceSuddenDeathHand.of('names', suddenDeath.join(', ')));
       if (shuffle) {
         deck.shuffle();
       }
@@ -483,7 +476,7 @@ class Game {
       await _pause(_cardFlight, epoch);
       state.value = GameState.waitingToSwap;
       trumpSuit.value = _lastDeal!.suit;
-      _announce('Trump is ${suitToString[trumpSuit.value]}.');
+      _announce(announceTrump.of('suit', suitToString[trumpSuit.value]));
       await _pause(const Duration(milliseconds: 600), epoch);
       await _swap(epoch);
     }
@@ -555,8 +548,10 @@ class Game {
           player.folds = 0;
           final List<GameCard> swapped = player.hand.swapDiscard();
           _announce(swapped.isEmpty
-              ? '${player.name} keeps their hand.'
-              : '${player.name} swaps ${swapped.length} card${swapped.length == 1 ? '' : 's'}.');
+              ? announceKeepsHand.of('name', player.name)
+              : swapped.length == 1
+                  ? announceSwapsOne.of('name', player.name)
+                  : announceSwapsMany({'n': swapped.length, 'name': player.name}));
           for (var i = 0; i < swapped.length; i++) {
             player.hand.remove(swapped[i]);
             discard.add(swapped[i]);
@@ -587,7 +582,7 @@ class Game {
       last.score.value = last.score.value - _tricksRemaining;
       lastTrickWinner = last;
       trickSerial++;
-      _announce('${last.name} is the only one left in and takes all $_tricksRemaining tricks.');
+      _announce(announceOnlyOneLeft({'n': _tricksRemaining, 'name': last.name}));
       _tricksRemaining = 0;
       await _pause(const Duration(milliseconds: 1400), epoch);
     }
@@ -600,7 +595,7 @@ class Game {
     players.where((element) => element.donut).forEach((element) {
       element.score.value = element.score.value + donutPenalty;
       element.donuts.value++;
-      _announce('${element.name} got a donut! +$donutPenalty');
+      _announce(announceDonut({'n': donutPenalty, 'name': element.name}));
       _botQuip(element, element.lines?.donut ?? _botDonutLines, 0.4);
     });
     for (var player in players) {
@@ -613,12 +608,12 @@ class Game {
     if (champion.value != null) {
       champion.value!.winner.value = true;
       matchEnded = DateTime.now();
-      _announce('${champion.value!.name} wins the match!');
+      _announce(announceWinsMatch.of('name', champion.value!.name));
       state.value = GameState.gameOver;
       return;
     }
     if (suddenDeath.isNotEmpty && !wasSuddenDeath) {
-      _announce('Tie! Sudden death between ${suddenDeath.join(', ')}.');
+      _announce(announceTieSuddenDeath.of('names', suddenDeath.join(', ')));
     }
     _dealer++;
     _active = _dealer + 1;
@@ -677,7 +672,7 @@ class Game {
     winner.notifyWin();
     lastTrickWinner = winner;
     trickSerial++;
-    _announce('${winner.name} takes the trick.');
+    _announce(announceTakesTrick.of('name', winner.name));
     _botQuip(winner, winner.lines?.trick ?? _botTrickLines, 0.2);
     _active = players.indexOf(winner);
     await _pause(const Duration(milliseconds: 1400), epoch);

@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/audio/sfx.dart';
 import 'package:donut_game/progression/catalog.dart';
@@ -124,8 +125,8 @@ class _SlotMachineWidgetState extends State<SlotMachineWidget> with TickerProvid
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('BONUS SPIN',
-                      style: TextStyle(color: gold, fontWeight: FontWeight.w900, letterSpacing: 3, fontSize: 13)),
+                  Text(shopSlotTitle(),
+                      style: const TextStyle(color: gold, fontWeight: FontWeight.w900, letterSpacing: 3, fontSize: 13)),
                   const SizedBox(height: 10),
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -158,7 +159,7 @@ class _SlotMachineWidgetState extends State<SlotMachineWidget> with TickerProvid
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
             child: !_pulled
-                ? Text('Pull the lever',
+                ? Text(shopSlotHint(),
                     key: const ValueKey('hint'),
                     style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)))
                 : !_stopped
@@ -287,7 +288,7 @@ class SlotSymbolView extends StatelessWidget {
             borderRadius: BorderRadius.circular(size * 0.12),
             border: Border.all(color: const Color(0xFFE6B422), width: 2),
           ),
-          child: Text('BAR',
+          child: Text(shopSlotBar(),
               style: TextStyle(
                   color: const Color(0xFFE6B422), fontWeight: FontWeight.w900, fontSize: size * 0.34, height: 1)),
         );
@@ -364,7 +365,7 @@ class _Lever extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: enabled ? 'Pull' : '',
+      message: enabled ? shopSlotPull() : '',
       child: MouseRegion(
         cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
         child: GestureDetector(

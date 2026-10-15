@@ -1,20 +1,22 @@
+import 'package:donut_copy/donut_copy.dart';
+
 /// Everything that can be bought or earned: card backs, card faces, table
 /// environments and gadgets for the tool tray.
 enum ItemKind { cardPattern, cardFace, environment, gadget }
 
 extension ItemKindInfo on ItemKind {
   String get label => switch (this) {
-        ItemKind.cardPattern => 'Card patterns',
-        ItemKind.cardFace => 'Card faces',
-        ItemKind.environment => 'Environments',
-        ItemKind.gadget => 'Gadgets',
+        ItemKind.cardPattern => shopKindPatterns(),
+        ItemKind.cardFace => shopKindFaces(),
+        ItemKind.environment => shopKindEnvironments(),
+        ItemKind.gadget => shopKindGadgets(),
       };
 
   String get singular => switch (this) {
-        ItemKind.cardPattern => 'Card pattern',
-        ItemKind.cardFace => 'Card face',
-        ItemKind.environment => 'Environment',
-        ItemKind.gadget => 'Gadget',
+        ItemKind.cardPattern => shopKindPattern(),
+        ItemKind.cardFace => shopKindFace(),
+        ItemKind.environment => shopKindEnvironment(),
+        ItemKind.gadget => shopKindGadget(),
       };
 }
 
@@ -24,21 +26,21 @@ enum Currency { crumbs, glaze }
 
 extension CurrencyInfo on Currency {
   String get label => switch (this) {
-        Currency.crumbs => 'Crumbs',
-        Currency.glaze => 'Glaze',
+        Currency.crumbs => shopCrumbs(),
+        Currency.glaze => shopGlaze(),
       };
 
   String get symbol => switch (this) {
-        Currency.crumbs => 'cR',
-        Currency.glaze => 'GL',
+        Currency.crumbs => shopCrumbsSymbol(),
+        Currency.glaze => shopGlazeSymbol(),
       };
 }
 
 class ShopItem {
   const ShopItem({
     required this.id,
-    required this.name,
-    required this.description,
+    required this.nameLine,
+    required this.descriptionLine,
     required this.kind,
     this.price = 0,
     this.currency = Currency.crumbs,
@@ -49,8 +51,11 @@ class ShopItem {
 
   /// Stored in the profile; never rename.
   final String id;
-  final String name;
-  final String description;
+  final Line nameLine;
+  final Line descriptionLine;
+
+  String get name => nameLine();
+  String get description => descriptionLine();
   final ItemKind kind;
   final int price;
   final Currency currency;
@@ -74,229 +79,250 @@ const Set<String> starterItems = {'pattern.classic', 'face.classic', 'env.theme'
 const List<ShopItem> catalog = [
   // Card patterns
   ShopItem(
-      id: 'pattern.classic', name: 'Classic', description: 'Lattice and a little donut.', kind: ItemKind.cardPattern),
+      id: 'pattern.classic',
+      nameLine: shopPatternClassicName,
+      descriptionLine: shopPatternClassicDescription,
+      kind: ItemKind.cardPattern),
   ShopItem(
       id: 'pattern.dots',
-      name: 'Polka',
-      description: 'Rows of neat dots.',
+      nameLine: shopPatternDotsName,
+      descriptionLine: shopPatternDotsDescription,
       kind: ItemKind.cardPattern,
       price: 300,
       rank: 1),
   ShopItem(
       id: 'pattern.chevrons',
-      name: 'Chevrons',
-      description: 'Sharp zig-zags.',
+      nameLine: shopPatternChevronsName,
+      descriptionLine: shopPatternChevronsDescription,
       kind: ItemKind.cardPattern,
       price: 350,
       rank: 2),
   ShopItem(
       id: 'pattern.waves',
-      name: 'Waves',
-      description: 'Rolling ripples.',
+      nameLine: shopPatternWavesName,
+      descriptionLine: shopPatternWavesDescription,
       kind: ItemKind.cardPattern,
       price: 400,
       rank: 4),
   ShopItem(
       id: 'pattern.sprinkles',
-      name: 'Sprinkles',
-      description: 'Scattered hundreds and thousands.',
+      nameLine: shopPatternSprinklesName,
+      descriptionLine: shopPatternSprinklesDescription,
       kind: ItemKind.cardPattern,
       price: 500,
       rank: 6),
   ShopItem(
       id: 'pattern.hexes',
-      name: 'Honeycomb',
-      description: 'Tiled hexagons.',
+      nameLine: shopPatternHexesName,
+      descriptionLine: shopPatternHexesDescription,
       kind: ItemKind.cardPattern,
       price: 550,
       rank: 8),
   ShopItem(
       id: 'pattern.stars',
-      name: 'Starfield',
-      description: 'A sky of tiny stars.',
+      nameLine: shopPatternStarsName,
+      descriptionLine: shopPatternStarsDescription,
       kind: ItemKind.cardPattern,
       price: 600,
       rank: 10),
   ShopItem(
       id: 'pattern.plaid',
-      name: 'Plaid',
-      description: 'Picnic blanket.',
+      nameLine: shopPatternPlaidName,
+      descriptionLine: shopPatternPlaidDescription,
       kind: ItemKind.cardPattern,
       price: 700,
       rank: 13),
   ShopItem(
       id: 'pattern.circuit',
-      name: 'Circuit',
-      description: 'Traces and solder pads.',
+      nameLine: shopPatternCircuitName,
+      descriptionLine: shopPatternCircuitDescription,
       kind: ItemKind.cardPattern,
       price: 900,
       rank: 16),
   ShopItem(
       id: 'pattern.argyle',
-      name: 'Argyle',
-      description: 'Golf club chic.',
+      nameLine: shopPatternArgyleName,
+      descriptionLine: shopPatternArgyleDescription,
       kind: ItemKind.cardPattern,
       price: 1000,
       rank: 19),
   ShopItem(
       id: 'pattern.filigree',
-      name: 'Filigree',
-      description: 'Ornate scrollwork, fit for a casino.',
+      nameLine: shopPatternFiligreeName,
+      descriptionLine: shopPatternFiligreeDescription,
       kind: ItemKind.cardPattern,
       price: 6,
       currency: Currency.glaze,
       rank: 22),
   ShopItem(
       id: 'pattern.galaxy',
-      name: 'Galaxy',
-      description: 'Swirling nebula.',
+      nameLine: shopPatternGalaxyName,
+      descriptionLine: shopPatternGalaxyDescription,
       kind: ItemKind.cardPattern,
       price: 8,
       currency: Currency.glaze,
       rank: 30),
   ShopItem(
       id: 'pattern.bakers_seal',
-      name: 'Baker\'s Seal',
-      description: 'Stamped and approved. Rank reward.',
+      nameLine: shopPatternBakersSealName,
+      descriptionLine: shopPatternBakersSealDescription,
       kind: ItemKind.cardPattern,
       rankOnly: true,
       rank: 9),
   ShopItem(
       id: 'pattern.midnight_glaze',
-      name: 'Midnight Glaze',
-      description: 'Dripping with it. Rank reward.',
+      nameLine: shopPatternMidnightGlazeName,
+      descriptionLine: shopPatternMidnightGlazeDescription,
       kind: ItemKind.cardPattern,
       rankOnly: true,
       rank: 27),
 
   // Card faces
-  ShopItem(id: 'face.classic', name: 'Standard', description: 'Clean pips, big corners.', kind: ItemKind.cardFace),
+  ShopItem(
+      id: 'face.classic',
+      nameLine: shopFaceClassicName,
+      descriptionLine: shopFaceClassicDescription,
+      kind: ItemKind.cardFace),
   ShopItem(
       id: 'face.four_colour',
-      name: 'Four Colour',
-      description: 'Green clubs, blue diamonds. No more misreads.',
+      nameLine: shopFaceFourColourName,
+      descriptionLine: shopFaceFourColourDescription,
       kind: ItemKind.cardFace,
       price: 300,
       rank: 2),
   ShopItem(
       id: 'face.jumbo',
-      name: 'Jumbo Index',
-      description: 'Corners you can read from across the room.',
+      nameLine: shopFaceJumboName,
+      descriptionLine: shopFaceJumboDescription,
       kind: ItemKind.cardFace,
       price: 500,
       rank: 6),
   ShopItem(
       id: 'face.parlour',
-      name: 'Parlour',
-      description: 'Serif type on cream card stock.',
+      nameLine: shopFaceParlourName,
+      descriptionLine: shopFaceParlourDescription,
       kind: ItemKind.cardFace,
       price: 700,
       rank: 11),
   ShopItem(
       id: 'face.terminal',
-      name: 'Terminal',
-      description: 'Monospaced and framed, like a printout.',
+      nameLine: shopFaceTerminalName,
+      descriptionLine: shopFaceTerminalDescription,
       kind: ItemKind.cardFace,
       price: 800,
       rank: 14),
   ShopItem(
       id: 'face.sprinkle',
-      name: 'Sprinkle Edge',
-      description: 'Every card rolled in sprinkles.',
+      nameLine: shopFaceSprinkleName,
+      descriptionLine: shopFaceSprinkleDescription,
       kind: ItemKind.cardFace,
       price: 1100,
       rank: 23),
   ShopItem(
       id: 'face.neon',
-      name: 'Neon',
-      description: 'Ink that glows like a diner sign.',
+      nameLine: shopFaceNeonName,
+      descriptionLine: shopFaceNeonDescription,
       kind: ItemKind.cardFace,
       price: 7,
       currency: Currency.glaze,
       rank: 28),
   ShopItem(
       id: 'face.gilded',
-      name: 'Gilded',
-      description: 'Gold-trimmed court cards on ivory. Rank reward.',
+      nameLine: shopFaceGildedName,
+      descriptionLine: shopFaceGildedDescription,
       kind: ItemKind.cardFace,
       rankOnly: true,
       rank: 36),
 
   // Environments
-  ShopItem(id: 'env.theme', name: 'House Felt', description: 'Whatever your theme says.', kind: ItemKind.environment),
+  ShopItem(
+      id: 'env.theme',
+      nameLine: shopEnvThemeName,
+      descriptionLine: shopEnvThemeDescription,
+      kind: ItemKind.environment),
   ShopItem(
       id: 'env.blue',
-      name: 'Blue Felt',
-      description: 'Cool and calm.',
+      nameLine: shopEnvBlueName,
+      descriptionLine: shopEnvBlueDescription,
       kind: ItemKind.environment,
       price: 400,
       rank: 1),
   ShopItem(
-      id: 'env.red', name: 'Red Felt', description: 'Poker night.', kind: ItemKind.environment, price: 400, rank: 3),
+      id: 'env.red',
+      nameLine: shopEnvRedName,
+      descriptionLine: shopEnvRedDescription,
+      kind: ItemKind.environment,
+      price: 400,
+      rank: 3),
   ShopItem(
       id: 'env.purple',
-      name: 'Royal Felt',
-      description: 'Deep purple.',
+      nameLine: shopEnvPurpleName,
+      descriptionLine: shopEnvPurpleDescription,
       kind: ItemKind.environment,
       price: 450,
       rank: 5),
   ShopItem(
       id: 'env.oak',
-      name: 'Oak Table',
-      description: 'Bare wood, no felt.',
+      nameLine: shopEnvOakName,
+      descriptionLine: shopEnvOakDescription,
       kind: ItemKind.environment,
       price: 800,
       rank: 11),
   ShopItem(
       id: 'env.marble',
-      name: 'Marble',
-      description: 'Cold, white and veined.',
+      nameLine: shopEnvMarbleName,
+      descriptionLine: shopEnvMarbleDescription,
       kind: ItemKind.environment,
       price: 1000,
       rank: 17),
   ShopItem(
-      id: 'env.slate', name: 'Slate', description: 'Dark stone.', kind: ItemKind.environment, price: 900, rank: 14),
+      id: 'env.slate',
+      nameLine: shopEnvSlateName,
+      descriptionLine: shopEnvSlateDescription,
+      kind: ItemKind.environment,
+      price: 900,
+      rank: 14),
   ShopItem(
       id: 'env.carbon',
-      name: 'Carbon Fibre',
-      description: 'Woven and glossy.',
+      nameLine: shopEnvCarbonName,
+      descriptionLine: shopEnvCarbonDescription,
       kind: ItemKind.environment,
       price: 1200,
       rank: 20),
   ShopItem(
       id: 'env.denim',
-      name: 'Denim',
-      description: 'Faded blue jeans.',
+      nameLine: shopEnvDenimName,
+      descriptionLine: shopEnvDenimDescription,
       kind: ItemKind.environment,
       price: 700,
       rank: 7),
   ShopItem(
       id: 'env.grid',
-      name: 'Neon Grid',
-      description: 'Perspective lines to the horizon.',
+      nameLine: shopEnvGridName,
+      descriptionLine: shopEnvGridDescription,
       kind: ItemKind.environment,
       price: 1500,
       rank: 24),
   ShopItem(
       id: 'env.galaxy',
-      name: 'Deep Space',
-      description: 'Play among the stars.',
+      nameLine: shopEnvGalaxyName,
+      descriptionLine: shopEnvGalaxyDescription,
       kind: ItemKind.environment,
       price: 10,
       currency: Currency.glaze,
       rank: 33),
   ShopItem(
       id: 'env.gold',
-      name: 'Gold Leaf',
-      description: 'Obscenely expensive looking.',
+      nameLine: shopEnvGoldName,
+      descriptionLine: shopEnvGoldDescription,
       kind: ItemKind.environment,
       price: 12,
       currency: Currency.glaze,
       rank: 39),
   ShopItem(
       id: 'env.bakery',
-      name: 'Bakery Counter',
-      description: 'Checkered tiles and flour dust. Rank reward.',
+      nameLine: shopEnvBakeryName,
+      descriptionLine: shopEnvBakeryDescription,
       kind: ItemKind.environment,
       rankOnly: true,
       rank: 18),
@@ -304,45 +330,45 @@ const List<ShopItem> catalog = [
   // Gadgets
   ShopItem(
       id: 'gadget.markers',
-      name: 'Marker Set',
-      description: 'Five markers and an eraser. Doodle on the felt; everyone sees it.',
+      nameLine: shopGadgetMarkersName,
+      descriptionLine: shopGadgetMarkersDescription,
       kind: ItemKind.gadget,
       price: 150,
       rank: 1),
   ShopItem(
       id: 'gadget.revolver',
-      name: 'Revolver',
-      description: 'Six rounds. Shoot the table or a rival\'s placard.',
+      nameLine: shopGadgetRevolverName,
+      descriptionLine: shopGadgetRevolverDescription,
       kind: ItemKind.gadget,
       price: 400,
       rank: 4),
   ShopItem(
       id: 'gadget.flashbang',
-      name: 'Flashbang',
-      description: 'Lob it on the table and white out every screen. Needs a moment to recharge.',
+      nameLine: shopGadgetFlashbangName,
+      descriptionLine: shopGadgetFlashbangDescription,
       kind: ItemKind.gadget,
       price: 600,
       rank: 7),
   ShopItem(
       id: 'gadget.markers_neon',
-      name: 'Neon Markers',
-      description: 'Four extra markers: hot pink, violet, orange and cyan.',
+      nameLine: shopGadgetMarkersNeonName,
+      descriptionLine: shopGadgetMarkersNeonDescription,
       kind: ItemKind.gadget,
       price: 600,
       rank: 3,
       requires: 'gadget.markers'),
   ShopItem(
       id: 'gadget.markers_pastel',
-      name: 'Pastel Markers',
-      description: 'Four soft markers: mint, lavender, peach and sky. Rank reward.',
+      nameLine: shopGadgetMarkersPastelName,
+      descriptionLine: shopGadgetMarkersPastelDescription,
       kind: ItemKind.gadget,
       rankOnly: true,
       rank: 12,
       requires: 'gadget.markers'),
   ShopItem(
       id: 'gadget.marker_gold',
-      name: 'Gold Marker',
-      description: 'One marker. Metallic gold ink.',
+      nameLine: shopGadgetMarkerGoldName,
+      descriptionLine: shopGadgetMarkerGoldDescription,
       kind: ItemKind.gadget,
       price: 5,
       currency: Currency.glaze,
@@ -350,22 +376,22 @@ const List<ShopItem> catalog = [
       requires: 'gadget.markers'),
   ShopItem(
       id: 'gadget.stamp',
-      name: 'Donut Stamp',
-      description: 'Stamps a donut on the table in your marker colour. Everyone sees it.',
+      nameLine: shopGadgetStampName,
+      descriptionLine: shopGadgetStampDescription,
       kind: ItemKind.gadget,
       price: 800,
       rank: 10),
   ShopItem(
       id: 'gadget.confetti',
-      name: 'Confetti Cannon',
-      description: 'Celebrate anything. Click the table for a burst.',
+      nameLine: shopGadgetConfettiName,
+      descriptionLine: shopGadgetConfettiDescription,
       kind: ItemKind.gadget,
       price: 1200,
       rank: 15),
   ShopItem(
       id: 'gadget.speedloader',
-      name: 'Speedloader',
-      description: 'The revolver holds twelve rounds instead of six.',
+      nameLine: shopGadgetSpeedloaderName,
+      descriptionLine: shopGadgetSpeedloaderDescription,
       kind: ItemKind.gadget,
       price: 1500,
       rank: 25,

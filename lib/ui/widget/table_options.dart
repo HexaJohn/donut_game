@@ -1,3 +1,4 @@
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/ai/bot_brain.dart';
 import 'package:donut_game/data/settings.dart';
 import 'package:donut_game/res/rules.dart';
@@ -22,7 +23,7 @@ class TableOptionsPicker extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Bot difficulty', style: theme.textTheme.labelLarge),
+        Text(appBotDifficulty(), style: theme.textTheme.labelLarge),
         const SizedBox(height: 6),
         Wrap(spacing: 6, runSpacing: 6, children: [
           for (final option in BotSkill.values)
@@ -39,7 +40,7 @@ class TableOptionsPicker extends StatelessWidget {
           child: Text(skill.blurb, style: theme.textTheme.bodySmall?.copyWith(color: muted)),
         ),
         const SizedBox(height: 12),
-        Text('Starting points', style: theme.textTheme.labelLarge),
+        Text(appStartingPoints(), style: theme.textTheme.labelLarge),
         const SizedBox(height: 6),
         Wrap(spacing: 6, runSpacing: 6, children: [
           for (final points in startingScoreChoices)
@@ -53,7 +54,7 @@ class TableOptionsPicker extends StatelessWidget {
         ]),
         Padding(
           padding: const EdgeInsets.only(top: 4),
-          child: Text('Everyone counts down from here. Fewer points, shorter match.',
+          child: Text(appStartingPointsHelp(),
               style: theme.textTheme.bodySmall?.copyWith(color: muted)),
         ),
       ],
@@ -70,7 +71,7 @@ Future<void> showTableSettings(BuildContext context, GameController controller) 
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        title: const Text('Table settings'),
+        title: Text(appTableSettings()),
         content: SizedBox(
           width: 360,
           child: SingleChildScrollView(
@@ -83,7 +84,7 @@ Future<void> showTableSettings(BuildContext context, GameController controller) 
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(appCancel())),
           FilledButton(
             onPressed: () {
               controller.changeTable(skill: skill, target: target);
@@ -94,7 +95,7 @@ Future<void> showTableSettings(BuildContext context, GameController controller) 
                 ..save();
               Navigator.of(context).pop();
             },
-            child: const Text('Apply'),
+            child: Text(appApply()),
           ),
         ],
       ),

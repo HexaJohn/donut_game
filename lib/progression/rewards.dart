@@ -1,3 +1,5 @@
+import 'package:donut_copy/donut_copy.dart';
+
 /// Works out what a finished match pays. Pure functions: the profile applies
 /// the result.
 class RewardLine {
@@ -51,32 +53,32 @@ class DonutMatchSummary {
 
 MatchRewards donutMatchRewards(DonutMatchSummary match) {
   final lines = <RewardLine>[
-    const RewardLine('Match played', xp: 100, crumbs: 50),
+    RewardLine(shopRewardMatchPlayed(), xp: 100, crumbs: 50),
   ];
   switch (match.placement) {
     case 1:
-      lines.add(const RewardLine('Victory', xp: 250, crumbs: 150));
+      lines.add(RewardLine(shopRewardVictory(), xp: 250, crumbs: 150));
     case 2:
-      lines.add(const RewardLine('Runner-up', xp: 120, crumbs: 75));
+      lines.add(RewardLine(shopRewardRunnerUp(), xp: 120, crumbs: 75));
     case 3:
-      lines.add(const RewardLine('Third place', xp: 60, crumbs: 40));
+      lines.add(RewardLine(shopRewardThirdPlace(), xp: 60, crumbs: 40));
   }
   if (match.tricks > 0) {
-    lines.add(RewardLine('${match.tricks} trick${match.tricks == 1 ? '' : 's'} taken',
+    lines.add(RewardLine((match.tricks == 1 ? shopRewardTrickTaken : shopRewardTricksTaken).of('n', match.tricks),
         xp: 12 * match.tricks, crumbs: 6 * match.tricks));
   }
-  if (match.hands > 0) lines.add(RewardLine('${match.hands} hands played', xp: 15 * match.hands));
+  if (match.hands > 0) lines.add(RewardLine(shopRewardHandsPlayed.of('n', match.hands), xp: 15 * match.hands));
   if (match.donuts == 0 && match.hands >= 3) {
-    lines.add(const RewardLine('Clean sheet: no donuts', xp: 80, crumbs: 40));
+    lines.add(RewardLine(shopRewardCleanSheet(), xp: 80, crumbs: 40));
   }
   if (match.suddenDeath) {
-    lines.add(RewardLine(match.won ? 'Sudden death survivor' : 'Sudden death', xp: match.won ? 150 : 60));
+    lines.add(RewardLine(match.won ? shopRewardSuddenDeathSurvivor() : shopRewardSuddenDeath(), xp: match.won ? 150 : 60));
   }
   if (match.players >= 6) {
-    lines.add(const RewardLine('Full table', xp: 40, crumbs: 20));
+    lines.add(RewardLine(shopRewardFullTable(), xp: 40, crumbs: 20));
   }
   if (match.firstWinToday && match.won) {
-    lines.add(const RewardLine('First win of the day', xp: 200, crumbs: 100));
+    lines.add(RewardLine(shopRewardFirstWin(), xp: 200, crumbs: 100));
   }
   return MatchRewards(lines);
 }

@@ -1,3 +1,4 @@
+import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/ui/widget/table_options.dart';
 import 'package:donut_game/data/model/game/game.dart';
 import 'package:donut_game/res/resources.dart';
@@ -121,7 +122,7 @@ class ActionBar extends StatelessWidget {
   Widget _you(BuildContext context, {bool compact = false}) {
     final theme = Theme.of(context);
     final local = controller.localPlayer;
-    if (local == null) return Text('Spectating', style: theme.textTheme.bodyMedium);
+    if (local == null) return Text(tableSpectating(), style: theme.textTheme.bodyMedium);
     final avatar = PlayerAvatar(
         player: local, size: compact ? 34 : 40, dealer: game.players.isNotEmpty && game.dealer.value == local);
     return AnimatedRotation(
@@ -172,7 +173,7 @@ class ActionBar extends StatelessWidget {
         isLabelVisible: unread > 0 && !chatOpen,
         label: Text('$unread'),
         child: IconButton.filledTonal(
-          tooltip: chatOpen ? 'Hide chat' : 'Chat',
+          tooltip: chatOpen ? tableHideChat() : tableChat(),
           isSelected: chatOpen,
           onPressed: onToggleChat,
           icon: const Icon(Icons.chat_bubble_outline_rounded),
@@ -181,39 +182,43 @@ class ActionBar extends StatelessWidget {
       );
 
   Widget _menu(BuildContext context) => PopupMenuButton<_MenuAction>(
-        tooltip: 'Menu',
+        tooltip: tableMenu(),
         icon: const Icon(Icons.more_vert_rounded),
         onSelected: (action) => _onMenu(context, action),
         itemBuilder: (context) => [
-          const PopupMenuItem(
+          PopupMenuItem(
               value: _MenuAction.rules,
-              child: ListTile(leading: Icon(Icons.menu_book_rounded), title: Text('How to play'))),
-          const PopupMenuItem(
-              value: _MenuAction.theme, child: ListTile(leading: Icon(Icons.palette_outlined), title: Text('Theme'))),
-          const PopupMenuItem(
-              value: _MenuAction.sound, child: ListTile(leading: Icon(Icons.tune_rounded), title: Text('Settings'))),
+              child: ListTile(leading: const Icon(Icons.menu_book_rounded), title: Text(tableHowToPlay()))),
+          PopupMenuItem(
+              value: _MenuAction.theme,
+              child: ListTile(leading: const Icon(Icons.palette_outlined), title: Text(tableTheme()))),
+          PopupMenuItem(
+              value: _MenuAction.sound,
+              child: ListTile(leading: const Icon(Icons.tune_rounded), title: Text(tableSettings()))),
           if (controller.canManageBots) ...[
-            const PopupMenuItem(
+            PopupMenuItem(
                 value: _MenuAction.tableSettings,
-                child: ListTile(leading: Icon(Icons.tune_rounded), title: Text('Table settings'))),
-            const PopupMenuItem(
+                child: ListTile(leading: const Icon(Icons.tune_rounded), title: Text(tableTableSettings()))),
+            PopupMenuItem(
                 value: _MenuAction.addBot,
-                child: ListTile(leading: Icon(Icons.smart_toy_rounded), title: Text('Add a bot'))),
+                child: ListTile(leading: const Icon(Icons.smart_toy_rounded), title: Text(tableAddBot()))),
             if (game.players.any((player) => !player.human))
-              const PopupMenuItem(
+              PopupMenuItem(
                   value: _MenuAction.removeBot,
-                  child: ListTile(leading: Icon(Icons.person_remove_rounded), title: Text('Remove a bot'))),
+                  child: ListTile(leading: const Icon(Icons.person_remove_rounded), title: Text(tableRemoveBot()))),
           ],
           if (controller.canRestart)
             PopupMenuItem(
                 value: _MenuAction.restart,
                 child: ListTile(
                     leading: const Icon(Icons.restart_alt_rounded),
-                    title: Text(controller.online && controller.partyCode == null ? 'Restart server game' : 'Restart match'))),
+                    title: Text(controller.online && controller.partyCode == null
+                        ? tableRestartServerGame()
+                        : tableRestartMatch()))),
           const PopupMenuDivider(),
-          const PopupMenuItem(
+          PopupMenuItem(
               value: _MenuAction.leave,
-              child: ListTile(leading: Icon(Icons.logout_rounded), title: Text('Leave game'))),
+              child: ListTile(leading: const Icon(Icons.logout_rounded), title: Text(tableLeaveGame()))),
         ],
       );
 
@@ -235,13 +240,13 @@ class ActionBar extends StatelessWidget {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text(controller.online ? 'Restart the server game?' : 'Restart the match?'),
+            title: Text(controller.online ? tableRestartServerTitle() : tableRestartMatchTitle()),
             content: Text(controller.online
-                ? 'Everyone at the table goes back to the lobby and scores are wiped.'
-                : 'Scores go back to ${controller.game.targetScore} and a new match starts.'),
+                ? tableRestartServerBody()
+                : tableRestartMatchBody.of('target', controller.game.targetScore)),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Restart')),
+              TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tableCancel())),
+              FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tableRestart())),
             ],
           ),
         );
@@ -261,47 +266,50 @@ class ActionBar extends StatelessWidget {
     final activeName = game.players.isEmpty ? '' : game.activePlayerLazy.name;
     switch (state) {
       case GameState.waitingForPlayers:
-        return ('Waiting for players to join', false);
+        return (tableWaitingToJoin(), false);
       case GameState.waitingToDeal:
-        if (!controller.online) return ('Ready when you are', true);
+        if (!controller.online) return (tableReadyWhenYouAre(), true);
         final humans = game.players.where((element) => element.human).toList();
         final ready = humans.where((element) => element.voteToDeal).length;
         final countdown = controller.autoReadyIn.value;
-        if (countdown != null) return ('Next hand in ${countdown}s. Ready ($ready/${humans.length})', true);
-        if (local?.voteToDeal == false && game.handNumber > 0) {
-          return ('Tap I\'m ready for the next hand ($ready/${humans.length} ready)', true);
+        if (countdown != null) {
+          return (tableNextHandIn({'seconds': countdown, 'ready': ready, 'total': humans.length}), true);
         }
-        return ('Waiting for players to be ready ($ready/${humans.length})', !(local?.voteToDeal ?? true));
+        if (local?.voteToDeal == false && game.handNumber > 0) {
+          return (tableTapReady({'ready': ready, 'total': humans.length}), true);
+        }
+        return (tableWaitingForReady({'ready': ready, 'total': humans.length}), !(local?.voteToDeal ?? true));
       case GameState.dealing:
-        return ('Dealing', false);
+        return (tableDealing(), false);
       case GameState.waitingToSwap:
       case GameState.swapping:
       case GameState.waitingForPlayerToSwap:
-        if (local?.skip == true && state != GameState.waitingForPlayerToSwap) return ('You folded this hand', false);
+        if (local?.skip == true && state != GameState.waitingForPlayerToSwap) return (tableYouFolded(), false);
         if (myTurn && state == GameState.waitingForPlayerToSwap && local.notReady) {
           final marked = local.hand.cards.value.where((element) => element.state == CardState.swap).length;
-          return ('Your move: pick up to $maxSwaps cards to swap ($marked picked)', true);
+          return (tableYourSwapMove({'max': maxSwaps, 'picked': marked}), true);
         }
-        if (local == null || local.skip || game.players.isEmpty) return ('$activeName is choosing swaps', false);
+        if (local == null || local.skip || game.players.isEmpty) {
+          return (tableChoosingSwaps.of('name', activeName), false);
+        }
         final turns = game.swapTurnsUntil(local);
-        return (
-          '$activeName is choosing swaps. '
-              '${turns < 0 ? 'You\'ve swapped.' : (turns == 1 ? 'You\'re next.' : '${turns - 1} more before you.')}',
-          false
-        );
+        final line = turns < 0
+            ? tableChoosingSwapsYouSwapped
+            : (turns == 1 ? tableChoosingSwapsYouNext : tableChoosingSwapsMoreBefore);
+        return (line({'name': activeName, 'n': turns - 1}), false);
       case GameState.playing:
       case GameState.waitingForPlayer:
-        if (local?.skip == true) return ('You folded this hand', false);
+        if (local?.skip == true) return (tableYouFolded(), false);
         if (controller.canPlayNow) {
-          return (game.leadingCard == null ? 'Your lead: play any card' : 'Your turn: follow suit if you can', true);
+          return (game.leadingCard == null ? tableYourLead() : tableYourTurnFollow(), true);
         }
-        if (myTurn) return ('Next trick coming up', false);
-        return ('Waiting for $activeName', false);
+        if (myTurn) return (tableNextTrickComingUp(), false);
+        return (tableWaitingFor.of('name', activeName), false);
       case GameState.waitingForNextRound:
-        return ('Next trick', false);
+        return (tableNextTrick(), false);
       case GameState.gameOver:
         final champion = game.champion.value;
-        return (champion == null ? 'Match over' : '${champion.name} won the match', false);
+        return (champion == null ? tableMatchOver() : tableWonTheMatch.of('name', champion.name), false);
       default:
         return ('', false);
     }
@@ -315,19 +323,18 @@ class ActionBar extends StatelessWidget {
     if (state == GameState.waitingToDeal) {
       if (!controller.online) {
         return [
-          FilledButton.icon(
-              onPressed: controller.deal, icon: const Icon(Icons.style_rounded), label: const Text('Deal'))
+          FilledButton.icon(onPressed: controller.deal, icon: const Icon(Icons.style_rounded), label: Text(tableDeal()))
         ];
       }
       return [
         // While the next hand counts down, a way to hold it
         if (!local.voteToDeal && controller.autoReadyIn.value != null)
-          TextButton(onPressed: controller.holdNextHand, child: const Text('Wait')),
+          TextButton(onPressed: controller.holdNextHand, child: Text(tableWait())),
         local.voteToDeal
             ? OutlinedButton.icon(
-                onPressed: controller.deal, icon: const Icon(Icons.check_rounded), label: const Text('Ready'))
+                onPressed: controller.deal, icon: const Icon(Icons.check_rounded), label: Text(tableReady()))
             : FilledButton.icon(
-                onPressed: controller.deal, icon: const Icon(Icons.style_rounded), label: const Text("I'm ready")),
+                onPressed: controller.deal, icon: const Icon(Icons.style_rounded), label: Text(tableImReady())),
       ];
     }
 
@@ -338,20 +345,20 @@ class ActionBar extends StatelessWidget {
         Tooltip(
           message: foldBlocked
               ? (game.suddenDeath.isNotEmpty
-                  ? 'No folding in sudden death'
-                  : 'You folded the last $maxConsecutiveFolds hands')
-              : 'Sit this hand out. No tricks, but no donut either.',
+                  ? tableNoFoldingSuddenDeath()
+                  : tableFoldedLastHands.of('n', maxConsecutiveFolds))
+              : tableFoldHint(),
           child: OutlinedButton.icon(
             onPressed: foldBlocked ? null : controller.fold,
             icon: const Icon(Icons.close_rounded),
-            label: const Text('Fold'),
+            label: Text(tableFold()),
           ),
         ),
         const SizedBox(width: 8),
         FilledButton.icon(
           onPressed: controller.confirmSwap,
           icon: Icon(marked == 0 ? Icons.check_rounded : Icons.swap_horiz_rounded),
-          label: Text(marked == 0 ? 'Keep hand' : 'Swap $marked'),
+          label: Text(marked == 0 ? tableKeepHand() : tableSwapCount.of('n', marked)),
         ),
       ];
     }
@@ -359,7 +366,7 @@ class ActionBar extends StatelessWidget {
     if (state == GameState.gameOver && !controller.online) {
       return [
         FilledButton.icon(
-            onPressed: controller.newMatch, icon: const Icon(Icons.replay_rounded), label: const Text('New match'))
+            onPressed: controller.newMatch, icon: const Icon(Icons.replay_rounded), label: Text(tableNewMatch()))
       ];
     }
     return [];
