@@ -24,6 +24,16 @@ class CloudSave {
   static Timer? _timer;
   static String? _lastUploaded;
 
+  /// Nothing is uploaded until the cloud's copy has been checked: a new
+  /// computer's blank save must never overwrite the real one.
+  static bool _checked = false;
+
+  @visibleForTesting
+  static void resetForTest() {
+    _checked = false;
+    _lastUploaded = null;
+  }
+
   /// Before anything reads the save: takes the cloud's copy if it's newer.
   static Future<void> restore() async {
     final steam = SteamService.instance;
@@ -32,6 +42,14 @@ class CloudSave {
       steam.note('Steam Cloud is off for this game or this account');
       return;
     }
+    try {
+      await _restore(steam);
+    } finally {
+      _checked = true;
+    }
+  }
+
+  static Future<void> _restore(SteamService steam) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final data = steam.readCloudFile(file);
@@ -80,7 +98,7 @@ class CloudSave {
   /// Saves the current state to the cloud, if it changed.
   static Future<void> upload() async {
     final steam = SteamService.instance;
-    if (!steam.running || !steam.cloudEnabled) return;
+    if (!steam.running || !steam.cloudEnabled || !_checked) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       final snapshot = _snapshot(prefs);

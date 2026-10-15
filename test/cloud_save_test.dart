@@ -36,6 +36,7 @@ void main() {
   setUp(() {
     steam = _FakeSteam();
     SteamService.instance = steam;
+    CloudSave.resetForTest();
   });
   tearDown(() => SteamService.instance = SteamService(problem: 'test over'));
 
@@ -63,8 +64,20 @@ void main() {
     expect(prefs.getString('profile'), '{"xp":900}');
   });
 
+  test('a new computer never uploads before checking the cloud', () async {
+    SharedPreferences.setMockInitialValues({});
+    steam.put(2000, {'profile': '{"xp":777}'});
+    // The app leaving the foreground during start-up asks for an upload
+    await CloudSave.upload();
+    expect(steam.saved['values'], {'profile': '{"xp":777}'}, reason: 'the real save survived');
+    await CloudSave.restore();
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('profile'), '{"xp":777}');
+  });
+
   test('changes are uploaded once, without the per-install values', () async {
     SharedPreferences.setMockInitialValues({'profile': '{"xp":3}', 'deviceSecret': 'secret', 'usagePending': '{}'});
+    await CloudSave.restore();
     await CloudSave.upload();
     expect(steam.saved['values'], {'profile': '{"xp":3}'});
     final firstStamp = steam.saved['savedAt'];
