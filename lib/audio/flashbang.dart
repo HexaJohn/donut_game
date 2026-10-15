@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:donut_game/audio/web_audio.dart';
 import 'package:donut_game/audio/audio_available.dart';
@@ -78,6 +79,7 @@ class FlashbangAudio {
               : t < _recoverStart
                   ? 1.0
                   : max(0.0, 1 - (t - _recoverStart) / (_recoverEnd - _recoverStart));
+      if (t >= _ringStart && !ringing) AiAudit.instance.sound('ringing');
       if (t >= _ringStart && !ringing && _loaded && _webAudio) {
         ringing = true;
         _webRing?.stop();

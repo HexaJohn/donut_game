@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:donut_game/audit/ai_audit_overlay.dart';
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/steam/cloud_save.dart';
 import 'package:donut_game/steam/steam.dart';
 import 'package:donut_game/audio/web_audio.dart';
@@ -64,6 +66,7 @@ Future<void> main() async {
   await CloudSave.restore();
   CloudSave.start();
   await Settings.instance.load();
+  await AiAudit.instance.load();
   final steam = SteamService.instance;
   if (steam.running && (steam.personaName ?? '').isNotEmpty) Settings.instance.useSteamName(steam.personaName!);
   unawaited(Usage.instance.start());
@@ -115,7 +118,8 @@ class DonutApp extends StatelessWidget {
         theme: buildTheme(preset),
         // Clear of camera cutouts on phones that have them
         builder: (context, child) {
-          final app = isMobile ? SafeArea(child: child!) : child!;
+          // Highlights everything AI-made, when switched on (developer panel)
+          final app = AiAuditOverlay(child: isMobile ? SafeArea(child: child!) : child!);
           if (!kIsWeb) return app;
           // The first click or tap lets the browser play sound
           return Listener(

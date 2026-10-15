@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/audio/sfx.dart';
 import 'package:donut_game/progression/catalog.dart';
 import 'package:donut_game/progression/slot_machine.dart';
@@ -300,7 +301,7 @@ class SlotSymbolView extends StatelessWidget {
   }
 }
 
-class _CherryPainter extends CustomPainter {
+class _CherryPainter extends CustomPainter with AiArt {
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
@@ -329,7 +330,7 @@ class _CherryPainter extends CustomPainter {
   bool shouldRepaint(_CherryPainter oldDelegate) => false;
 }
 
-class _SprinklePainter extends CustomPainter {
+class _SprinklePainter extends CustomPainter with AiArt {
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
@@ -386,7 +387,7 @@ class _Lever extends StatelessWidget {
   }
 }
 
-class _LeverPainter extends CustomPainter {
+class _LeverPainter extends CustomPainter with AiArt {
   _LeverPainter(this.t, this.enabled);
 
   final double t;

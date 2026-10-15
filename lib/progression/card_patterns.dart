@@ -1,10 +1,11 @@
 import 'dart:math';
 
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:flutter/material.dart';
 
 /// Paints the back of a card in the pattern [id] from the catalog. Each is
 /// drawn with [pattern] ink on a [back] fill, so it follows the theme.
-class CardBackPainter extends CustomPainter {
+class CardBackPainter extends CustomPainter with AiArt {
   CardBackPainter({required this.id, required this.pattern, required this.back});
 
   final String id;

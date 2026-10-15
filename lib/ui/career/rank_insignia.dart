@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/progression/ranks.dart';
 import 'package:flutter/material.dart';
 
@@ -25,7 +26,7 @@ class RankInsignia extends StatelessWidget {
   }
 }
 
-class _InsigniaPainter extends CustomPainter {
+class _InsigniaPainter extends CustomPainter with AiArt {
   _InsigniaPainter(this.rank, this.color);
 
   final Rank rank;

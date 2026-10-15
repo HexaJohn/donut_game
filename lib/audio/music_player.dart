@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:donut_game/audio/web_audio.dart';
 import 'package:donut_game/audio/audio_available.dart';
@@ -123,6 +124,7 @@ class MusicPlayer {
 
   Future<void> _start(String track, {required bool loop, required int generation}) async {
     nowPlaying.value = track;
+    AiAudit.instance.playing(track);
     _gain = _trackGain[track] ?? 1;
     _fade = 0;
     _applyVolume();

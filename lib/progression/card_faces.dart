@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:flutter/material.dart';
 
 /// How the face of a card is drawn, for each face style in the catalog. Ink
@@ -61,7 +62,7 @@ CardFaceStyle cardFaceStyle(String id) => switch (id) {
 
 /// Sprinkles in a band round the edge of a card, the same on every card of
 /// the deck.
-class SprinkleEdgePainter extends CustomPainter {
+class SprinkleEdgePainter extends CustomPainter with AiArt {
   const SprinkleEdgePainter();
 
   static const _colours = [

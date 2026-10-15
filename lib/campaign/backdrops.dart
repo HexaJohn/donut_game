@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/ui/widget/rasterized_paint.dart';
 import 'package:flutter/material.dart';
 
@@ -61,7 +62,7 @@ void _vignette(Canvas canvas, Rect rect, [double strength = 0.45]) {
         ).createShader(rect));
 }
 
-abstract class _Scene extends CustomPainter {
+abstract class _Scene extends CustomPainter with AiArt {
   const _Scene();
 
   @override

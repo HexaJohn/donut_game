@@ -1,3 +1,4 @@
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:flutter/material.dart';
 
@@ -17,7 +18,7 @@ class SuitIcon extends StatelessWidget {
   }
 }
 
-class _SuitPainter extends CustomPainter {
+class _SuitPainter extends CustomPainter with AiArt {
   _SuitPainter(this.suit, this.color);
 
   final Suit suit;

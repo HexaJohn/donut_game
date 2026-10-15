@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:donut_game/audio/audio_available.dart';
 import 'package:donut_game/data/remote/connectivity.dart';
@@ -90,7 +91,10 @@ class _SplashScreenState extends State<SplashScreen> {
       _wait(250),
     ]);
     _set(() => _visible = true);
-    if (!kIsWeb) _quietly(_sound.resume);
+    if (!kIsWeb) {
+      AiAudit.instance.sound('acro-braam');
+      _quietly(_sound.resume);
+    }
     await _wait(acroLogoDuration.inMilliseconds + 700);
     _set(() => _visible = false);
     _fadeOutSound(const Duration(milliseconds: 1400));

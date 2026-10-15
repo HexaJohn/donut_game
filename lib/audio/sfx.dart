@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:donut_game/audio/web_audio.dart';
 import 'package:donut_game/audio/audio_available.dart';
@@ -182,6 +183,7 @@ class SoundEffects {
     if (clips.length > 1 && index == _last[sfx]) index = (index + 1) % clips.length;
     _last[sfx] = index;
     final clip = clips[index];
+    AiAudit.instance.sound(clip.name);
     if (_webAudio) {
       WebAudio.instance.play(_asset(clip), (clip.gain * level).clamp(0.0, 1.0));
       return;

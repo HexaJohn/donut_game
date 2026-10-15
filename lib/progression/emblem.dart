@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:flutter/material.dart';
 
 /// A player's emblem: a shape, an icon on it, and three colours.
@@ -199,7 +200,7 @@ class EmblemWidget extends StatelessWidget {
   }
 }
 
-class EmblemPainter extends CustomPainter {
+class EmblemPainter extends CustomPainter with AiArt {
   EmblemPainter(this.emblem, {this.shadow = false});
 
   final Emblem emblem;

@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:flutter/material.dart';
 
 /// The Donut mark: a frosted donut with sprinkles.
@@ -19,7 +20,7 @@ class DonutLogo extends StatelessWidget {
   }
 }
 
-class _DonutPainter extends CustomPainter {
+class _DonutPainter extends CustomPainter with AiArt {
   _DonutPainter(this.frosting, this.shadow);
 
   final Color frosting;

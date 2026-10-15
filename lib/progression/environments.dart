@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:flutter/material.dart';
 
@@ -61,7 +62,7 @@ final List<TableEnvironment> environments = [
 ];
 
 /// A texture painter that paints the same thing for the same felt colour.
-abstract class _Texture extends CustomPainter {
+abstract class _Texture extends CustomPainter with AiArt {
   _Texture(this.felt);
 
   final Color felt;

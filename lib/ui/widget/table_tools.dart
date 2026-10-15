@@ -1,3 +1,4 @@
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/data/model/ink_stroke.dart';
 import 'package:flutter/material.dart';
 
@@ -28,7 +29,7 @@ class MarkerPen extends StatelessWidget {
   Widget build(BuildContext context) => CustomPaint(size: markerSize, painter: _MarkerPainter(color));
 }
 
-class _MarkerPainter extends CustomPainter {
+class _MarkerPainter extends CustomPainter with AiArt {
   _MarkerPainter(this.color);
 
   final Color color;
@@ -115,7 +116,7 @@ class InkLayer extends StatelessWidget {
   }
 }
 
-class _InkPainter extends CustomPainter {
+class _InkPainter extends CustomPainter with AiArt {
   _InkPainter(this.ink, this.radius) : super(repaint: ink);
 
   final ValueNotifier<List<InkStroke>> ink;
@@ -173,7 +174,7 @@ class FlashbangGrenade extends StatelessWidget {
   Widget build(BuildContext context) => CustomPaint(size: flashbangSize, painter: _GrenadePainter(lit));
 }
 
-class _GrenadePainter extends CustomPainter {
+class _GrenadePainter extends CustomPainter with AiArt {
   _GrenadePainter(this.lit);
 
   final bool lit;

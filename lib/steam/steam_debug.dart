@@ -1,3 +1,4 @@
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/steam/steam.dart';
 import 'package:flutter/material.dart';
 
@@ -18,13 +19,27 @@ Future<void> showSteamDebug(BuildContext context) {
         },
       };
       return AlertDialog(
-        title: const Text('Steam'),
+        title: const Text('Developer'),
         content: SizedBox(
           width: 460,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Highlights every AI-made text, drawing and sound on screen
+              ValueListenableBuilder(
+                valueListenable: AiAudit.instance.enabled,
+                builder: (context, bool on, _) => SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: on,
+                  onChanged: AiAudit.instance.setEnabled,
+                  title: const Text('AI audit overlay'),
+                  subtitle: const Text('Outlines AI-made text (cyan) and art (magenta), and shows AI sounds and music'),
+                ),
+              ),
+              const Divider(),
+              Text('Steam', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 4),
               for (final MapEntry(:key, :value) in facts.entries)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),

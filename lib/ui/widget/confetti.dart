@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:flutter/material.dart';
 
 /// A burst of paper confetti from the centre, falling and tumbling for
@@ -72,7 +73,7 @@ class _Piece {
       );
 }
 
-class _ConfettiPainter extends CustomPainter {
+class _ConfettiPainter extends CustomPainter with AiArt {
   _ConfettiPainter(this.pieces, this.t);
 
   final List<_Piece> pieces;

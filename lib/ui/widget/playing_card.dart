@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/progression/card_faces.dart';
 import 'package:donut_game/progression/card_patterns.dart';
@@ -92,7 +93,9 @@ class CardFace extends StatelessWidget {
   final String style;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => AiMarked(name: 'card face ($style)', child: _face(context));
+
+  Widget _face(BuildContext context) {
     final colors = DonutColors.of(context);
     final look = cardFaceStyle(style);
     final isFace = card.value == Value.jack || card.value == Value.queen || card.value == Value.king;

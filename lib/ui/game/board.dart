@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/analytics/usage.dart';
 import 'package:donut_game/audio/sfx.dart';
 import 'package:donut_game/campaign/backdrops.dart';
@@ -1762,7 +1763,7 @@ class _ChatBubbleState extends State<_ChatBubble> {
   }
 }
 
-class _TailPainter extends CustomPainter {
+class _TailPainter extends CustomPainter with AiArt {
   _TailPainter(this.color, {required this.up});
 
   final Color color;

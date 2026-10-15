@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:flutter/material.dart';
 
 /// Size the revolver is drawn at; scale it with a [Transform] or [FittedBox].
@@ -22,7 +23,7 @@ class Revolver extends StatelessWidget {
   }
 }
 
-class _RevolverPainter extends CustomPainter {
+class _RevolverPainter extends CustomPainter with AiArt {
   _RevolverPainter(this.flash);
 
   final bool flash;
@@ -152,7 +153,7 @@ class BulletHoleMark extends StatelessWidget {
   }
 }
 
-class _HolePainter extends CustomPainter {
+class _HolePainter extends CustomPainter with AiArt {
   _HolePainter(this.seed, this.surface);
 
   final int seed;

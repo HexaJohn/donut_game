@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:donut_game/audit/ai_audit.dart';
 import 'package:flutter/material.dart';
 
 /// Paints [painter] into an image once and shows that, so a busy static scene
@@ -75,7 +76,11 @@ class _RasterizedPaintState extends State<RasterizedPaint> {
           });
         }
       }
-      return RawImage(image: _image, width: size.width, height: size.height, fit: BoxFit.fill);
+      final painter = widget.painter;
+      return AiMarked(
+        name: painter is AiArt ? painter.artName : painter.runtimeType.toString(),
+        child: RawImage(image: _image, width: size.width, height: size.height, fit: BoxFit.fill),
+      );
     });
   }
 }
