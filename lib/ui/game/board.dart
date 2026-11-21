@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:donut_copy/donut_copy.dart';
+import 'package:donut_game/res/art_replacement.dart';
 import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/analytics/usage.dart';
 import 'package:donut_game/audio/sfx.dart';
@@ -424,8 +425,10 @@ class _GameBoardState extends State<GameBoard> {
                       ),
                     ),
                   ),
+                  if (ArtReplacement.find('tables/${artSlug(environment.id)}') case final art?)
+                    ReplacedArt(art)
                   // Painted to an image once, not shape by shape every frame
-                  if (texture != null)
+                  else if (texture != null)
                     RasterizedPaint(
                         key: ValueKey(environment.id),
                         painter: texture(feltColor),
@@ -648,7 +651,7 @@ class _GameBoardState extends State<GameBoard> {
         state == GameState.dealing ||
         (state == GameState.swapping && game.players.isNotEmpty && game.activePlayerLazy == player);
 
-    // Opponent hands, face down under each seat
+    // Opponent hands under each seat, face down unless the table shows them
     for (var i = 0; i < opponents.length; i++) {
       final seat = seatRect(i);
       final hand = opponents[i].hand.cards.value;
@@ -659,7 +662,9 @@ class _GameBoardState extends State<GameBoard> {
         final x = seat.center.dx - total / 2 + j * spacing;
         // Beside the felt they peek out from under the placard instead
         addCard(hand[j], Rect.fromLTWH(x, sideSeats ? seat.bottom - miniH * 0.55 : seat.bottom + 6, miniW, miniH),
-            zone: 'hand:${opponents[i].name}', angle: (j - (slots - 1) / 2) * 0.06);
+            zone: 'hand:${opponents[i].name}',
+            angle: (j - (slots - 1) / 2) * 0.06,
+            faceUp: controller.revealHands);
       }
     }
 

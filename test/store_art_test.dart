@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:donut_game/campaign/backdrops.dart';
@@ -19,6 +20,7 @@ import 'package:donut_game/ui/game/game_screen.dart';
 import 'package:donut_game/ui/home/home_screen.dart';
 import 'package:donut_game/ui/widget/donut_logo.dart';
 import 'package:donut_game/ui/widget/playing_card.dart';
+import 'package:donut_game/ui/widget/table_tools.dart' show markerWidth;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -43,18 +45,7 @@ const _back = 'pattern.midnight_glaze';
 void main() {
   setUpAll(() async {
     await loadRealFonts();
-    // The serif and typewriter decks' fonts, from this Mac
-    for (final (family, files) in [
-      ('Georgia', ['Georgia.ttf', 'Georgia Bold.ttf']),
-      ('Courier New', ['Courier New.ttf', 'Courier New Bold.ttf']),
-    ]) {
-      final loader = FontLoader(family);
-      for (final file in files) {
-        final font = File('/System/Library/Fonts/Supplemental/$file');
-        if (font.existsSync()) loader.addFont(Future.value(ByteData.sublistView(font.readAsBytesSync())));
-      }
-      await loader.load();
-    }
+    await loadDeckFonts();
     // A player well into their career, with the good decks equipped
     final profile = PlayerProfile.instance..reset();
     profile.grant(xp: 250000, crumbs: 999999, glaze: 99999);
@@ -149,7 +140,154 @@ void main() {
       await pumpFor(tester, const Duration(seconds: 3));
     });
   });
+
+  testWidgets('screenshot_7_grand_boss', skip: outDir == null, (tester) async {
+    final controller = CampaignGameController(stage: stageById('grand.boss')!, difficulty: Difficulty.brutal);
+    await _capture(tester, 'screenshot_7_grand_boss', shot, GameScreen(controller: controller), setUp: () async {
+      await _playUntil(tester, controller, (game) => game.table.cards.value.length >= 3 && controller.canPlayNow);
+      // Deep into the match: the boss nearly out, you close behind
+      final game = controller.game;
+      final local = controller.localPlayer;
+      local
+        ..score.value = 6
+        ..donuts.value = 1;
+      final rivals = game.players.where((player) => player != local).toList();
+      for (final (i, (score, donuts)) in [(4, 0), (9, 1), (13, 2), (11, 1)].indexed) {
+        if (i < rivals.length) {
+          rivals[i]
+            ..score.value = score
+            ..donuts.value = donuts;
+        }
+      }
+      game.handNumber = 8;
+      // The boss gets the last word, unless she sat this hand out
+      final boss = rivals.first;
+      game.say(boss.skip ? game.table.cards.value.first.belongsTo!.name : boss.name,
+          boss.skip ? 'Filled to the brim.' : 'Layer upon layer, darling.');
+      await pumpFor(tester, const Duration(milliseconds: 500));
+    });
+  });
+
+  testWidgets('screenshot_8_doodles', skip: outDir == null, (tester) async {
+    final controller = CampaignGameController(stage: stageById('diner.1')!, difficulty: Difficulty.standard);
+    await _capture(tester, 'screenshot_8_doodles', shot, GameScreen(controller: controller), setUp: () async {
+      await _playUntil(tester, controller, (game) => game.table.cards.value.length >= 2 && controller.canPlayNow);
+      _doodle(controller);
+      controller.game.say('Flapjack Flo', 'Who\'s been drawing on my counter?');
+      await pumpFor(tester, const Duration(milliseconds: 500));
+    });
+  });
+
+  testWidgets('screenshot_9_sudden_death', skip: outDir == null, (tester) async {
+    final controller = CampaignGameController(stage: stageById('orbital.boss')!, difficulty: Difficulty.standard);
+    await _capture(tester, 'screenshot_9_sudden_death', shot, GameScreen(controller: controller), setUp: () async {
+      // You and the Commander both hit zero last hand: only you two play on
+      final game = controller.game;
+      final local = controller.localPlayer;
+      final rivals = game.players.where((player) => player != local).toList();
+      final commander = rivals.first;
+      local.score.value = 0;
+      commander.score.value = 0;
+      for (final (i, score) in [3, 7].indexed) {
+        if (i + 1 < rivals.length) rivals[i + 1].score.value = score;
+      }
+      game
+        ..handNumber = 11
+        ..matchStarted = DateTime.now().subtract(const Duration(minutes: 18))
+        ..suddenDeath.addAll([local, commander]);
+      await _playUntil(tester, controller, (game) => game.table.cards.value.isNotEmpty && controller.canPlayNow);
+      // Let the swap banner give way to the turn prompt
+      await pumpFor(tester, const Duration(seconds: 3));
+      game.say(commander.name, 'You\'re a long way from the bakery, cadet.');
+      await pumpFor(tester, const Duration(milliseconds: 500));
+    });
+  });
 }
+
+/// Covers the felt in table-marker art: a smiley, noughts and crosses, an
+/// arrow at the trick, a donut stamp and a couple of bullet holes.
+void _doodle(GameController controller) {
+  var n = 0;
+  void line(Color color, List<Offset> points, {double width = markerWidth}) =>
+      controller.draw('doodle-${n++}', color: color, width: width, erase: false, points: points);
+  // Points are fractions of the felt, which is about three times wider than tall
+  const aspect = 3.0;
+  List<Offset> arc(Offset centre, double r, double from, double to, {int steps = 40}) => [
+        for (var i = 0; i <= steps; i++)
+          Offset(
+            centre.dx + cos(from + (to - from) * i / steps) * r,
+            centre.dy + sin(from + (to - from) * i / steps) * r * aspect,
+          ),
+      ];
+
+  const yellow = Color(0xFFFDD835), white = Color(0xFFFAFAFA), red = Color(0xFFE53935);
+  const blue = Color(0xFF1E88E5), pink = Color(0xFFF06292), green = Color(0xFF43A047);
+
+  // A smiley, upper left
+  const face = Offset(0.2, 0.36);
+  line(yellow, arc(face, 0.055, 0, 2 * pi));
+  line(yellow, arc(face + const Offset(-0.02, -0.06), 0.004, 0, 2 * pi, steps: 12), width: 0.008);
+  line(yellow, arc(face + const Offset(0.02, -0.06), 0.004, 0, 2 * pi, steps: 12), width: 0.008);
+  line(yellow, arc(face + const Offset(0, 0.01), 0.032, 0.15 * pi, 0.85 * pi));
+
+  // Noughts and crosses, upper right
+  const left = 0.74, top = 0.14, cell = 0.04, cellH = cell * aspect;
+  for (var i = 1; i <= 2; i++) {
+    line(white, [Offset(left + cell * i, top), Offset(left + cell * i, top + cellH * 3)]);
+    line(white, [Offset(left, top + cellH * i), Offset(left + cell * 3, top + cellH * i)]);
+  }
+  Offset centreOf(int col, int row) => Offset(left + cell * (col + 0.5), top + cellH * (row + 0.5));
+  void cross(int col, int row) {
+    final c = centreOf(col, row);
+    const d = cell * 0.28;
+    line(red, [c + const Offset(-d, -d * aspect), c + const Offset(d, d * aspect)]);
+    line(red, [c + const Offset(d, -d * aspect), c + const Offset(-d, d * aspect)]);
+  }
+  void nought(int col, int row) => line(blue, arc(centreOf(col, row), cell * 0.3, 0, 2 * pi));
+  cross(0, 0);
+  nought(1, 1);
+  cross(2, 0);
+  nought(1, 0);
+  cross(0, 2);
+
+  // An arrow at the trick
+  line(green, [for (var i = 0; i <= 30; i++) Offset(0.29 + 0.09 * i / 30, 0.66 - 0.16 * sin(pi * i / 60))]);
+  line(green, [const Offset(0.355, 0.47), const Offset(0.38, 0.5), const Offset(0.353, 0.55)]);
+
+  // A donut stamp, as the stamp tool draws it
+  line(pink, arc(const Offset(0.19, 0.76), 0.045, 0, 2 * pi), width: 0.045 * 0.9);
+
+  // Someone found the revolver
+  controller.game
+    ..shootTable('Flapjack Flo', 0.64, 0.24, seed: 7)
+    ..shootTable('Flapjack Flo', 0.67, 0.33, seed: 19);
+}
+
+/// The serif and typewriter decks' fonts, and an emoji font for the donut
+/// counts, from this Mac or this PC.
+Future<void> loadDeckFonts() async {
+  for (final (family, files) in [
+    ('Georgia', ['/System/Library/Fonts/Supplemental/Georgia.ttf', '/System/Library/Fonts/Supplemental/Georgia Bold.ttf', 'C:/Windows/Fonts/georgia.ttf', 'C:/Windows/Fonts/georgiab.ttf']),
+    ('Courier New', ['/System/Library/Fonts/Supplemental/Courier New.ttf', '/System/Library/Fonts/Supplemental/Courier New Bold.ttf', 'C:/Windows/Fonts/cour.ttf', 'C:/Windows/Fonts/courbd.ttf']),
+    (_emojiFont, ['/System/Library/Fonts/Apple Color Emoji.ttc', 'C:/Windows/Fonts/seguiemj.ttf']),
+  ]) {
+    final loader = FontLoader(family);
+    for (final file in files) {
+      final font = File(file);
+      if (font.existsSync()) loader.addFont(Future.value(ByteData.sublistView(font.readAsBytesSync())));
+    }
+    await loader.load();
+  }
+}
+
+const _emojiFont = 'Emoji';
+
+/// [theme] with the emoji font to fall back on; tests have no system fonts to
+/// find one in.
+ThemeData withEmoji(ThemeData theme) => theme.copyWith(
+      textTheme: theme.textTheme.apply(fontFamilyFallback: const [_emojiFont]),
+      primaryTextTheme: theme.primaryTextTheme.apply(fontFamilyFallback: const [_emojiFont]),
+    );
 
 /// Plays the local player's moves (keeping their hand, leading their first
 /// legal card) until [ready] says the table looks right.
@@ -182,7 +320,7 @@ Future<void> _capture(WidgetTester tester, String name, Size size, Widget child,
   final key = GlobalKey();
   await tester.pumpWidget(MaterialApp(
     debugShowCheckedModeBanner: false,
-    theme: buildTheme(_theme),
+    theme: withEmoji(buildTheme(_theme)),
     builder: (context, page) => RepaintBoundary(key: key, child: page),
     home: child is KeyArt ? Material(type: MaterialType.transparency, child: child) : child,
   ));

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/res/game_text.dart';
+import 'package:donut_game/res/art_replacement.dart';
 import 'package:donut_game/audit/ai_audit_overlay.dart';
 import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/steam/cloud_save.dart';
@@ -68,6 +69,8 @@ Future<void> main() async {
   CloudSave.start();
   // The game's text: what's been written over the AI originals
   await GameText.load();
+  // Hand-made art drawn in place of the code-drawn art, where there is some
+  await ArtReplacement.load();
   GameText.watchSource();
   await Settings.instance.load();
   await AiAudit.instance.load();

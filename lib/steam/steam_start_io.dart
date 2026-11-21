@@ -125,10 +125,22 @@ class Steamworks extends SteamService {
     calloc.free(buffer);
   }
 
+  bool _askedForCloud = false;
+
+  /// Whether the player has Steam Cloud on. Donut's Cloud settings hide the
+  /// per-game toggle in the Steam client (hidecloudui), so once that toggle
+  /// is off nobody can turn it back on there, and Steam keeps the save on
+  /// this computer without syncing it. The game turns the toggle on itself.
   @override
   bool get cloudEnabled {
     final storage = ISteamRemoteStorage.userInstance;
-    return storage.isCloudEnabledForAccount() && storage.isCloudEnabledForApp();
+    if (!storage.isCloudEnabledForAccount()) return false;
+    if (!_askedForCloud && !storage.isCloudEnabledForApp()) {
+      _askedForCloud = true;
+      storage.setCloudEnabledForApp(true);
+      note('Turned Steam Cloud on for Donut');
+    }
+    return true;
   }
 
   @override

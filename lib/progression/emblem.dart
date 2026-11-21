@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:donut_copy/donut_copy.dart';
+import 'package:donut_game/res/art_replacement.dart';
 import 'package:donut_game/audit/ai_audit.dart';
 import 'package:flutter/material.dart';
 
@@ -188,13 +189,21 @@ class EmblemWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final art = ArtReplacement.find('emblems/${emblem.shape.name}');
     return SizedBox.square(
       dimension: size,
       child: CustomPaint(
-        painter: EmblemPainter(emblem, shadow: shadow),
-        child: Center(
-          child: Icon(emblemIcons[emblem.icon] ?? Icons.donut_large_rounded,
-              size: size * 0.5, color: emblem.foreground),
+        // A replacement is drawn as it is, without the player's colours
+        painter: art == null ? EmblemPainter(emblem, shadow: shadow) : null,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (art != null) ReplacedArt(art, fit: BoxFit.contain),
+            Center(
+              child: Icon(emblemIcons[emblem.icon] ?? Icons.donut_large_rounded,
+                  size: size * 0.5, color: emblem.foreground),
+            ),
+          ],
         ),
       ),
     );

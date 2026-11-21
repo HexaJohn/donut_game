@@ -39,7 +39,7 @@ class CloudSave {
     final steam = SteamService.instance;
     if (!steam.running) return;
     if (!steam.cloudEnabled) {
-      steam.note('Steam Cloud is off for this game or this account');
+      steam.note('Steam Cloud is off for this account');
       return;
     }
     try {

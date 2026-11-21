@@ -757,6 +757,33 @@ D50 | H3110, W0R1D!
 D51 |
 D52 |
 D53 |
+D54 |
+D70 |
+D71 |
+D73 |
+D74 |
+D75 |
+D76 |
+D77 {n} |
+D78 {suit} {name} |
+D79 {n} {button} {cards} |
+D80 {button} |
+D81 {name} |
+D82 |
+D83 {suit} {card} |
+D84 {suit} {best} |
+D85 {suit} {card} |
+D86 {suit} |
+D87 {score} |
+D88 {name} |
+D89 |
+D90 |
+D91 {n} {total} |
+D92 {points} |
+D93 {name} {points} |
+D94 {points} |
+D95 |
+D96 |
 
 # No longer used by the game (kept so nothing you wrote is lost)
 S174 | Spins

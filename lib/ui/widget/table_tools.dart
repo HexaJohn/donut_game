@@ -1,3 +1,4 @@
+import 'package:donut_game/res/art_replacement.dart';
 import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/data/model/ink_stroke.dart';
 import 'package:flutter/material.dart';
@@ -26,7 +27,15 @@ class MarkerPen extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) => CustomPaint(size: markerSize, painter: _MarkerPainter(color));
+  Widget build(BuildContext context) {
+    final index = markerColors.indexOf(color);
+    if (index >= 0) {
+      if (ArtReplacement.find('table_tools/marker_${index + 1}') case final art?) {
+        return SizedBox.fromSize(size: markerSize, child: ReplacedArt(art, fit: BoxFit.contain));
+      }
+    }
+    return CustomPaint(size: markerSize, painter: _MarkerPainter(color));
+  }
 }
 
 class _MarkerPainter extends CustomPainter with AiArt {
@@ -85,6 +94,9 @@ class EraserBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (ArtReplacement.find('table_tools/eraser') case final art?) {
+      return SizedBox.fromSize(size: eraserSize, child: ReplacedArt(art, fit: BoxFit.contain));
+    }
     return Container(
       width: eraserSize.width,
       height: eraserSize.height,
@@ -171,7 +183,12 @@ class FlashbangGrenade extends StatelessWidget {
   final bool lit;
 
   @override
-  Widget build(BuildContext context) => CustomPaint(size: flashbangSize, painter: _GrenadePainter(lit));
+  Widget build(BuildContext context) {
+    if (ArtReplacement.find(lit ? 'table_tools/flashbang_lit' : 'table_tools/flashbang') case final art?) {
+      return SizedBox.fromSize(size: flashbangSize, child: ReplacedArt(art, fit: BoxFit.contain));
+    }
+    return CustomPaint(size: flashbangSize, painter: _GrenadePainter(lit));
+  }
 }
 
 class _GrenadePainter extends CustomPainter with AiArt {

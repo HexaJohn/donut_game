@@ -2,3 +2,4 @@ sdk/
 content/
 output/
 app_build.vdf
+app_build_windows.vdf

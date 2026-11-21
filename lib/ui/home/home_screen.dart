@@ -21,6 +21,8 @@ import 'package:donut_game/ui/widget/donut_logo.dart';
 import 'package:donut_game/ui/widget/suit_icon.dart';
 import 'package:donut_game/ui/widget/title_bar.dart';
 import 'package:flutter/foundation.dart';
+import 'package:donut_game/ui/widget/tutorial.dart';
+import 'package:donut_game/progression/profile.dart';
 import 'package:flutter/material.dart';
 import 'package:donut_game/net/game_center_lobby.dart';
 
@@ -56,6 +58,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     super.initState();
     MusicPlayer.instance.playMenu();
     SoundEffects.instance.preload();
+    // First time here: show how the game works
+    if (PlayerProfile.instance.needsTutorial) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) offerTutorial(context);
+      });
+    }
   }
 
   @override
@@ -263,7 +271,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ActionChip(
               avatar: const Icon(Icons.menu_book_rounded, size: 18),
               label: Text(appHowToPlay()),
-              onPressed: () => showRulesDialog(context),
+              onPressed: () => startTutorial(context),
             ),
             ActionChip(
               avatar: const Icon(Icons.palette_outlined, size: 18),
@@ -546,9 +554,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
       child: Row(
         children: [
-          // Long-press for the Steam status, when checking a Steam build
+          // Long-press for the developer panel (Steam status, AI audit);
+          // left out of release builds, which players get
           GestureDetector(
-            onLongPress: () => showSteamDebug(context),
+            onLongPress: kReleaseMode ? null : () => showSteamDebug(context),
             child: Text(appVersionLabel.of('version', appVersion),
                 style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.4))),
           ),

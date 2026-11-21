@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_game/res/art_replacement.dart';
 import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/progression/ranks.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +20,12 @@ class RankInsignia extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tint = color ?? Theme.of(context).colorScheme.primary;
+    // Drawn in one colour like the painted badge: the file's shape, in the tint
+    final number = rank.index.toString().padLeft(2, '0');
+    if (ArtReplacement.findStartingWith('ranks/${number}_') ?? ArtReplacement.find('ranks/$number') case final art?) {
+      return SizedBox.square(
+          dimension: size, child: ReplacedArt(art, fit: BoxFit.contain, tint: tint, opacity: dim ? 0.35 : 1));
+    }
     return SizedBox.square(
       dimension: size,
       child: CustomPaint(painter: _InsigniaPainter(rank, dim ? tint.withValues(alpha: 0.35) : tint)),

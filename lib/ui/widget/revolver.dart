@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_game/res/art_replacement.dart';
 import 'package:donut_game/audit/ai_audit.dart';
 import 'package:flutter/material.dart';
 
@@ -19,6 +20,9 @@ class Revolver extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (ArtReplacement.find(flash ? 'table_tools/revolver_firing' : 'table_tools/revolver') case final art?) {
+      return SizedBox.fromSize(size: revolverSize, child: ReplacedArt(art, fit: BoxFit.contain));
+    }
     return CustomPaint(size: revolverSize, painter: _RevolverPainter(flash));
   }
 }
@@ -149,6 +153,10 @@ class BulletHoleMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Four drawn holes, picked by the seed as the painted ones vary by it
+    if (ArtReplacement.find('table_tools/bullet_hole_${(seed.abs() - 1) % 4 + 1}') case final art?) {
+      return SizedBox.square(dimension: size, child: ReplacedArt(art, fit: BoxFit.contain));
+    }
     return CustomPaint(size: Size.square(size), painter: _HolePainter(seed, surface));
   }
 }

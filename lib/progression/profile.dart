@@ -72,6 +72,23 @@ class PlayerProfile extends ChangeNotifier {
   /// Calendar day of the last first-win bonus, as yyyy-mm-dd.
   String? _lastDailyWin;
 
+  bool _tutorialSeen = false;
+
+  /// Whether the saved career has been looked for, and whether one was
+  /// found (here or in Steam Cloud).
+  bool _loaded = false;
+  bool _hadSave = false;
+
+  /// A first-time player: nothing saved, and the tutorial not seen yet.
+  bool get needsTutorial => _loaded && !_hadSave && !_tutorialSeen;
+
+  /// Remembers the tutorial was shown, so it opens only once.
+  void markTutorialSeen() {
+    if (_tutorialSeen) return;
+    _tutorialSeen = true;
+    _save();
+  }
+
   int get xp => _xp;
   int get crumbs => _crumbs;
   int get glaze => _glaze;
@@ -115,6 +132,8 @@ class PlayerProfile extends ChangeNotifier {
       return;
     }
     final raw = _prefs!.getString(_key);
+    _loaded = true;
+    _hadSave = raw != null;
     if (raw != null) {
       try {
         _apply(jsonDecode(raw));
@@ -154,6 +173,7 @@ class PlayerProfile extends ChangeNotifier {
         Difficulty.values.where((d) => d.name == json['campaignDifficulty']).firstOrNull ?? Difficulty.standard;
     stats = CareerStats.fromJson(json['stats']);
     _lastDailyWin = json['lastDailyWin'];
+    _tutorialSeen = json['tutorialSeen'] ?? false;
   }
 
   Map<String, dynamic> toJson() => {
@@ -169,6 +189,7 @@ class PlayerProfile extends ChangeNotifier {
         'campaignDifficulty': _campaignDifficulty.name,
         'stats': stats.toJson(),
         'lastDailyWin': _lastDailyWin,
+        'tutorialSeen': _tutorialSeen,
       };
 
   /// Replaces everything from a saved blob. For tests and imports.

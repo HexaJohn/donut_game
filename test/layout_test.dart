@@ -13,6 +13,8 @@ import 'package:donut_game/ui/game/game_controller.dart';
 import 'package:donut_game/ui/game/game_screen.dart';
 import 'package:donut_game/ui/home/home_screen.dart';
 import 'package:donut_game/ui/widget/dialogs.dart';
+import 'package:donut_game/tutorial/tutorial_controller.dart';
+import 'package:donut_game/ui/widget/tutorial.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -50,7 +52,7 @@ Future<void> loadRealFonts() async {
 
 /// The Flutter SDK running this test, from the Dart executable's path.
 String _flutterRoot() {
-  final dart = Platform.resolvedExecutable;
+  final dart = Platform.resolvedExecutable.replaceAll(r'\', '/');
   final i = dart.indexOf('/bin/cache/');
   return i < 0 ? '' : dart.substring(0, i);
 }
@@ -96,6 +98,7 @@ final screens = <Screen>[
   Screen('dialog_theme', () => _DialogHost(showThemePicker)),
   Screen('dialog_sound', () => _DialogHost(showSoundSettings)),
   Screen('dialog_rules', () => _DialogHost(showRulesDialog)),
+  Screen('dialog_tutorial', () => _DialogHost(offerTutorial)),
   Screen('home', () => const HomeScreen()),
   Screen('home_bots', () => const HomeScreen(), setUp: (tester) async {
     // Down to the opponents, difficulty and starting points
@@ -131,6 +134,15 @@ final screens = <Screen>[
     setUp: (tester) async {
       await tester.tap(find.text('Deal'));
       await pumpFor(tester, const Duration(seconds: 10));
+    },
+  ),
+  // The tutorial at your swap, with the coaching under the table
+  Screen(
+    'game_tutorial',
+    () => GameScreen(controller: TutorialController()),
+    setUp: (tester) async {
+      await tester.tap(find.text('Deal'));
+      await pumpFor(tester, const Duration(seconds: 8));
     },
   ),
   Screen(

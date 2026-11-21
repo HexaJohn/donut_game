@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:donut_copy/donut_copy.dart';
+import 'package:donut_game/res/art_replacement.dart';
 import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/data/model/game_card/game_card.dart';
 import 'package:donut_game/progression/card_faces.dart';
@@ -94,7 +95,37 @@ class CardFace extends StatelessWidget {
   final String style;
 
   @override
-  Widget build(BuildContext context) => AiMarked(name: 'card face ($style)', child: _face(context));
+  Widget build(BuildContext context) {
+    final art = ArtReplacement.find('card_faces/${artSlug(style)}/${card.suit.name}_${card.value.name}');
+    if (art == null) return AiMarked(name: 'card face ($style)', child: _face(context));
+    final colors = DonutColors.of(context);
+    return Container(
+      decoration: _cardDecoration(colors, colors.cardFace),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ReplacedArt(art, fit: BoxFit.fill),
+          if (trump) _trumpMarker(colors),
+        ],
+      ),
+    );
+  }
+
+  /// A small star in the corner of a trump card.
+  Widget _trumpMarker(DonutColors colors) => Positioned(
+        right: 5,
+        top: 5,
+        child: Tooltip(
+          message: tableTrump(),
+          child: Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(color: colors.accent, shape: BoxShape.circle),
+            child: Icon(Icons.star_rounded, size: 13, color: colors.cardFace),
+          ),
+        ),
+      );
 
   Widget _face(BuildContext context) {
     final colors = DonutColors.of(context);
@@ -156,7 +187,13 @@ class CardFace extends StatelessWidget {
       decoration: _cardDecoration(colors, paper),
       child: Stack(
         children: [
-          if (look.sprinkles) const Positioned.fill(child: CustomPaint(painter: SprinkleEdgePainter())),
+          if (look.sprinkles)
+            Positioned.fill(
+              child: switch (ArtReplacement.find('card_faces/sprinkle_edge')) {
+                final art? => ReplacedArt(art, fit: BoxFit.fill),
+                null => const CustomPaint(painter: SprinkleEdgePainter()),
+              },
+            ),
           if (look.trim != null)
             Positioned.fill(
               child: Container(
@@ -183,20 +220,7 @@ class CardFace extends StatelessWidget {
           Center(child: centre),
           Positioned(left: 6, top: 6, child: corner()),
           Positioned(right: 6, bottom: 6, child: Transform.rotate(angle: pi, child: corner())),
-          if (trump)
-            Positioned(
-              right: 5,
-              top: 5,
-              child: Tooltip(
-                message: tableTrump(),
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(color: colors.accent, shape: BoxShape.circle),
-                  child: Icon(Icons.star_rounded, size: 13, color: colors.cardFace),
-                ),
-              ),
-            ),
+          if (trump) _trumpMarker(colors),
         ],
       ),
     );
@@ -214,12 +238,20 @@ class CardBack extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = DonutColors.of(context);
+    final id = pattern ?? PlayerProfile.instance.cardPattern;
+    if (ArtReplacement.find('card_backs/${artSlug(id)}') case final art?) {
+      return Container(
+        decoration: _cardDecoration(colors, colors.cardBack),
+        clipBehavior: Clip.antiAlias,
+        child: ReplacedArt(art, fit: BoxFit.fill),
+      );
+    }
     return Container(
       decoration: _cardDecoration(colors, colors.cardBack),
       padding: const EdgeInsets.all(6),
       child: CustomPaint(
         painter: CardBackPainter(
-          id: pattern ?? PlayerProfile.instance.cardPattern,
+          id: id,
           pattern: colors.cardBackPattern,
           back: colors.cardBack,
         ),

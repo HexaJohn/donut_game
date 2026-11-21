@@ -17,7 +17,16 @@ class GameText {
   /// The file on disk to watch while developing, if set.
   static const _source = String.fromEnvironment('DONUT_TEXT_FILE');
 
+  /// Ships every line's AI-written original and ignores the text file, for
+  /// builds that go out before the file is finished:
+  /// --dart-define=AI_TEXT=true.
+  static const aiText = bool.fromEnvironment('AI_TEXT');
+
   static Future<void> load() async {
+    if (aiText) {
+      Copy.written = {};
+      return;
+    }
     try {
       // Hot reload brings the new file into the app, but the bundle keeps
       // the old one cached

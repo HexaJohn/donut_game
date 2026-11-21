@@ -90,6 +90,9 @@ flutter:
     - assets/logos/
     - assets/sounds/
     - assets/music/
+    # Hand-made art drawn in place of the code-drawn art (lib/res/art_replacement.dart);
+    # one line per folder, as subfolders aren't included
+    - art_replacement/tables/
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see

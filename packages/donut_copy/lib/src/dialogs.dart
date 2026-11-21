@@ -69,6 +69,45 @@ const dialogsTrackMenu = Line('D51', 'Menu theme');
 const dialogsTrackOscuridad = Line('D52', 'Oscuridad');
 const dialogsTrackSombra = Line('D53', 'Sombra');
 
+// Tutorial: a practice hand with every card face up. D55-D69 and D72 were
+// a slideshow, retired; don't reuse them.
+const dialogsTutorialWelcome = Line('D54', 'Welcome to Donut');
+const dialogsTutorialSkip = Line('D70', 'Skip');
+const dialogsTutorialFullRules = Line('D71', 'Full rules');
+const dialogsTutorialInvite =
+    Line('D73', 'New here? Play a practice hand against two bots, with every card face up and tips as you go.');
+const dialogsTutorialStart = Line('D74', 'Play the tutorial');
+const dialogsTutorialLabel = Line('D75', 'Tutorial');
+const dialogsCoachDeal = Line('D76', 'A practice hand: every card is face up, so you can see what everyone holds. Press Deal.');
+const dialogsCoachDealing =
+    Line('D77', 'Everyone gets {n} cards. The last card dealt is turned up, and its suit is trump.');
+const dialogsCoachBotSwap = Line('D78',
+    'Trump is {suit} this hand: a {suit} card beats any card of another suit. {name} is swapping weak cards for new ones.');
+const dialogsCoachSwap = Line('D79',
+    'Your move. Tap up to {n} weak cards to swap them for new ones, then press {button}. Try {cards}: low, and not trump.');
+const dialogsCoachKeep = Line('D80', 'Your move. Your hand is strong: press {button} to keep it.');
+const dialogsCoachBotPlays = Line('D81', '{name} plays. Each trick, everyone plays one card, in turn round the table.');
+const dialogsCoachLead = Line('D82', 'You lead: play any card. Everyone else has to follow its suit if they can.');
+const dialogsCoachFollowWin = Line('D83',
+    '{suit} were led and you have some, so you must play one. Your {card} beats everything played so far.');
+const dialogsCoachFollowLose = Line('D84',
+    "{suit} were led and you have some, so you must play one. You can't beat the {best}: play your lowest.");
+const dialogsCoachTrump =
+    Line('D85', "No {suit}? Then you can play anything, and a trump beats it. Try your {card}.");
+const dialogsCoachDiscard = Line('D86', 'No {suit}, and nothing that wins: throw away your lowest card.');
+const dialogsCoachYouTook = Line('D87', "You took the trick! One point off your score: you're on {score}.");
+const dialogsCoachBotTook = Line('D88', '{name} took the trick, and a point off their score.');
+const dialogsCoachFolded = Line('D89', "You folded: you sit this hand out, so you take no tricks but can't get a donut.");
+const dialogsTutorialDone = Line('D90', 'Tutorial complete');
+const dialogsTutorialTricks = Line('D91', 'You took {n} of the {total} tricks: {n} points off your score.');
+const dialogsTutorialDonut =
+    Line('D92', "You took no tricks, so that's a donut: +{points} points. Take at least one trick to avoid it.");
+const dialogsTutorialBotDonut = Line('D93', '{name} took no tricks and got a donut: +{points} points.');
+const dialogsTutorialNextUp =
+    Line('D94', 'A real match goes on hand after hand, from {points} points, until someone gets to 0.');
+const dialogsTutorialPlayBots = Line('D95', 'Play vs bots');
+const dialogsTutorialMenu = Line('D96', 'Main menu');
+
 const List<Line> dialogsLines = [
   dialogsHowToPlay,
   dialogsRulesGoal,
@@ -123,4 +162,31 @@ const List<Line> dialogsLines = [
   dialogsTrackMenu,
   dialogsTrackOscuridad,
   dialogsTrackSombra,
+  dialogsTutorialWelcome,
+  dialogsTutorialSkip,
+  dialogsTutorialFullRules,
+  dialogsTutorialInvite,
+  dialogsTutorialStart,
+  dialogsTutorialLabel,
+  dialogsCoachDeal,
+  dialogsCoachDealing,
+  dialogsCoachBotSwap,
+  dialogsCoachSwap,
+  dialogsCoachKeep,
+  dialogsCoachBotPlays,
+  dialogsCoachLead,
+  dialogsCoachFollowWin,
+  dialogsCoachFollowLose,
+  dialogsCoachTrump,
+  dialogsCoachDiscard,
+  dialogsCoachYouTook,
+  dialogsCoachBotTook,
+  dialogsCoachFolded,
+  dialogsTutorialDone,
+  dialogsTutorialTricks,
+  dialogsTutorialDonut,
+  dialogsTutorialBotDonut,
+  dialogsTutorialNextUp,
+  dialogsTutorialPlayBots,
+  dialogsTutorialMenu,
 ];

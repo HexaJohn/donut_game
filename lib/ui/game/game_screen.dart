@@ -29,6 +29,8 @@ import 'package:donut_game/ui/widget/game_clock.dart';
 import 'package:donut_game/ui/widget/playing_card.dart';
 import 'package:donut_game/ui/widget/suit_icon.dart';
 import 'package:donut_game/ui/widget/title_bar.dart';
+import 'package:donut_game/tutorial/tutorial_controller.dart';
+import 'package:donut_game/ui/widget/tutorial.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -512,6 +514,16 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                           ),
                         ),
                       ),
+                      if (controller case final TutorialController tutorial)
+                        Positioned.fill(
+                          child: ValueListenableBuilder(
+                            valueListenable: tutorial.done,
+                            builder: (context, bool done, _) => AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 400),
+                              child: done ? TutorialDonePanel(controller: tutorial) : const SizedBox.shrink(),
+                            ),
+                          ),
+                        ),
                     ],
                   );
                 },
@@ -530,6 +542,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               ),
             ),
           ),
+          if (controller case final TutorialController tutorial) TutorialCoachBar(controller: tutorial),
           ListenableBuilder(
             listenable: _revision,
             builder: (context, _) => ActionBar(

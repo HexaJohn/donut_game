@@ -116,6 +116,11 @@ class SoundEffects {
   SoundEffects._();
   static final SoundEffects instance = SoundEffects._();
 
+  /// Told about every sound asked for, even with no audio (under tests), so a
+  /// recorded trailer can lay the sounds back in.
+  @visibleForTesting
+  static void Function(Sfx sfx, double volume)? debugOnPlay;
+
   final Map<_Clip, List<AudioPlayer>> _voices = {};
   final Map<_Clip, int> _next = {};
   final Map<Sfx, int> _last = {};
@@ -174,6 +179,7 @@ class SoundEffects {
   ///
   /// Everything is muffled by a flashbang ([audioDuck]) unless [ignoreDuck].
   void play(Sfx sfx, {double volume = 1, bool ignoreDuck = false}) {
+    debugOnPlay?.call(sfx, volume);
     if (!audioAvailable) return;
     final level = Settings.instance.effectiveSfxVolume * volume * (ignoreDuck ? 1 : audioDuck.value);
     if (level <= 0) return;

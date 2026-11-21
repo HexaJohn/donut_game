@@ -32,3 +32,9 @@ __pycache__/
 
 # macOS Finder files
 .DS_Store
+
+# Code-drawn art rendered by test/art_export_test.dart
+/art_export/
+
+# Kotlin compiler cache from Android builds
+android/.kotlin/

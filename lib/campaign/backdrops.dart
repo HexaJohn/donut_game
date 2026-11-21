@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:donut_game/audit/ai_audit.dart';
+import 'package:donut_game/res/art_replacement.dart';
 import 'package:donut_game/ui/widget/rasterized_paint.dart';
 import 'package:flutter/material.dart';
 
@@ -14,6 +15,8 @@ class Backdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final art = ArtReplacement.find('backdrops/${artSlug(id)}');
+    if (art != null) return ClipRect(child: ReplacedArt(art));
     // Painted to an image once: the scene never changes, but it would
     // otherwise be redrawn shape by shape on every frame of every animation
     return RepaintBoundary(child: ClipRect(child: RasterizedPaint(painter: backdropPainter(id), cacheKey: id)));

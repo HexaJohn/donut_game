@@ -40,6 +40,9 @@ abstract class GameController {
   /// Table environment for this game; null uses the one the player equipped.
   String? get environment => null;
 
+  /// Every player's hand shown face up, as in the tutorial.
+  bool get revealHands => false;
+
   bool get isLocalTurn => localPlayer != null && game.players.isNotEmpty && game.activePlayerLazy == localPlayer;
 
   bool get canFold => localPlayer != null && game.canFold(localPlayer!);

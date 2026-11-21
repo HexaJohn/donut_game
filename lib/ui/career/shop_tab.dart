@@ -1,4 +1,5 @@
 import 'package:donut_copy/donut_copy.dart';
+import 'package:donut_game/res/art_replacement.dart';
 import 'package:donut_game/analytics/usage.dart';
 import 'package:donut_game/ui/widget/playing_card.dart';
 import 'package:donut_game/res/resources.dart';
@@ -229,19 +230,23 @@ class ItemPreview extends StatelessWidget {
     final colors = DonutColors.of(context);
     switch (item.kind) {
       case ItemKind.cardPattern:
+        final art = ArtReplacement.find('card_backs/${artSlug(item.id)}');
         return Container(
           width: 60 * scale,
           height: 84 * scale,
+          clipBehavior: art == null ? Clip.none : Clip.antiAlias,
           decoration: BoxDecoration(
             color: colors.cardBack,
             borderRadius: BorderRadius.circular(6 * scale),
             border: Border.all(color: colors.cardEdge),
             boxShadow: const [BoxShadow(color: Color(0x38000000), offset: Offset(0, 2))],
           ),
-          padding: EdgeInsets.all(4 * scale),
-          child: CustomPaint(
-            painter: CardBackPainter(id: item.id, pattern: colors.cardBackPattern, back: colors.cardBack),
-          ),
+          padding: art == null ? EdgeInsets.all(4 * scale) : null,
+          child: art != null
+              ? ReplacedArt(art, fit: BoxFit.fill)
+              : CustomPaint(
+                  painter: CardBackPainter(id: item.id, pattern: colors.cardBackPattern, back: colors.cardBack),
+                ),
         );
       case ItemKind.cardFace:
         // A court card and a pip card, fanned, to show off both layouts
@@ -305,7 +310,10 @@ class EnvironmentSwatch extends StatelessWidget {
               gradient: RadialGradient(colors: [Color.lerp(felt, Colors.white, 0.06)!, felt], radius: 1.2),
             ),
           ),
-          if (env.texture != null) CustomPaint(painter: env.texture!(felt)),
+          if (ArtReplacement.find('tables/${artSlug(env.id)}') case final art?)
+            ReplacedArt(art)
+          else if (env.texture != null)
+            CustomPaint(painter: env.texture!(felt)),
         ],
       ),
     );

@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:donut_game/res/art_replacement.dart';
 import 'package:donut_game/audit/ai_audit.dart';
 import 'package:flutter/material.dart';
 
@@ -13,9 +14,11 @@ class DonutLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final art = ArtReplacement.find('logo/donut');
     return SizedBox.square(
       dimension: size,
-      child: CustomPaint(painter: _DonutPainter(frosting, shadow)),
+      // A replacement is drawn as it is, whatever the frosting colour
+      child: art != null ? ReplacedArt(art, fit: BoxFit.contain) : CustomPaint(painter: _DonutPainter(frosting, shadow)),
     );
   }
 }

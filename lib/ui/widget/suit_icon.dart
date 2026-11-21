@@ -1,3 +1,4 @@
+import 'package:donut_game/res/art_replacement.dart';
 import 'package:donut_game/audit/ai_audit.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,10 @@ class SuitIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Drawn in one colour like the painted pip: the file's shape, in [color]
+    if (ArtReplacement.find('suits/${suit.name}') case final art?) {
+      return SizedBox.square(dimension: size, child: ReplacedArt(art, fit: BoxFit.contain, tint: color));
+    }
     return CustomPaint(size: Size.square(size), painter: _SuitPainter(suit, color));
   }
 }
