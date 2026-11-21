@@ -5,7 +5,7 @@ import 'package:donut_game/progression/catalog.dart';
 import 'package:donut_game/progression/emblem.dart';
 import 'package:donut_game/progression/ranks.dart';
 import 'package:donut_game/progression/rewards.dart';
-import 'package:donut_game/progression/slot_machine.dart';
+import 'package:donut_game/progression/bonus_cards.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,8 +16,8 @@ class CareerStats {
   int tricks = 0;
   int donuts = 0;
   int handsPlayed = 0;
-  int jackpots = 0;
-  int slotPulls = 0;
+  int rareCards = 0;
+  int bonusDraws = 0;
 
   Map<String, dynamic> toJson() => {
         'matches': matches,
@@ -25,8 +25,8 @@ class CareerStats {
         'tricks': tricks,
         'donuts': donuts,
         'hands': handsPlayed,
-        'jackpots': jackpots,
-        'slotPulls': slotPulls,
+        'rareCards': rareCards,
+        'bonusDraws': bonusDraws,
       };
 
   static CareerStats fromJson(Map<String, dynamic>? json) {
@@ -38,8 +38,9 @@ class CareerStats {
       ..tricks = json['tricks'] ?? 0
       ..donuts = json['donuts'] ?? 0
       ..handsPlayed = json['hands'] ?? 0
-      ..jackpots = json['jackpots'] ?? 0
-      ..slotPulls = json['slotPulls'] ?? 0;
+      ..rareCards = json['rareCards'] ?? 0
+      // Saves from before the bonus cards counted slot machine pulls
+      ..bonusDraws = json['bonusDraws'] ?? json['slotPulls'] ?? 0;
     return stats;
   }
 }
@@ -213,10 +214,10 @@ class PlayerProfile extends ChangeNotifier {
     return grant(xp: rewards.xp, crumbs: rewards.crumbs, glaze: rewards.glaze);
   }
 
-  List<Rank> recordSlots(SlotResult result) {
-    stats.slotPulls++;
-    if (result.jackpot) stats.jackpots++;
-    return grant(xp: result.xp, crumbs: result.crumbs, glaze: result.glaze);
+  List<Rank> recordBonusCards(BonusDraw draw) {
+    stats.bonusDraws++;
+    stats.rareCards += draw.rareCards;
+    return grant(xp: draw.xp, crumbs: draw.crumbs, glaze: draw.glaze);
   }
 
   /// Whether [item]'s rank requirement is met.

@@ -3,34 +3,34 @@ import 'dart:math';
 import 'package:donut_copy/donut_copy.dart';
 import 'package:donut_game/audio/sfx.dart';
 import 'package:donut_game/progression/catalog.dart';
+import 'package:donut_game/progression/bonus_cards.dart';
 import 'package:donut_game/progression/profile.dart';
 import 'package:donut_game/progression/ranks.dart';
 import 'package:donut_game/progression/rewards.dart';
-import 'package:donut_game/progression/slot_machine.dart';
+import 'package:donut_game/ui/career/bonus_cards_widget.dart';
 import 'package:donut_game/ui/career/currency.dart';
 import 'package:donut_game/ui/career/rank_insignia.dart';
-import 'package:donut_game/ui/career/slot_machine_widget.dart';
 import 'package:flutter/material.dart';
 
 /// Everything one finished match paid, already banked in the profile. The
-/// post-match screen replays it: the bar fills from [xpBefore], the slots
-/// land on [slot].
+/// post-match screen replays it: the bar fills from [xpBefore], the bonus
+/// cards turn over to [bonus].
 class MatchOutcome {
   MatchOutcome._({
     required this.rewards,
-    required this.slot,
+    required this.bonus,
     required this.xpBefore,
     required this.rankUps,
-    required this.slotRankUps,
+    required this.bonusRankUps,
   });
 
   final MatchRewards rewards;
-  final SlotResult slot;
+  final BonusDraw bonus;
   final int xpBefore;
 
-  /// Ranks reached by the match rewards, and then by the bonus spin.
+  /// Ranks reached by the match rewards, and then by the bonus cards.
   final List<Rank> rankUps;
-  final List<Rank> slotRankUps;
+  final List<Rank> bonusRankUps;
 
   int get xpAfter => xpBefore + rewards.xp;
   Rank get rankBefore => rankFor(xpBefore);
@@ -41,18 +41,18 @@ class MatchOutcome {
   int get rankUpCrumbs => rankUps.fold(0, (sum, rank) => sum + rankReward(rank).crumbs);
   int get rankUpGlaze => rankUps.fold(0, (sum, rank) => sum + rankReward(rank).glaze);
 
-  /// Items handed over by any rank reached, the bonus spin included.
+  /// Items handed over by any rank reached, the bonus cards included.
   List<ShopItem> get unlockedItems => [
-        for (final rank in [...rankUps, ...slotRankUps])
+        for (final rank in [...rankUps, ...bonusRankUps])
           if (rankReward(rank).item case final id?) itemById(id)!,
       ];
 
   /// Shop items that went on sale with any rank reached.
   List<ShopItem> get newInShop => [
-        for (final rank in [...rankUps, ...slotRankUps]) ...itemsUnlockedAt(rank).where((item) => !item.rankOnly),
+        for (final rank in [...rankUps, ...bonusRankUps]) ...itemsUnlockedAt(rank).where((item) => !item.rankOnly),
       ];
 
-  /// Banks a finished offline Donut match and rolls the slots.
+  /// Banks a finished offline Donut match and deals the bonus cards.
   /// [extra] lines, such as a campaign stage clear, are paid on top.
   static MatchOutcome awardDonut(PlayerProfile profile, DonutMatchSummary match,
       {Random? random, List<RewardLine> extra = const []}) {
@@ -63,22 +63,22 @@ class MatchOutcome {
   static MatchOutcome _bank(PlayerProfile profile, MatchRewards rewards, Random? random, List<Rank> Function() record) {
     final xpBefore = profile.xp;
     final rankUps = record();
-    final slot = rollSlots(random ?? Random());
-    final slotRankUps = profile.recordSlots(slot);
+    final bonus = drawBonusCards(random ?? Random());
+    final bonusRankUps = profile.recordBonusCards(bonus);
     return MatchOutcome._(
       rewards: rewards,
-      slot: slot,
+      bonus: bonus,
       xpBefore: xpBefore,
       rankUps: rankUps,
-      slotRankUps: slotRankUps,
+      bonusRankUps: bonusRankUps,
     );
   }
 }
 
-enum _Phase { standings, rewards, slots }
+enum _Phase { standings, rewards, bonus }
 
 /// The post-match panel: standings first, then the rewards tally with the
-/// rank bar filling, then the slot machine. With no [outcome] (online games)
+/// rank bar filling, then the bonus cards. With no [outcome] (online games)
 /// it's just the standings and [actions].
 class MatchOverFlow extends StatefulWidget {
   const MatchOverFlow({
@@ -103,7 +103,7 @@ class MatchOverFlow extends StatefulWidget {
 
 class _MatchOverFlowState extends State<MatchOverFlow> {
   _Phase _phase = _Phase.standings;
-  bool _slotsDone = false;
+  bool _bonusDone = false;
 
   @override
   Widget build(BuildContext context) {
@@ -153,27 +153,27 @@ class _MatchOverFlowState extends State<MatchOverFlow> {
                 const SizedBox(height: 20),
                 FilledButton.icon(
                   style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                  onPressed: () => setState(() => _phase = _Phase.slots),
-                  icon: const Icon(Icons.casino_rounded),
-                  label: Text(shopBonusSpin(), style: const TextStyle(fontWeight: FontWeight.w700)),
+                  onPressed: () => setState(() => _phase = _Phase.bonus),
+                  icon: const Icon(Icons.style_rounded),
+                  label: Text(shopBonusCards(), style: const TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
-          _Phase.slots => Column(
-              key: const ValueKey('slots'),
+          _Phase.bonus => Column(
+              key: const ValueKey('bonus'),
               mainAxisSize: MainAxisSize.min,
               children: [
-                SlotMachineWidget(
-                  result: outcome!.slot,
+                BonusCardsWidget(
+                  draw: outcome!.bonus,
                   onDone: () {
-                    if (mounted) setState(() => _slotsDone = true);
+                    if (mounted) setState(() => _bonusDone = true);
                   },
                 ),
                 const SizedBox(height: 8),
                 AnimatedOpacity(
-                  opacity: _slotsDone ? 1 : 0,
+                  opacity: _bonusDone ? 1 : 0,
                   duration: const Duration(milliseconds: 300),
-                  child: IgnorePointer(ignoring: !_slotsDone, child: widget.actions),
+                  child: IgnorePointer(ignoring: !_bonusDone, child: widget.actions),
                 ),
               ],
             ),

@@ -332,7 +332,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           ? stageClearRewards(campaign.stage, campaign.difficulty, profile.bestClear(campaign.stage))
           : const [],
     );
-    final rankUps = _outcome!.rankUps.length + _outcome!.slotRankUps.length;
+    final rankUps = _outcome!.rankUps.length + _outcome!.bonusRankUps.length;
     if (rankUps > 0) Usage.instance.count('rank.up', rankUps);
     if (campaign != null) {
       if (won) {

@@ -21,7 +21,7 @@ extension ItemKindInfo on ItemKind {
 }
 
 /// Crumbs are earned every match; Glaze is rare and comes from rank-ups and
-/// slot jackpots.
+/// rare bonus cards.
 enum Currency { crumbs, glaze }
 
 extension CurrencyInfo on Currency {

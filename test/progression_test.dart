@@ -10,7 +10,7 @@ import 'package:donut_game/progression/gadgets.dart';
 import 'package:donut_game/progression/profile.dart';
 import 'package:donut_game/progression/ranks.dart';
 import 'package:donut_game/progression/rewards.dart';
-import 'package:donut_game/progression/slot_machine.dart';
+import 'package:donut_game/progression/bonus_cards.dart';
 import 'package:donut_game/res/resources.dart';
 import 'package:donut_game/res/theme/donut_theme.dart';
 import 'package:donut_game/ui/career/career_screen.dart';
@@ -82,32 +82,38 @@ void main() {
 
   });
 
-  group('slot machine', () {
-    test('payouts match the table', () {
-      expect(payout([SlotSymbol.donut, SlotSymbol.donut, SlotSymbol.donut]).jackpot, isTrue);
-      expect(payout([SlotSymbol.seven, SlotSymbol.seven, SlotSymbol.seven]).crumbs, 777);
-      expect(payout([SlotSymbol.glaze, SlotSymbol.glaze, SlotSymbol.crumb]).glaze, 1);
-      expect(payout([SlotSymbol.bar, SlotSymbol.bar, SlotSymbol.crumb]).crumbs, 40);
-      expect(payout([SlotSymbol.bar, SlotSymbol.cherry, SlotSymbol.crumb]).crumbs, 10);
-    });
-
-    test('rolls are reproducible and always pay something', () {
-      final a = rollSlots(Random(1));
-      final b = rollSlots(Random(1));
-      expect(a.reels, b.reels);
+  group('bonus cards', () {
+    test('every draw is three cards that pay something', () {
       for (var seed = 0; seed < 200; seed++) {
-        expect(rollSlots(Random(seed)).crumbs, greaterThan(0));
+        final draw = drawBonusCards(Random(seed));
+        expect(draw.cards, hasLength(3));
+        expect(draw.crumbs + draw.xp + draw.glaze, greaterThan(0));
       }
     });
 
-    test('jackpots are rare', () {
-      var jackpots = 0;
+    test('draws are reproducible and add up', () {
+      final a = drawBonusCards(Random(1));
+      final b = drawBonusCards(Random(1));
+      expect(a.cards, b.cards);
+      const draw = BonusDraw([
+        BonusCard(BonusPrize.crumbs, 10),
+        BonusCard(BonusPrize.glaze, 1, rare: true),
+        BonusCard(BonusPrize.crumbs, 5),
+      ]);
+      expect(draw.crumbs, 15);
+      expect(draw.glaze, 1);
+      expect(draw.xp, 0);
+      expect(draw.rareCards, 1);
+    });
+
+    test('rare cards are rare', () {
+      var rare = 0;
       final random = Random(99);
-      for (var i = 0; i < 20000; i++) {
-        if (rollSlots(random).jackpot) jackpots++;
+      for (var i = 0; i < 10000; i++) {
+        rare += drawBonusCards(random).rareCards;
       }
-      // (3/100)^3 = 2.7e-5 per pull
-      expect(jackpots, lessThan(10));
+      // 8/200 a card, so about 1200 in 30000 cards
+      expect(rare, inInclusiveRange(900, 1500));
     });
   });
 
@@ -251,7 +257,7 @@ void main() {
       expect(copy.emblem, profile.emblem);
     });
 
-    test('match outcome banks rewards and slots once', () {
+    test('match outcome banks rewards and bonus cards once', () {
       final profile = PlayerProfile();
       final outcome = MatchOutcome.awardDonut(
         profile,
@@ -260,14 +266,14 @@ void main() {
         random: Random(4),
       );
       expect(outcome.xpBefore, 0);
-      expect(profile.xp, outcome.rewards.xp + outcome.slot.xp);
+      expect(profile.xp, outcome.rewards.xp + outcome.bonus.xp);
       final rankUpCrumbs =
-          [...outcome.rankUps, ...outcome.slotRankUps].fold(0, (sum, rank) => sum + rankReward(rank).crumbs);
+          [...outcome.rankUps, ...outcome.bonusRankUps].fold(0, (sum, rank) => sum + rankReward(rank).crumbs);
       expect(outcome.rankUps, isNotEmpty);
-      expect(profile.crumbs, outcome.rewards.crumbs + outcome.slot.crumbs + rankUpCrumbs);
+      expect(profile.crumbs, outcome.rewards.crumbs + outcome.bonus.crumbs + rankUpCrumbs);
       expect(profile.stats.matches, 1);
       expect(profile.stats.wins, 1);
-      expect(profile.stats.slotPulls, 1);
+      expect(profile.stats.bonusDraws, 1);
       expect(profile.firstWinTodayAvailable, isFalse);
     });
   });
@@ -368,17 +374,21 @@ void main() {
       // Total Glaze counts the match's own Glaze as well as the rank-ups'
       expect(find.text('+${3 + outcome.rankUpGlaze} GL'), findsOneWidget);
 
-      // Then the bonus spin, through to the payout
-      await tester.tap(find.text('Bonus spin'));
+      // Then the bonus cards, each flipped, through to the total
+      await tester.tap(find.text('Bonus cards'));
       for (var i = 0; i < 20; i++) {
         await tester.pump(const Duration(milliseconds: 50));
       }
-      await tester.tap(find.byTooltip('Pull'));
-      for (var i = 0; i < 100; i++) {
+      for (var card = 0; card < 3; card++) {
+        await tester.tap(find.byKey(ValueKey('bonus-card-$card')));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      for (var i = 0; i < 40; i++) {
         await tester.pump(const Duration(milliseconds: 50));
       }
       expect(tester.takeException(), isNull);
-      expect(find.text(outcome.slot.label), findsOneWidget);
+      expect(find.text('+${outcome.bonus.crumbs} cR'), findsWidgets);
+      expect(find.text('Tap a card to flip it'), findsNothing);
     });
 
     testWidgets('shows every tab', (tester) async {

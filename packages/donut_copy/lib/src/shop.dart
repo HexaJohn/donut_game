@@ -123,24 +123,6 @@ const shopRankLegend = Line('S117', 'Legend');
 const shopRankMythic = Line('S118', 'Mythic');
 const shopRankInheritor = Line('S119', 'Inheritor');
 const shopRankGraded = Line('S120', '{rank} {grade}');
-const shopSymbolCrumb = Line('S121', 'Crumb');
-const shopSymbolCherry = Line('S122', 'Cherry');
-const shopSymbolSprinkle = Line('S123', 'Sprinkle');
-const shopSymbolBar = Line('S124', 'Bar');
-const shopSymbolSeven = Line('S125', 'Seven');
-const shopSymbolGlaze = Line('S126', 'Glaze');
-const shopSymbolDonut = Line('S127', 'Donut');
-const shopSlotJackpot = Line('S128', 'JACKPOT!');
-const shopSlotTripleGlaze = Line('S129', 'Triple Glaze');
-const shopSlotLuckySevens = Line('S130', 'Lucky sevens');
-const shopSlotTripleBar = Line('S131', 'Triple bar');
-const shopSlotTripleSprinkle = Line('S132', 'Triple sprinkle');
-const shopSlotTripleCherry = Line('S133', 'Triple cherry');
-const shopSlotTripleCrumb = Line('S134', 'Triple crumb');
-const shopSlotTwoDonuts = Line('S135', 'Two donuts');
-const shopSlotTwoGlaze = Line('S136', 'Two glaze');
-const shopSlotAPair = Line('S137', 'A pair');
-const shopSlotCrumbs = Line('S138', 'Crumbs');
 const shopRewardMatchPlayed = Line('S139', 'Match played');
 const shopRewardVictory = Line('S140', 'Victory');
 const shopRewardRunnerUp = Line('S141', 'Runner-up');
@@ -176,8 +158,6 @@ const shopPercent = Line('S170', '{n}%');
 const shopStatTricks = Line('S171', 'Tricks taken');
 const shopStatDonuts = Line('S172', 'Donuts eaten');
 const shopStatHands = Line('S173', 'Hands played');
-const shopStatSpins = Line('S174', 'Bonus spins');
-const shopStatJackpots = Line('S175', 'Jackpots');
 const shopHowToEarnHeading = Line('S176', 'How to earn');
 const shopHowToEarn = Line('S177', 'Every offline match pays XP and Crumbs: more for winning, taking tricks and dodging donuts. '
     'Each match ends with a bonus spin. Every rank-up pays Crumbs and Glaze, the rare stuff, unlocks more of the shop, and some ranks hand over items the shop doesn\'t sell.');
@@ -218,7 +198,6 @@ const shopBuy = Line('S211', 'Buy');
 const shopRareTooltip = Line('S212', 'Rare: costs Glaze');
 const shopCollectRewards = Line('S213', 'Collect rewards');
 const shopMatchRewards = Line('S214', 'Match rewards');
-const shopBonusSpin = Line('S215', 'Bonus spin');
 const shopRankUpLine = Line('S216', 'Rank up: {rank}');
 const shopTotal = Line('S217', 'Total');
 const shopTopRank = Line('S218', 'Top rank');
@@ -226,10 +205,12 @@ const shopRankUpBadge = Line('S219', 'RANK UP');
 const shopUnlockedGadget = Line('S220', '{item} unlocked. It\'s on your tool tray.');
 const shopUnlockedEquip = Line('S221', '{item} unlocked. Equip it from the shop.');
 const shopNewInShop = Line('S222', 'New in the shop: {items}.');
-const shopSlotTitle = Line('S223', 'BONUS SPIN');
-const shopSlotHint = Line('S224', 'Pull the lever');
-const shopSlotBar = Line('S225', 'BAR');
-const shopSlotPull = Line('S226', 'Pull');
+const shopBonusCards = Line('S227', 'Bonus cards');
+const shopBonusHint = Line('S228', 'Tap a card to flip it');
+const shopBonusFlip = Line('S229', 'Flip');
+const shopBonusRare = Line('S230', 'RARE');
+const shopStatBonusCards = Line('S231', 'Bonus cards');
+const shopStatRareCards = Line('S232', 'Rare cards');
 
 const List<Line> shopLines = [
   shopKindPatterns,
@@ -352,24 +333,6 @@ const List<Line> shopLines = [
   shopRankMythic,
   shopRankInheritor,
   shopRankGraded,
-  shopSymbolCrumb,
-  shopSymbolCherry,
-  shopSymbolSprinkle,
-  shopSymbolBar,
-  shopSymbolSeven,
-  shopSymbolGlaze,
-  shopSymbolDonut,
-  shopSlotJackpot,
-  shopSlotTripleGlaze,
-  shopSlotLuckySevens,
-  shopSlotTripleBar,
-  shopSlotTripleSprinkle,
-  shopSlotTripleCherry,
-  shopSlotTripleCrumb,
-  shopSlotTwoDonuts,
-  shopSlotTwoGlaze,
-  shopSlotAPair,
-  shopSlotCrumbs,
   shopRewardMatchPlayed,
   shopRewardVictory,
   shopRewardRunnerUp,
@@ -405,8 +368,6 @@ const List<Line> shopLines = [
   shopStatTricks,
   shopStatDonuts,
   shopStatHands,
-  shopStatSpins,
-  shopStatJackpots,
   shopHowToEarnHeading,
   shopHowToEarn,
   shopLadderHeading,
@@ -446,7 +407,6 @@ const List<Line> shopLines = [
   shopRareTooltip,
   shopCollectRewards,
   shopMatchRewards,
-  shopBonusSpin,
   shopRankUpLine,
   shopTotal,
   shopTopRank,
@@ -454,8 +414,10 @@ const List<Line> shopLines = [
   shopUnlockedGadget,
   shopUnlockedEquip,
   shopNewInShop,
-  shopSlotTitle,
-  shopSlotHint,
-  shopSlotBar,
-  shopSlotPull,
+  shopBonusCards,
+  shopBonusHint,
+  shopBonusFlip,
+  shopBonusRare,
+  shopStatBonusCards,
+  shopStatRareCards,
 ];
